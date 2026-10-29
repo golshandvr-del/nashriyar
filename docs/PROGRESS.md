@@ -29,7 +29,8 @@
 - [x] src/server/auth.ts (نشست کوکی، CSRF، requireRole، requirePubAccess، محدودیت نرخ)
 - [x] src/server/app.ts (createApp؛ mount همهٔ routeها)
 - [x] src/server/routes/auth.ts, public.ts (trackView اینجاست), me.ts, reader.ts, team.ts
-- [ ] src/server/routes/admin.ts, analytics.ts, media.ts
+- [x] src/server/routes/admin.ts
+- [ ] src/server/routes/analytics.ts, media.ts
 - [ ] src/server/insights.ts (موتور بینش قاعده‌محور)
 - [ ] src/server/ai.ts (AIProvider اختیاری؛ Null پیش‌فرض)
 - [ ] src/server/seed.ts (دادهٔ نمونه: ۶ دانشکده، ۱۵ انجمن، ۲۰ نشریه، ~۸۰ شماره، صفحات SVG)
