@@ -1,0 +1,187 @@
+@import 'tailwindcss';
+
+/* class-based dark mode (html.dark) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Vazirmatn UI with Persian digits (self-hosted, no CDN) */
+@font-face {
+  font-family: 'VazirFD';
+  src: url('../../node_modules/vazirmatn/misc/UI-Farsi-Digits/fonts/webfonts/Vazirmatn-UI-FD-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'VazirFD';
+  src: url('../../node_modules/vazirmatn/misc/UI-Farsi-Digits/fonts/webfonts/Vazirmatn-UI-FD-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'VazirFD';
+  src: url('../../node_modules/vazirmatn/misc/UI-Farsi-Digits/fonts/webfonts/Vazirmatn-UI-FD-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'VazirFD';
+  src: url('../../node_modules/vazirmatn/misc/UI-Farsi-Digits/fonts/webfonts/Vazirmatn-UI-FD-ExtraBold.woff2') format('woff2');
+  font-weight: 800;
+  font-display: swap;
+}
+
+/* design tokens (light) */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --text: #111827;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --brand: #0f766e;
+  --brand-soft: #ccfbf1;
+  --brand-ink: #ffffff;
+  --danger: #dc2626;
+  --warn: #d97706;
+  --ok: #059669;
+  color-scheme: light;
+}
+/* design tokens (dark) */
+.dark {
+  --bg: #0b0f14;
+  --surface: #121821;
+  --surface-2: #1a2230;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --line: #243041;
+  --brand: #2dd4bf;
+  --brand-soft: #134e4a;
+  --brand-ink: #042f2e;
+  --danger: #f87171;
+  --warn: #fbbf24;
+  --ok: #34d399;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: 'VazirFD', 'Vazirmatn', Tahoma, system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-danger: var(--danger);
+  --color-warn: var(--warn);
+  --color-ok: var(--ok);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  min-height: 100dvh;
+  line-height: 1.7;
+}
+/* large text mode (settings) */
+html.text-lg-mode {
+  font-size: 18px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* reusable component classes */
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-surface;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-brand-ink hover:opacity-90;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-surface hover:bg-surface-2;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-white hover:opacity-90;
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none placeholder:text-muted focus:border-brand;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-line bg-surface px-3 py-1 text-xs;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted;
+  }
+  .table {
+    @apply w-full text-sm;
+  }
+  .table th {
+    @apply border-b border-line px-3 py-2 text-start font-medium text-muted;
+  }
+  .table td {
+    @apply border-b border-line px-3 py-2;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* secure reader: block selection / drag on page images */
+.reader-page {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--line) 37%, var(--surface-2) 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 12px;
+}
+
+@media print {
+  .reader-page,
+  .no-print {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
