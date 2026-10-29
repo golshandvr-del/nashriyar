@@ -36,7 +36,14 @@
 - [x] src/server/seed.ts (۶ دانشکده، ۱۵ انجمن، ۲۰ نشریه، ۵۰ شمارهٔ منتشرشده، ۶۸ پست، ~۹۵۰۰ بازدید؛ کد نمایشی NSH-DEMO-2026)
 - [x] src/server/secret.ts ؛ src/entry/cloudflare.ts ؛ src/entry/node.ts ؛ scripts/build-server.mjs
 - [x] tests/smoke.mjs — همهٔ GET ها با ۶ نقش؛ **همه پاس** (۱۴۰۵/۰۸/۰۷)
-- [ ] src/web/* (React SPA: public / team / admin)
+- [ ] src/web/* (React SPA) — نقشهٔ فایل‌ها (به ترتیب نوشتن):
+  - [ ] index.html (ریشه، اسکریپت ضدچشمک تم) ؛ src/web/styles.css (Tailwind 4 + توکن‌ها + وزیرمتن)
+  - [ ] src/web/lib/api.ts (fetch + خطای فارسی + upload) ؛ lib/auth.tsx (Context کاربر) ؛ lib/theme.ts ؛ lib/format.ts
+  - [ ] src/web/components/ui.tsx (Button, Card, Field, Modal, Toast, Empty, Skeleton, Tabs, Badge) ؛ components/cards.tsx (IssueCard, PubCard, PostTile)
+  - [ ] src/web/main.tsx (Router + lazy برای team/admin)
+  - [ ] src/web/public/*: Layout(BottomNav) Home Explore Post Categories Category Faculty Search Publication Issue Reader Library Redeem Following Notifications Login Register Settings Verify Recruitment
+  - [ ] src/web/team/*: Layout Select Dashboard Members Issues IssueNew IssueRoom(تب‌ها: کلی/فهرست/پیشرفت/رسانه و انتشار/تأیید) Posts Comments Sales Stats Profile Recruit
+  - [ ] src/web/admin/*: Layout Overview Live Approvals Publications PublicationNew PublicationDetail People Structure Categories Analytics(Charts با echarts) Insights Moderation Storefront Announcements Users Audit Settings
 - [ ] ecosystem.config.cjs ؛ Dockerfile ؛ deploy/ ؛ .github/workflows/ci.yml ؛ tests/
 
 ## نکات کشف‌شده (برای جلوگیری از تکرار)
