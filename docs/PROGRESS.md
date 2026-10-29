@@ -33,12 +33,21 @@
 - [x] src/server/routes/analytics.ts, media.ts (آپلود با magic bytes، صفحات با resume، سرو کنترل‌شده /api/media/k/<key>)
 - [x] src/server/insights.ts (موتور بینش قاعده‌محور)
 - [x] src/server/ai.ts (AIProvider اختیاری؛ Null پیش‌فرض)
-- [ ] src/server/seed.ts (دادهٔ نمونه: ۶ دانشکده، ۱۵ انجمن، ۲۰ نشریه، ~۸۰ شماره، صفحات SVG)
-- [ ] src/entry/cloudflare.ts ؛ src/entry/node.ts ؛ scripts/build-server.mjs
+- [x] src/server/seed.ts (۶ دانشکده، ۱۵ انجمن، ۲۰ نشریه، ۵۰ شمارهٔ منتشرشده، ۶۸ پست، ~۹۵۰۰ بازدید؛ کد نمایشی NSH-DEMO-2026)
+- [x] src/server/secret.ts ؛ src/entry/cloudflare.ts ؛ src/entry/node.ts ؛ scripts/build-server.mjs
+- [x] tests/smoke.mjs — همهٔ GET ها با ۶ نقش؛ **همه پاس** (۱۴۰۵/۰۸/۰۷)
 - [ ] src/web/* (React SPA: public / team / admin)
 - [ ] ecosystem.config.cjs ؛ Dockerfile ؛ deploy/ ؛ .github/workflows/ci.yml ؛ tests/
+
+## نکات کشف‌شده (برای جلوگیری از تکرار)
+- تست سریع بک‌اند: `node scripts/build-server.mjs && node server-dist/node.mjs --seed && setsid -f node server-dist/node.mjs > /tmp/srv.log 2>&1 < /dev/null; node tests/smoke.mjs`
+- مسیر بازخرید کد: `POST /api/me/codes/redeem` ؛ هش کد = sha256(normalizePurchaseCode(code)).
+- CSRF: درخواست‌های غیر GET باید هدر Origin هم‌دامنه داشته باشند.
+- @hono/node-server v2: فایل‌های تایپ `.d.mts` هستند.
+- داده‌ها در `data/` (gitignore) — `nashriyar.db` + `files/`.
 
 ## حساب‌های نمایشی (پس از seed)
 - سوپرادمین: `admin` / `admin1234` — مسئول نشریات: `officer` / `officer1234`
 - تیم نمونه: `pub1-director` / `team1234` (و `pub1-editor`، `pub1-holder`)
 - دانشجو: `40012345` / `student1234`
+- ناظر دانشکدهٔ فنی: `supervisor` / `super1234` — تحلیلگر: `analyst` / `analyst1234`
