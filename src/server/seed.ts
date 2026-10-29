@@ -278,6 +278,7 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
   const pubIds: string[] = []
   const pubTocs: Record<string, { issueId: string; tocIds: string[] }[]> = {}
   let coverSeed = 7
+  let demoCodeMade = false
 
   for (let pi = 0; pi < PUBS.length; pi++) {
     const [slug, title, tagline, ai, cats, color, freq, level] = PUBS[pi]
@@ -432,13 +433,16 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
         const codes = ri(3, 12)
         q("INSERT INTO activity_events (id, actor_user_id, publication_id, issue_id, type, created_at) VALUES (?,?,?,?,'codes.created',?)", newId(), director, pubId, issueId, iso(publishedAt! + DAY))
         for (let cc = 0; cc < codes; cc++) {
-          const plain = normalizePurchaseCode('NSH-' + randomId(8).toUpperCase())
-          const created = Math.min(NOW - 3600_000, publishedAt! + ri(0, 60) * DAY)
-          const redeemedBy = cc < codes - 2 ? pick(studentIds) : null
+          // the first paid issue gets a known, still-valid demo code: NSH-DEMO-2026
+          const demo = !demoCodeMade && cc === codes - 1
+          const plain = demo ? normalizePurchaseCode('NSH-DEMO-2026') : normalizePurchaseCode('NSH-' + randomId(8).toUpperCase())
+          const created = demo ? NOW - 3600_000 : Math.min(NOW - 3600_000, publishedAt! + ri(0, 60) * DAY)
+          const redeemedBy = !demo && cc < codes - 2 ? pick(studentIds) : null
+          if (demo) demoCodeMade = true
           const codeId = newId()
           q(
             'INSERT INTO access_codes (id, issue_id, publication_id, code_hash, code_last4, price_paid, channel, created_by, created_at, expires_at, redeemed_at, redeemed_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-            codeId, issueId, pubId, await sha256(plain + ':' + codeId), plain.slice(-4), 30000, pick(['card_to_card', 'cash', 'gift']), director, iso(created), iso(created + 24 * 3600_000),
+            codeId, issueId, pubId, await sha256(plain), plain.slice(-4), 30000, pick(['card_to_card', 'cash', 'gift']), director, iso(created), iso(created + 24 * 3600_000),
             redeemedBy ? iso(created + 3600_000) : null, redeemedBy
           )
           if (redeemedBy) q("INSERT OR IGNORE INTO entitlements (id, user_id, issue_id, source, access_code_id, granted_at) VALUES (?,?,?,'code',?,?)", newId(), redeemedBy, issueId, codeId, iso(created + 3600_000))
