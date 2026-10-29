@@ -86,9 +86,9 @@ const st = await login('40012345', 'student1234')
 for (const p of ['/api/auth/me', '/api/auth/sessions', '/api/me/library', '/api/me/feed', '/api/me/follows', '/api/me/saved', '/api/me/comments', '/api/me/notifications', '/api/me/profile']) await expect(st, p, 200, 'student')
 await expect(st, '/api/admin/overview', 403, 'student')
 await expect(st, '/api/analytics/summary', 403, 'student')
-const redeem = await st('/api/me/redeem', { json: { code: 'NSH-DEMO-2026' } })
+const redeem = await st('/api/me/codes/redeem', { json: { code: 'NSH-DEMO-2026' } })
 ok(redeem.status === 200, `student redeem demo code -> ${redeem.status} ${JSON.stringify(redeem.data)}`)
-const again = await st('/api/me/redeem', { json: { code: 'NSH-DEMO-2026' } })
+const again = await st('/api/me/codes/redeem', { json: { code: 'NSH-DEMO-2026' } })
 ok(again.status >= 400, 'one-time code cannot be redeemed twice')
 
 // ───── team (publication 1) ─────
