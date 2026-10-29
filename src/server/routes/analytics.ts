@@ -314,9 +314,6 @@ analyticsRoutes.post('/insights/:key/dismiss', async (c) => {
 
 /** CSV export of the ranking (opened in Excel; UTF-8 BOM for Persian). */
 analyticsRoutes.get('/export/ranking.csv', async (c) => {
-  const res = await analyticsRoutes.request(`/ranking?${new URL(c.req.url).searchParams}`, { headers: c.req.raw.headers }, c.env)
-  // fallback: compute directly (request() above does not share context); recompute minimal
-  void res
   const db = c.get('db')
   const s = pubScope(c)
   const { from, to } = dateRange(c, 365)
