@@ -24,9 +24,9 @@
 - [x] src/server/adapters/storage.ts (R2 + disk + memory)
 - [x] src/server/lib/crypto.ts (PBKDF2، HMAC، کد خرید NSH-XXXX-XXXX)
 - [x] src/server/context.ts (انواع و نقش‌ها)
-- [ ] src/server/lib/util.ts (now، خطا، audit، activity، اعتبارسنجی)
-- [ ] src/server/migrate.ts (اجرای مهاجرت‌ها، idempotent، روی هر دو runtime)
-- [ ] src/server/auth.ts (نشست کوکی، محدودیت نرخ، requireRole، requirePubRole)
+- [x] src/server/lib/util.ts
+- [x] src/server/migrate.ts
+- [x] src/server/auth.ts (نشست کوکی، CSRF، requireRole، requirePubAccess، محدودیت نرخ)
 - [ ] src/server/routes/{auth,public,me,reader,team,admin,analytics,media,system}.ts
 - [ ] src/server/insights.ts (موتور بینش قاعده‌محور)
 - [ ] src/server/ai.ts (AIProvider اختیاری؛ Null پیش‌فرض)
