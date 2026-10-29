@@ -16,3 +16,26 @@
 
 ## وضعیت فازها
 - فاز ۰: در حال انجام
+
+## نقشهٔ فایل‌های کد (هدف) — علامت [x] یعنی نوشته و push شده
+- [x] migrations/0001_init.sql (۴۶ جدول)
+- [x] src/shared/fa.ts (نرمال‌سازی فارسی، اعداد، تقویم شمسی، بازه‌های پیش‌فرض)
+- [x] src/server/adapters/db.ts (D1 + node:sqlite)
+- [x] src/server/adapters/storage.ts (R2 + disk + memory)
+- [x] src/server/lib/crypto.ts (PBKDF2، HMAC، کد خرید NSH-XXXX-XXXX)
+- [x] src/server/context.ts (انواع و نقش‌ها)
+- [ ] src/server/lib/util.ts (now، خطا، audit، activity، اعتبارسنجی)
+- [ ] src/server/migrate.ts (اجرای مهاجرت‌ها، idempotent، روی هر دو runtime)
+- [ ] src/server/auth.ts (نشست کوکی، محدودیت نرخ، requireRole، requirePubRole)
+- [ ] src/server/routes/{auth,public,me,reader,team,admin,analytics,media,system}.ts
+- [ ] src/server/insights.ts (موتور بینش قاعده‌محور)
+- [ ] src/server/ai.ts (AIProvider اختیاری؛ Null پیش‌فرض)
+- [ ] src/server/seed.ts (دادهٔ نمونه: ۶ دانشکده، ۱۵ انجمن، ۲۰ نشریه، ~۸۰ شماره، صفحات SVG)
+- [ ] src/server/app.ts ؛ src/entry/cloudflare.ts ؛ src/entry/node.ts ؛ scripts/build-server.mjs
+- [ ] src/web/* (React SPA: public / team / admin)
+- [ ] ecosystem.config.cjs ؛ Dockerfile ؛ deploy/ ؛ .github/workflows/ci.yml ؛ tests/
+
+## حساب‌های نمایشی (پس از seed)
+- سوپرادمین: `admin` / `admin1234` — مسئول نشریات: `officer` / `officer1234`
+- تیم نمونه: `pub1-director` / `team1234` (و `pub1-editor`، `pub1-holder`)
+- دانشجو: `40012345` / `student1234`
