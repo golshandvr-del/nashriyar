@@ -30,11 +30,11 @@
 - [x] src/server/app.ts (createApp؛ mount همهٔ routeها)
 - [x] src/server/routes/auth.ts, public.ts (trackView اینجاست), me.ts, reader.ts, team.ts
 - [x] src/server/routes/admin.ts
-- [ ] src/server/routes/analytics.ts, media.ts
-- [ ] src/server/insights.ts (موتور بینش قاعده‌محور)
-- [ ] src/server/ai.ts (AIProvider اختیاری؛ Null پیش‌فرض)
+- [x] src/server/routes/analytics.ts, media.ts (آپلود با magic bytes، صفحات با resume، سرو کنترل‌شده /api/media/k/<key>)
+- [x] src/server/insights.ts (موتور بینش قاعده‌محور)
+- [x] src/server/ai.ts (AIProvider اختیاری؛ Null پیش‌فرض)
 - [ ] src/server/seed.ts (دادهٔ نمونه: ۶ دانشکده، ۱۵ انجمن، ۲۰ نشریه، ~۸۰ شماره، صفحات SVG)
-- [ ] src/server/app.ts ؛ src/entry/cloudflare.ts ؛ src/entry/node.ts ؛ scripts/build-server.mjs
+- [ ] src/entry/cloudflare.ts ؛ src/entry/node.ts ؛ scripts/build-server.mjs
 - [ ] src/web/* (React SPA: public / team / admin)
 - [ ] ecosystem.config.cjs ؛ Dockerfile ؛ deploy/ ؛ .github/workflows/ci.yml ؛ tests/
 
