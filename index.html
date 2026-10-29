@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="description" content="نشریار — سامانهٔ جامع نشریات دانشجویی: پیشخوان، کتاب‌خوان امن، پنل تیم و داشبورد مسئول نشریات" />
+    <title>نشریار — نشریات دانشجویی</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <script>
+      // anti-flash: apply the saved theme before first paint (light | dark | system)
+      ;(function () {
+        try {
+          var t = localStorage.getItem('nsh_theme') || 'system'
+          var dark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (dark) document.documentElement.classList.add('dark')
+        } catch (e) {}
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>برای استفاده از نشریار، جاوااسکریپت مرورگر را فعال کنید.</noscript>
+    <script type="module" src="/src/web/main.tsx"></script>
+  </body>
+</html>
