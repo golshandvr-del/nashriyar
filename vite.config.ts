@@ -1,14 +1,10 @@
-import build from '@hono/vite-build/cloudflare-pages'
-import devServer from '@hono/vite-dev-server'
-import adapter from '@hono/vite-dev-server/cloudflare'
 import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
+// SPA build -> dist/ ; server bundles are produced by scripts/build-server.mjs
 export default defineConfig({
-  plugins: [
-    build(),
-    devServer({
-      adapter,
-      entry: 'src/index.tsx'
-    })
-  ]
+  plugins: [react(), tailwindcss()],
+  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
+  server: { proxy: { '/api': 'http://localhost:3000' } }
 })
