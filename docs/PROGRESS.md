@@ -37,9 +37,10 @@
 - [x] src/server/secret.ts ؛ src/entry/cloudflare.ts ؛ src/entry/node.ts ؛ scripts/build-server.mjs
 - [x] tests/smoke.mjs — همهٔ GET ها با ۶ نقش؛ **همه پاس** (۱۴۰۵/۰۸/۰۷)
 - [ ] src/web/* (React SPA) — نقشهٔ فایل‌ها (به ترتیب نوشتن):
-  - [ ] index.html (ریشه، اسکریپت ضدچشمک تم) ؛ src/web/styles.css (Tailwind 4 + توکن‌ها + وزیرمتن)
-  - [ ] src/web/lib/api.ts (fetch + خطای فارسی + upload) ؛ lib/auth.tsx (Context کاربر) ؛ lib/theme.ts ؛ lib/format.ts
-  - [ ] src/web/components/ui.tsx (Button, Card, Field, Modal, Toast, Empty, Skeleton, Tabs, Badge) ؛ components/cards.tsx (IssueCard, PubCard, PostTile)
+  - [x] index.html (ریشه، اسکریپت ضدچشمک تم) ؛ src/web/styles.css (Tailwind 4 + توکن‌ها + وزیرمتن FD محلی)
+  - [x] src/web/lib/api.ts (api.get/post/put/del، qs، upload با XHR، mediaUrl) ؛ lib/auth.tsx (AuthProvider/useAuth، ROLE_LABEL، isAdmin/isMonitor) ؛ lib/theme.ts ؛ lib/format.ts (برچسب‌ها + cx + fileSize)
+  - [x] src/web/components/ui.tsx (useAsync، Async، Button، Card، Field، Input/Textarea/Select، Badge، Modal، ToastProvider/useToast(toast, confirm)، useAction، Tabs، PageHeader، Stat، Progress، Avatar، Empty، ErrorBox) ؛ components/cards.tsx (Cover، IssueCard، IssueGrid، Shelf، PubCard، PostTile، PostGrid، PostCard)
+  - مسیرهای SPA: / ، /explore ، /post/:id ، /categories ، /c/:slug ، /faculty/:id ، /search ، /p/:slug ، /issue/:id ، /read/:id ، /library ، /redeem ، /following ، /notifications ، /login ، /register ، /settings ، /verify/:code ، /recruitment ، /team/* ، /admin/*
   - [ ] src/web/main.tsx (Router + lazy برای team/admin)
   - [ ] src/web/public/*: Layout(BottomNav) Home Explore Post Categories Category Faculty Search Publication Issue Reader Library Redeem Following Notifications Login Register Settings Verify Recruitment
   - [ ] src/web/team/*: Layout Select Dashboard Members Issues IssueNew IssueRoom(تب‌ها: کلی/فهرست/پیشرفت/رسانه و انتشار/تأیید) Posts Comments Sales Stats Profile Recruit
