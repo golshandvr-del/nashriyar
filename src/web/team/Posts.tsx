@@ -65,6 +65,7 @@ export default function TeamPosts() {
                 {rows.map((p: any) => {
                   const s = POST_STATUS[p.status] || { label: p.status, tone: 'muted' as const }
                   const expired = p.is_story && p.expires_at && new Date(p.expires_at) < new Date()
+                  const scheduled = p.status === 'published' && p.published_at && new Date(p.published_at) > new Date()
                   return (
                     <button key={p.id} onClick={() => setOpen(p)} className="card group overflow-hidden text-right hover:border-brand">
                       <div className="relative aspect-square bg-surface-2">
@@ -78,8 +79,8 @@ export default function TeamPosts() {
                       </div>
                       <div className="space-y-1 p-2">
                         <div className="flex items-center justify-between gap-1">
-                          <Badge tone={expired ? 'muted' : s.tone}>{expired ? 'منقضی' : s.label}</Badge>
-                          <span className="text-[11px] text-muted">{relativeFa(p.published_at || p.created_at)}</span>
+                          <Badge tone={expired ? 'muted' : scheduled ? 'warn' : s.tone}>{expired ? 'منقضی' : scheduled ? 'زمان‌بندی‌شده' : s.label}</Badge>
+                          <span className="text-[11px] text-muted">{scheduled ? faDate(p.published_at, true) : relativeFa(p.published_at || p.created_at)}</span>
                         </div>
                         <p className="truncate text-xs text-muted">
                           ش {formatNumber(p.source_issue_number)} · {p.source_toc_title || '—'}
