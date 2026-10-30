@@ -23,7 +23,7 @@ async function signPage(c: any, issueId: string, page: number, exp: number) {
 /** Determine how many pages the current visitor may read. */
 async function accessFor(c: any, issueId: string) {
   const db = c.get('db')
-  const i = await db.first<any>(
+  const i = await db.first(
     `SELECT i.id, i.title, i.number, i.status, i.pricing, i.page_count, i.free_preview_pages, i.publication_id, p.title AS publication_title, p.slug AS publication_slug
      FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.id = ? AND i.deleted_at IS NULL`,
     [issueId]
