@@ -57,7 +57,7 @@
 - **ممیزی شکاف ROADMAP (گفتگوی ۱۱):** در کد وجود ندارد ⇒ باید به‌ترتیب پیاده شود (هر مورد جدا checkpoint):
   1. [x] publication_role_history ← لازم نیست: جدول publication_roles خودش با started_at/ended_at تاریخچه را نگه می‌دارد
   2. [x] فیلتر کامنت: src/server/lib/moderation.ts (flagComment) در me.ts — تست شد
-  3. [~] SEO: /api/public/sitemap.xml و /robots.txt پویا — تست شد؛ باقی‌مانده: useMeta (title/description/OG) + JSON-LD در صفحات نشریه/شماره
+  3. [x] SEO: /api/public/sitemap.xml و /robots.txt پویا + src/web/lib/meta.ts (useMeta: title/description/OG/canonical/JSON-LD) در Publication (Periodical) و Issue (PublicationIssue)
   4. [ ] پیش‌بینی خطی تا پایان ترم (analytics/forecast) + نمایش در Analytics
   5. [ ] کارنامهٔ یک‌صفحه‌ای قابل چاپ هر نشریه + گزارش دوره‌ای قابل چاپ
   6. [ ] feature_flags در settings (سوپرادمین)
