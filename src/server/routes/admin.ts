@@ -9,6 +9,7 @@ import {
 } from '../lib/util'
 import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { getFeatures, sanitizeFeatures } from '../lib/features'
+import { getAiStatus } from '../ai'
 
 export const adminRoutes = new Hono<AppEnv>()
 
