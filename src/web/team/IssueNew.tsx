@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, IndentDecrease, IndentIncrease, Plus, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { cx, formatNumber } from '../lib/format'
 import { Button, Card, Field, Input, PageHeader, Select, Textarea, useAction } from '../components/ui'
@@ -11,6 +11,7 @@ interface TocRow {
   title: string
   kind: string
   due_at: string
+  parent_key?: string | null
   assignments: { member_id: string; role: string }[]
 }
 
@@ -100,6 +101,23 @@ export default function IssueNew() {
     ;[a[idx], a[j]] = [a[j], a[idx]]
     setToc(a)
   }
+  /** Tree in the wizard: indent under the nearest top-level row above; drag-and-drop reorder (buttons stay for keyboard). */
+  const indent = (idx: number, on: boolean) => {
+    let parent: string | null = null
+    if (on) for (let j = idx - 1; j >= 0; j--) if (!toc[j].parent_key) { parent = toc[j].key; break }
+    if (on && !parent) return
+    setToc(toc.map((t, j) => (j === idx ? { ...t, parent_key: parent } : on && t.parent_key === toc[idx].key ? { ...t, parent_key: parent } : t)))
+  }
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const dropAt = (to: number) => {
+    const from = dragIdx
+    setDragIdx(null)
+    if (from == null || from === to) return
+    const a = [...toc]
+    const [it] = a.splice(from, 1)
+    a.splice(to, 0, it)
+    setToc(a)
+  }
 
   const validate = (s: number) => {
     setErr(null)
@@ -132,7 +150,7 @@ export default function IssueNew() {
           category_ids: info.category_ids,
           progress_view: info.progress_view,
           planned_publish_at: info.planned_publish_at || null,
-          toc: toc.map((t) => ({ key: t.key, title: t.title, kind: t.kind, due_at: t.due_at || null, assignments: t.assignments.filter((a) => a.member_id) })),
+          toc: toc.map((t) => ({ key: t.key, parent_key: t.parent_key || null, title: t.title, kind: t.kind, due_at: t.due_at || null, assignments: t.assignments.filter((a) => a.member_id) })),
           members: Object.entries(team).map(([member_id, production_role]) => ({ member_id, production_role })),
           stages: stages.filter((x) => x.title.trim()).map((x) => ({ key: x.key, title: x.title.trim(), due_at: x.due_at || null }))
         }),
@@ -217,14 +235,27 @@ export default function IssueNew() {
           </div>
           <ul className="mt-4 space-y-3">
             {toc.map((t, idx) => (
-              <li key={t.key} className="rounded-xl border border-line p-3">
+              <li
+                key={t.key}
+                className={cx('cursor-grab rounded-xl border border-line p-3', t.parent_key && 'ms-6', dragIdx === idx && 'opacity-50')}
+                draggable
+                onDragStart={() => setDragIdx(idx)}
+                onDragOver={(e) => dragIdx != null && e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); dropAt(idx) }}
+                onDragEnd={() => setDragIdx(null)}
+              >
                 <div className="flex items-center gap-2">
                   <span className="w-6 text-center text-xs text-muted">{formatNumber(idx + 1)}</span>
                   <Input value={t.title} onChange={(e) => upd(t.key, { title: e.target.value })} placeholder="عنوان بخش" />
                   <div className="flex shrink-0">
                     <button className="rounded p-1 hover:bg-surface-2" onClick={() => move(idx, -1)} aria-label="بالا"><ArrowRight className="size-4 rotate-90" /></button>
                     <button className="rounded p-1 hover:bg-surface-2" onClick={() => move(idx, 1)} aria-label="پایین"><ArrowRight className="size-4 -rotate-90" /></button>
-                    <button className="rounded p-1 text-danger hover:bg-surface-2" onClick={() => setToc(toc.filter((x) => x.key !== t.key))} aria-label="حذف"><Trash2 className="size-4" /></button>
+                    {t.parent_key ? (
+                      <button className="rounded p-1 hover:bg-surface-2" onClick={() => indent(idx, false)} aria-label="خروج از زیربخش" title="خروج از زیربخش"><IndentDecrease className="size-4" /></button>
+                    ) : (
+                      idx > 0 && <button className="rounded p-1 hover:bg-surface-2" onClick={() => indent(idx, true)} aria-label="زیربخشِ بخش بالا" title="زیربخشِ بخش بالا"><IndentIncrease className="size-4" /></button>
+                    )}
+                    <button className="rounded p-1 text-danger hover:bg-surface-2" onClick={() => setToc(toc.filter((x) => x.key !== t.key).map((x) => (x.parent_key === t.key ? { ...x, parent_key: null } : x)))} aria-label="حذف"><Trash2 className="size-4" /></button>
                   </div>
                 </div>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
