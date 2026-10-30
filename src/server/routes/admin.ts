@@ -8,6 +8,7 @@ import {
   activity, audit, bad, body, getSetting, inList, int, keywordsCsv, notFound, notify, nowIso, oneOf, parseJson, setSetting, slugify, str
 } from '../lib/util'
 import { normalizeFa, toEnDigits } from '../../shared/fa'
+import { getFeatures, sanitizeFeatures } from '../lib/features'
 
 export const adminRoutes = new Hono<AppEnv>()
 
@@ -813,6 +814,7 @@ adminRoutes.get('/settings', async (c) => {
     for (const k of SUPER_SETTINGS) out[k] = await getSetting(db, k, k === 'ai_enabled' ? false : '')
     if (out.ai_api_key) out.ai_api_key = '••••' + String(out.ai_api_key).slice(-4)
   }
+  out.feature_flags = await getFeatures(db)
   return c.json({ settings: out, is_super: u.system_role === 'super_admin' })
 })
 
@@ -829,6 +831,11 @@ adminRoutes.post('/settings', async (c) => {
     if (typeof v === 'string') v = v.slice(0, 500)
     await setSetting(db, k, v)
     changed[k] = k === 'ai_api_key' ? '(changed)' : v
+  }
+  if (u.system_role === 'super_admin' && 'feature_flags' in b) {
+    const next = { ...(await getFeatures(db)), ...sanitizeFeatures(b.feature_flags) }
+    await setSetting(db, 'feature_flags', next)
+    changed.feature_flags = next
   }
   await audit(db, u.id, 'settings.update', 'settings', null, null, changed)
   return c.json({ ok: true })
