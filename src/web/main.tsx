@@ -7,7 +7,7 @@ import { getLargeText, setLargeText } from './lib/theme'
 import { PageLoader, ToastProvider } from './components/ui'
 import PublicLayout from './public/Layout'
 import Home from './public/Home'
-import { ErrorBoundary, NotFound, Terms } from './public/Static'
+import { ErrorBoundary, Guide, NotFound, Terms } from './public/Static'
 
 // Public pages: lazily loaded to keep the first paint small.
 const Explore = lazy(() => import('./public/Explore'))
@@ -145,6 +145,7 @@ function App() {
           <Route path="verify/:code" element={<Verify />} />
           <Route path="recruitment" element={<Recruitment />} />
           <Route path="terms" element={<Terms />} />
+          <Route path="guide" element={<Guide />} />
           <Route path="privacy" element={<Terms />} />
           <Route path="*" element={<NotFound />} />
         </Route>
