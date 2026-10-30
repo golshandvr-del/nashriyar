@@ -56,6 +56,7 @@ const AdminPublicationNew = lazy(() => import('./admin/PublicationNew'))
 const AdminPublicationDetail = lazy(() => import('./admin/PublicationDetail'))
 const AdminIssueDetail = lazy(() => import('./admin/IssueDetail'))
 const AdminScorecard = lazy(() => import('./admin/Scorecard'))
+const AdminReport = lazy(() => import('./admin/Report'))
 const AdminPeople = lazy(() => import('./admin/People'))
 const AdminPerson = lazy(() => import('./admin/People').then((m) => ({ default: m.AdminPerson })))
 const AdminStructure = lazy(() => import('./admin/Structure'))
@@ -103,6 +104,7 @@ function App() {
           <Route path="live" element={<AdminLive />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="insights" element={<AdminInsights />} />
+          <Route path="report" element={<AdminReport />} />
           <Route path="approvals" element={<Guard access="approver"><AdminApprovals /></Guard>} />
           <Route path="publications" element={<AdminPublications />} />
           <Route path="publications/new" element={<Guard access="admin"><AdminPublicationNew /></Guard>} />
