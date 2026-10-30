@@ -8,6 +8,7 @@ import {
 } from '../lib/util'
 import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { requireFeature } from '../lib/features'
+import { suggestKeywords } from '../ai'
 
 export const teamRoutes = new Hono<AppEnv>()
 
@@ -213,6 +214,19 @@ teamRoutes.get('/:pubId/keywords', async (c) => {
   for (const r of rows) for (const k of r.keywords.split('،')) if (k.trim()) counts.set(k.trim(), (counts.get(k.trim()) || 0) + 1)
   for (const k of String(p.keywords || '').split('،')) if (k.trim()) counts.set(k.trim(), (counts.get(k.trim()) || 0) + 5)
   return c.json({ keywords: [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 200).map(([k]) => k) })
+})
+
+/**
+ * Keyword suggestions from the issue's own text (title, summary, TOC titles) — ROADMAP phase 10.
+ * Uses the optional AI provider when enabled; otherwise a frequency-based extraction (never fails).
+ * Only the issue text is sent; no personal data.
+ */
+teamRoutes.post('/:pubId/keywords/suggest', async (c) => {
+  await pub(c)
+  const b = await body<{ text?: string }>(c)
+  const text = normalizeFa(String(b.text || '')).slice(0, 4000)
+  if (text.length < 3) return c.json({ keywords: [] })
+  return c.json({ keywords: await suggestKeywords(c, text) })
 })
 
 /**
