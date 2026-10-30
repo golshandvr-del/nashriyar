@@ -84,6 +84,11 @@ function Form({ initial, isSuper, reload }: { initial: S; isSuper: boolean; relo
             <span className="label">نام دانشگاه</span>
             <Input value={s.university_name || ''} maxLength={100} onChange={(e) => set({ university_name: e.target.value })} />
           </label>
+          <label className="block">
+            <span className="label">حداکثر نشست هم‌زمان هر کاربر</span>
+            <Input dir="ltr" type="number" min={1} max={20} value={s.max_sessions ?? 5} onChange={(e) => set({ max_sessions: Number(e.target.value) || 5 })} />
+            <span className="mt-1 block text-xs text-muted">با ورود از دستگاه جدید، قدیمی‌ترین نشست‌های اضافه خارج می‌شوند (مقابله با اشتراک حساب).</span>
+          </label>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
           <Toggle checked={!!s.registration_open} onChange={(v) => set({ registration_open: v })} label="ثبت‌نام دانشجویان باز است" hint="در صورت بستن، فقط حساب‌های موجود می‌توانند وارد شوند." />
