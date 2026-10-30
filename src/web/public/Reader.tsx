@@ -203,11 +203,22 @@ export default function Reader() {
     }
     const onBlur = () => setHidden(true)
     const onFocus = () => setHidden(false)
+    const onVis = () => setHidden(document.visibilityState !== 'visible')
+    // DevTools heuristic (docked panel shrinks the viewport); reported once per open, never blocks reading
+    let devOpen = false
+    const devTimer = window.setInterval(() => {
+      const open = window.outerWidth - window.innerWidth > 200 || window.outerHeight - window.innerHeight > 250
+      if (open && !devOpen) signal('devtools')
+      devOpen = open
+    }, 2000)
     document.addEventListener('keydown', onKey)
+    document.addEventListener('visibilitychange', onVis)
     window.addEventListener('blur', onBlur)
     window.addEventListener('focus', onFocus)
     return () => {
+      window.clearInterval(devTimer)
       document.removeEventListener('keydown', onKey)
+      document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('blur', onBlur)
       window.removeEventListener('focus', onFocus)
     }
