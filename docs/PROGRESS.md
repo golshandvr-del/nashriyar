@@ -55,9 +55,9 @@
 - pdfjs v6 گزینهٔ `isEvalSupported` را ندارد (حذف شد؛ v6 اصلاً eval ندارد).
 - CI روی GitHub سبز است (typecheck/build/e2e + gitleaks + docker). docs/OPERATIONS.md نوشته شد. فلگ `--create-admin [username]` (رمز یک‌بارمصرف تصادفی) اضافه و تست شد.
 - **ممیزی شکاف ROADMAP (گفتگوی ۱۱):** در کد وجود ندارد ⇒ باید به‌ترتیب پیاده شود (هر مورد جدا checkpoint):
-  1. [ ] publication_role_history (مایگریشن 0002 + ثبت هنگام تغییر سه نقش)
-  2. [ ] فیلتر واژه‌های نامناسب کامنت (پیش‌علامت flagged)
-  3. [ ] SEO: /sitemap.xml، /robots.txt، متای OG/JSON-LD Periodical
+  1. [x] publication_role_history ← لازم نیست: جدول publication_roles خودش با started_at/ended_at تاریخچه را نگه می‌دارد
+  2. [x] فیلتر کامنت: src/server/lib/moderation.ts (flagComment) در me.ts — تست شد
+  3. [~] SEO: /api/public/sitemap.xml و /robots.txt پویا — تست شد؛ باقی‌مانده: useMeta (title/description/OG) + JSON-LD در صفحات نشریه/شماره
   4. [ ] پیش‌بینی خطی تا پایان ترم (analytics/forecast) + نمایش در Analytics
   5. [ ] کارنامهٔ یک‌صفحه‌ای قابل چاپ هر نشریه + گزارش دوره‌ای قابل چاپ
   6. [ ] feature_flags در settings (سوپرادمین)
