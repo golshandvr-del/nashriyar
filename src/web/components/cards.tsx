@@ -148,6 +148,38 @@ export function PostGrid({ posts }: { posts: PostLite[] }) {
   )
 }
 
+/**
+ * Explore masonry (ROADMAP phase 6): CSS columns, each tile keeps the image's own aspect ratio
+ * (1:1 or 4:5), so the grid looks organic without any JS layout library.
+ */
+export function PostMasonry({ posts }: { posts: PostLite[] }) {
+  return (
+    <div className="columns-2 gap-1 sm:columns-3">
+      {posts.map((post) => {
+        const src = mediaUrl(post.images?.[0])
+        return (
+          <Link
+            key={post.id}
+            to={`/post/${post.id}`}
+            className="group relative mb-1 block break-inside-avoid overflow-hidden rounded-lg bg-surface-2"
+            aria-label={post.caption?.slice(0, 60) || 'پست'}
+          >
+            {src ? (
+              <img src={src} alt="" loading="lazy" decoding="async" className="block h-auto w-full transition-transform group-hover:scale-105" />
+            ) : (
+              <div className="flex aspect-square items-center justify-center p-3 text-center text-xs text-muted">{post.caption?.slice(0, 80)}</div>
+            )}
+            {post.images?.length > 1 && <Images className="absolute end-2 top-2 size-4 text-white drop-shadow" />}
+            <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/60 to-transparent px-2 pb-1 pt-4 text-[11px] text-white opacity-0 transition group-hover:opacity-100">
+              {post.publication_title}
+            </span>
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
 /** Feed card: header with publication + first image + caption. */
 export function PostCard({ post }: { post: PostLite }) {
   const src = mediaUrl(post.images?.[0])
