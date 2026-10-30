@@ -121,6 +121,15 @@ export default function PublicLayout() {
       </main>
 
       {!hideChrome && (
+        <footer className="mx-auto hidden max-w-6xl justify-center gap-4 px-4 pb-8 text-xs text-muted md:flex">
+          <Link to="/guide" className="hover:text-brand">راهنما</Link>
+          <Link to="/terms" className="hover:text-brand">قوانین استفاده</Link>
+          <Link to="/privacy" className="hover:text-brand">حریم خصوصی</Link>
+          <Link to="/verify" className="hover:text-brand">استعلام گواهی</Link>
+        </footer>
+      )}
+
+      {!hideChrome && (
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden" aria-label="ناوبری پایین">
           <div className="grid grid-cols-5">
             {items.map((i) => (
