@@ -22,7 +22,7 @@ interface IssueData {
     contacts: { kind: string; value: string; label?: string }[]
   }
   toc: { id: string; parent_id: string | null; title: string; kind: string; page_start: number | null; page_end: number | null; bylines: { role: string; name: string }[] }[]
-  media: { id: string; kind: string; role: string; title: string | null; access: string }[]
+  media: { id: string; kind: string; role: string; title: string | null; access: string; mime?: string | null; storage_key?: string | null }[]
   credits: { production_role: string; full_name: string }[]
   categories: { id: string; name: string; slug: string }[]
   others: IssueLite[]
@@ -177,10 +177,22 @@ export default function Issue() {
                       {d.media.map((m) => {
                         const Icon = MEDIA_ICON[m.kind] || Paperclip
                         return (
-                          <li key={m.id} className="flex items-center gap-2">
-                            <Icon className="size-4 text-brand" />
-                            <span className="flex-1 truncate">{m.title || m.role}</span>
-                            {m.access !== 'free' && <Badge>{m.access === 'paid' ? 'ویژهٔ خریداران' : 'خصوصی'}</Badge>}
+                          <li key={m.id} className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <Icon className="size-4 text-brand" />
+                              <span className="flex-1 truncate">{m.title || m.role}</span>
+                              {m.access !== 'free' && <Badge>{m.access === 'paid' ? 'ویژهٔ خریداران' : 'خصوصی'}</Badge>}
+                            </div>
+                            {/* Built-in players; the file endpoint enforces access (free / entitled / staff) on every request. */}
+                            {m.storage_key && (m.access === 'free' || d.access === 'full') && m.kind === 'audio' && (
+                              <audio controls preload="none" controlsList="nodownload" className="w-full" src={mediaUrl(m.storage_key)} />
+                            )}
+                            {m.storage_key && (m.access === 'free' || d.access === 'full') && m.kind === 'video' && (
+                              <video controls preload="metadata" controlsList="nodownload" disablePictureInPicture className="w-full rounded-lg bg-black" src={mediaUrl(m.storage_key)} />
+                            )}
+                            {m.storage_key && (m.access === 'free' || d.access === 'full') && m.kind === 'image' && (
+                              <img loading="lazy" alt={m.title || ''} className="w-full rounded-lg" src={mediaUrl(m.storage_key)} />
+                            )}
                           </li>
                         )
                       })}
