@@ -130,6 +130,7 @@ function PostComposer({ pubId, story, onClose, onDone }: { pubId: string; story:
   const [tocId, setTocId] = useState('')
   const [aspect, setAspect] = useState<Aspect>(story ? 'original' : '1:1')
   const [keys, setKeys] = useState<string[]>([])
+  const [alts, setAlts] = useState<Record<string, string>>({}) // image alt text by media key (ROADMAP phase 6 accessibility)
   const [caption, setCaption] = useState('')
   const [publishAt, setPublishAt] = useState('') // local datetime; empty = publish now (ROADMAP phase 6 scheduling)
   const [uploading, setUploading] = useState<string | null>(null)
@@ -162,7 +163,7 @@ function PostComposer({ pubId, story, onClose, onDone }: { pubId: string; story:
 
   const submit = (draft: boolean) =>
     run(async () => {
-      await api.post(`/api/team/${pubId}/posts`, { images: keys, caption, source_issue_id: issueId, source_toc_item_id: tocId, is_story: story, draft,
+      await api.post(`/api/team/${pubId}/posts`, { images: keys, caption, source_issue_id: issueId, source_toc_item_id: tocId, is_story: story, draft, alt: keys.map((k) => alts[k] || ''),
         ...(!story && publishAt ? { publish_at: new Date(publishAt).toISOString() } : {}) })
       onDone()
     }, draft ? 'پیش‌نویس ذخیره شد' : story ? 'استوری منتشر شد' : publishAt && new Date(publishAt) > new Date() ? 'پست زمان‌بندی شد' : 'پست منتشر شد')
@@ -214,6 +215,22 @@ function PostComposer({ pubId, story, onClose, onDone }: { pubId: string; story:
               </button>
             )}
           </div>
+          {keys.length > 0 && (
+            <details className="rounded-xl border border-line p-2 text-sm">
+              <summary className="cursor-pointer text-xs text-muted">متن جایگزین تصاویر (برای کم‌بینایان و صفحه‌خوان‌ها)</summary>
+              <div className="mt-2 space-y-2">
+                {keys.map((k, idx) => (
+                  <Input
+                    key={k}
+                    value={alts[k] || ''}
+                    maxLength={300}
+                    placeholder={`توصیف تصویر ${formatNumber(idx + 1)}`}
+                    onChange={(e) => setAlts((a) => ({ ...a, [k]: e.target.value }))}
+                  />
+                ))}
+              </div>
+            </details>
+          )}
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple={!story} hidden onChange={(e) => addFiles(e.target.files)} />
           <p className="text-[11px] leading-5 text-muted">تصاویر در مرورگر فشرده می‌شوند و اطلاعات مکان/دوربین (EXIF) حذف می‌شود. حداکثر ۱۰ تصویر (کاروسل).</p>
         </div>
