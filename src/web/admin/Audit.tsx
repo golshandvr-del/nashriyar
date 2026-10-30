@@ -47,6 +47,9 @@ const ACTION_FA: Record<string, string> = {
   'settings.update': 'تغییر تنظیمات'
 }
 
+const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+const csvOf = (head: string[], rows: unknown[][]) => [head.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n')
+
 function pretty(json: string | null): string {
   if (!json) return ''
   try {
@@ -63,9 +66,11 @@ export default function AdminAudit() {
 
   const exportCsv = (items: any[]) =>
     downloadCsv(
-      'audit-log.csv',
-      ['زمان', 'کاربر', 'اقدام', 'نوع موجودیت', 'شناسه', 'قبل', 'بعد'],
-      items.map((a) => [faDate(a.created_at, true), a.actor_name || a.actor_username || '—', a.action, a.entity_type || '', a.entity_id || '', a.before_json || '', a.after_json || ''])
+      'audit-log',
+      csvOf(
+        ['زمان', 'کاربر', 'اقدام', 'نوع موجودیت', 'شناسه', 'قبل', 'بعد'],
+        items.map((a) => [faDate(a.created_at, true), a.actor_name || a.actor_username || '—', a.action, a.entity_type || '', a.entity_id || '', a.before_json || '', a.after_json || ''])
+      )
     )
 
   return (
