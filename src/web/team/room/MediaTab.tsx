@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { FileText, ImagePlus, Music, Paperclip, Trash2, Upload, Video } from 'lucide-react'
 import { api, mediaUrl, upload } from '../../lib/api'
 import { processPdf, pdfFirstPage } from '../../lib/pdf'
+import { asFile, prepareImage } from '../../lib/image'
 import type { ProcessProgress } from '../../lib/pdf'
 import { faDate, fileSize, formatNumber } from '../../lib/format'
 import { Badge, Button, Card, Field, Input, Progress, Select, useAction, useToast } from '../../components/ui'
@@ -68,6 +69,8 @@ export default function MediaTab({ d, reload, pubId }: RoomProps) {
   const onExtra = async (file?: File) => {
     if (!file) return
     try {
+      // Gallery photos: downscale + re-encode in the browser (drops EXIF/GPS, much smaller upload).
+      if (extra.role === 'gallery' && /^image\/(jpeg|png|webp)$/.test(file.type)) file = asFile(await prepareImage(file, { maxSide: 1800 }), file.name.replace(/\.[^.]+$/, ''))
       await send(file, extra.role, { title: extra.title || file.name, access: extra.access, ...(extra.toc_item_id ? { toc_item_id: extra.toc_item_id } : {}) }, 'بارگذاری فایل')
       toast('فایل افزوده شد')
       setExtra({ ...extra, title: '' })
