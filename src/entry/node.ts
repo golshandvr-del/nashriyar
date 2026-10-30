@@ -3,6 +3,7 @@
 //   node server-dist/node.mjs              start the server (PORT, HOST, DATA_DIR, APP_SECRET, STATIC_DIR)
 //   node server-dist/node.mjs --seed       reset the database and load demo data, then exit
 //   node server-dist/node.mjs --migrate    apply migrations, then exit
+//   node server-dist/node.mjs --backup     consistent DB snapshot to DATA_DIR/backups (VACUUM INTO), prune > BACKUP_KEEP_DAYS (30)
 import fs from 'node:fs'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -41,6 +42,23 @@ async function main() {
     storage,
     secret: await resolveSecret(db, process.env.APP_SECRET),
     ai: { baseUrl: process.env.AI_BASE_URL, apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL }
+  }
+
+  if (args.has('--backup')) {
+    // VACUUM INTO produces a consistent, compacted copy even while the server is running (WAL mode).
+    const dir = path.join(DATA_DIR, 'backups')
+    fs.mkdirSync(dir, { recursive: true })
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const out = path.join(dir, `nashriyar-${stamp}.db`)
+    sqlite.exec(`VACUUM INTO '${out.replace(/'/g, "''")}'`)
+    const keepDays = Number(process.env.BACKUP_KEEP_DAYS || 30)
+    const cutoff = Date.now() - keepDays * 86400000
+    for (const f of fs.readdirSync(dir)) {
+      const full = path.join(dir, f)
+      if (/^nashriyar-.*\.db$/.test(f) && fs.statSync(full).mtimeMs < cutoff) fs.rmSync(full, { force: true })
+    }
+    console.log(`[nashriyar] backup written: ${out}`)
+    return
   }
 
   if (args.has('--migrate')) {
