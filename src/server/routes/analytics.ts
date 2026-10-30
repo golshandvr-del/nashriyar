@@ -147,7 +147,12 @@ analyticsRoutes.get('/trends', async (c) => {
     `SELECT substr(v.day,1,7) AS m, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY m ORDER BY m`,
     [yFrom, yTo, ...s.params]
   ))
-  return c.json({ from, to, published, views, sales, followers, byFaculty, byCategory, weekday, yoy: { published: yoyPublished, views: yoyViews } })
+  // New publications registered per (Gregorian) year — whole history, scope-filtered (ROADMAP phase 7)
+  const newPerYear = await db.all(
+    `SELECT substr(p.created_at,1,4) AS y, COUNT(*) AS n FROM publications p WHERE p.deleted_at IS NULL${s.sql} GROUP BY y ORDER BY y`,
+    s.params
+  )
+  return c.json({ from, to, published, views, sales, followers, byFaculty, byCategory, weekday, yoy: { published: yoyPublished, views: yoyViews }, newPerYear })
 })
 
 /**
