@@ -36,7 +36,7 @@ export async function processPdf(issueId: string, file: File, onProgress: (p: Pr
   const targetWidth = opts.targetWidth ?? 1400
   onProgress({ phase: 'reading', page: 0, total: 0, skipped: 0 })
   const m = await pdfjs()
-  const task = m.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false })
+  const task = m.getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
   const doc = await task.promise
   const total = doc.numPages
   let existing = new Set<number>()
@@ -93,7 +93,7 @@ export async function processPdf(issueId: string, file: File, onProgress: (p: Pr
 /** Renders page 1 of a PDF as a cover candidate (JPEG blob). */
 export async function pdfFirstPage(file: File, width = 900): Promise<Blob | null> {
   const m = await pdfjs()
-  const task = m.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false })
+  const task = m.getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
   const doc = await task.promise
   const page = await doc.getPage(1)
   const base = page.getViewport({ scale: 1 })
