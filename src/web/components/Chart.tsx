@@ -104,7 +104,7 @@ export function Chart({ option, height = 260, csvName, onClick, className }: { o
     <div className={className ? `relative ${className}` : 'relative'}>
       {csv && (
         <div className="no-print absolute top-0 left-0 z-10 flex">
-        <button className="rounded-lg p-1.5 rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-ink" title="دریافت CSV" aria-label="دریافت CSV" onClick={() => downloadCsv(csvName!, csv)}>
+        <button className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-ink" title="دریافت CSV" aria-label="دریافت CSV" onClick={() => downloadCsv(csvName!, csv)}>
           <Download className="size-4" />
         </button>
         <button className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-ink" title="دریافت Excel" aria-label="دریافت Excel" onClick={() => downloadXlsxFromCsv(csvName!, csv)}>
