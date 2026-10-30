@@ -819,7 +819,7 @@ function Sales({ q }: { q: string }) {
               <Card title="کانال‌های پرداخت">
                 {!d.channels.length ? <Empty title="داده‌ای نیست" /> : <Chart height={220} option={{ tooltip: { trigger: 'item' }, series: [{ type: 'pie', radius: ['40%', '70%'], data: d.channels.map((c: any) => ({ name: CHANNEL[c.channel] || c.channel, value: c.n })) }] }} />}
               </Card>
-              <Card title="فروش به تفکیک شماره" className="lg:col-span-2" action={<button className="btn-ghost !px-2 !py-1" onClick={() => downloadCsv('sales-by-issue', csvOf(['نشریه', 'شماره', 'عنوان', 'قیمت', 'کد ساخته‌شده', 'استفاده‌شده', 'منقضی', 'درآمد', 'فروش چاپی'], d.byIssue.map((r: any) => [r.publication_title, r.number, r.title, r.price_digital, r.codes_created, r.codes_redeemed, r.codes_expired, r.revenue_digital, r.print_sold])))}><Download className="size-4" /></button>}>
+              <Card title="فروش به تفکیک شماره" className="lg:col-span-2" action={<ExportButtons name="sales-by-issue" csv={() => csvOf(['نشریه', 'شماره', 'عنوان', 'قیمت', 'کد ساخته‌شده', 'استفاده‌شده', 'منقضی', 'درآمد', 'فروش چاپی'], d.byIssue.map((r: any) => [r.publication_title, r.number, r.title, r.price_digital, r.codes_created, r.codes_redeemed, r.codes_expired, r.revenue_digital, r.print_sold]))} />}>
                 {!d.byIssue.length ? <Empty title="فروشی در این بازه ثبت نشده" /> : (
                   <div className="max-h-[28rem] overflow-auto">
                     <table className="w-full text-sm">
