@@ -339,8 +339,8 @@ function Ranking({ q }: { q: string }) {
                           <td key={c.key} className="p-2 text-center">
                             {c.key === 'health' ? (
                               <span
-                                title={Object.entries(r.health?.parts || {}).map(([k, v]) => `${HEALTH_PARTS[k] || k}: ${v}`).join('\n')}
-                                className={`inline-block min-w-10 rounded-md px-1.5 py-0.5 text-xs font-bold ${val(r, 'health') >= 70 ? 'bg-ok/10 text-ok' : val(r, 'health') >= 40 ? 'bg-warn/10 text-warn' : 'bg-danger/10 text-danger'}`}
+                                title={[...Object.entries(r.health?.parts || {}).map(([k, v]) => `${HEALTH_PARTS[k] || k}: ${v}`), ...(r.health?.reasons?.length ? ['—', ...r.health.reasons] : [])].join('\n')}
+                                className={`inline-block min-w-10 rounded-md px-1.5 py-0.5 text-xs font-bold ${(r.health?.level ?? (val(r, 'health') >= 70 ? 'green' : val(r, 'health') >= 40 ? 'yellow' : 'red')) === 'green' ? 'bg-ok/10 text-ok' : (r.health?.level ?? (val(r, 'health') >= 40 ? 'yellow' : 'red')) === 'yellow' ? 'bg-warn/10 text-warn' : 'bg-danger/10 text-danger'}`}
                               >
                                 {toFaDigits(val(r, 'health'))}
                               </span>
