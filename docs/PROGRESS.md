@@ -98,6 +98,7 @@
   - یافتهٔ گفتگوی ۱۹: `npx wrangler pages dev dist --d1=DB --local --ip 127.0.0.1 --port 8788` (با setsid) بالا می‌آید؛ /api/health ok، مهاجرت خودکار، سرآیندهای CSP/HSTS/XFO؛ دادهٔ دمو در D1 محلی نیست → اسکریپت tests/smoke-cf.mjs (بدون نیاز به seed) در دست ساخت
   - [x] (گفتگوی ۱۹) tests/smoke-cf.mjs (۱۱ بررسی روی wrangler pages dev، همه پاس) + npm run test:cf + گام CI؛ src/server/adapters/clock.ts (Clock/systemClock/fixedClock/setClock) و nowIso/today از آن می‌خوانند (tsc پاس)
   - [x] (گفتگوی ۱۹) تیک فاز ۰ و ۱ با شواهد (ابزار ~/tick.py: «زیررشته|||یادداشت» → تیک خط یکتا؛ اگر ریست شد دوباره بساز). PasswordHasher+needsRehash+rehash هنگام ورود. باقی: ۱۷۳ مورد از فاز ۲ به بعد
+  - [x] (گفتگوی ۲۰) فاز ۲: برچسب «در حال طراحی» برای مرحلهٔ گرافیک، یادداشت تغییر وضعیت در ProgressTab، نمای چک‌لیست، گام پنجم جادوگر (الگوی مراحل + مهلت‌ها). در دست: درخت فهرست (تورفتگی/برگشت با parent_id) و کشیدن‌ورها، سپس تیک فاز ۲
   - صف بعدی: تیک ROADMAP فاز به فاز (هر فاز یک commit) ← README/CHANGELOG ← لینک موقت ← tag v1.0.0 + Release + بستن Milestoneها
   - صف باقی‌مانده: تیک‌زدن صادقانهٔ ROADMAP (فاز به فاز) ← README/CHANGELOG 1.1 ← build/test نهایی ← لینک موقت عمومی (GetServiceUrl) برای کاربر ← tag v1.0.0 + GitHub Release + بستن Milestoneها
 - **گفتگوی ۱۶:** شروع از commit 274 (f30ff6f). صف: تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
