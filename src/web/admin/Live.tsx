@@ -82,7 +82,16 @@ export default function AdminLive() {
                           </span>
                           <span className={stale ? 'font-bold text-danger' : ''}>{i.last_progress_at ? relativeFa(i.last_progress_at) : 'بدون پیشرفت ثبت‌شده'}</span>
                         </div>
-                        {i.planned_publish_at && <div className="mt-1 text-xs text-muted">انتشار برنامه‌ریزی‌شده: {faDate(i.planned_publish_at)}</div>}
+                        {i.planned_publish_at && (() => {
+                          // ROADMAP phase 7 live board: delay = days past the planned publish date
+                          const late = Math.floor((Date.now() - new Date(i.planned_publish_at + 'T23:59:59Z').getTime()) / 86400000)
+                          return (
+                            <div className="mt-1 flex items-center gap-2 text-xs text-muted">
+                              <span>انتشار برنامه‌ریزی‌شده: {faDate(i.planned_publish_at)}</span>
+                              {late > 0 && <span className="rounded bg-red-100 px-1.5 font-bold text-red-700">{toFaDigits(late)} روز تأخیر</span>}
+                            </div>
+                          )
+                        })()}
                       </Link>
                     )
                   })}
