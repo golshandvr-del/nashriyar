@@ -31,6 +31,14 @@ function embedMark(ctx: CanvasRenderingContext2D, w: number, h: number, mark: st
   const bits: number[] = []
   const bytes = [0xa5, ...(mark.match(/../g) as string[]).map((x) => parseInt(x, 16))]
   for (const b of bytes) for (let k = 7; k >= 0; k--) bits.push((b >> k) & 1)
+  // faint text first, then the LSB layer, so the text never overwrites encoded bits
+  ctx.save()
+  ctx.globalAlpha = 0.025
+  ctx.fillStyle = '#000'
+  const fs = Math.max(10, Math.round(w / 60))
+  ctx.font = `${fs}px monospace`
+  for (let y = fs * 2; y < h; y += fs * 6) for (let x = fs; x < w; x += fs * 10) ctx.fillText(mark, x, y)
+  ctx.restore()
   try {
     const im = ctx.getImageData(0, 0, w, h)
     const d = im.data
@@ -39,13 +47,6 @@ function embedMark(ctx: CanvasRenderingContext2D, w: number, h: number, mark: st
   } catch {
     /* tainted canvas — skip the LSB layer */
   }
-  ctx.save()
-  ctx.globalAlpha = 0.025
-  ctx.fillStyle = '#000'
-  const fs = Math.max(10, Math.round(w / 60))
-  ctx.font = `${fs}px monospace`
-  for (let y = fs * 2; y < h; y += fs * 6) for (let x = fs; x < w; x += fs * 10) ctx.fillText(mark, x, y)
-  ctx.restore()
 }
 
 function PageCanvas({ url, watermark, mark = '', zoom, onError }: { url: string; watermark: string; mark?: string; zoom: number; onError: () => void }) {
