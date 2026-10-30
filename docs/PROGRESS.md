@@ -90,7 +90,8 @@
   - [x] (گفتگوی ۱۸) اکسپلور: درهم‌سازی تنوع در /api/public/explore (دو پست پیاپی از یک نشریه نه) + کلید next؛ Explore.tsx مکان‌نما = قدیمی‌ترین پست بارگذاری‌شده
   - [x] (گفتگوی ۱۸) /production → median_days + bottlenecks (نشریه×مرحله) + نمودار میانه و heatmap گلوگاه؛ /explore → hourly (روز×ساعت تهران +210min) + calendar + دو heatmap در ExploreStats
   - [x] (گفتگوی ۱۸) /trends → newPerYear + نمودار «نشریات جدید در هر سال»؛ /gaps → gap_window + factors (تغییر مدیرمسئول، ترک عضو، مرحلهٔ >۳۰ روز) در طولانی‌ترین فاصلهٔ غیرعادی (>۱.۵×دوره) + نمایش در جدول Gaps
-  - صف بعدی: tsc ← build/smoke ← تست زندهٔ موارد گفتگوی ۱۸ ← تیک ROADMAP فاز به فاز
+  - [x] (گفتگوی ۱۸) tsc/build/smoke/admin-writes پاس؛ تست زنده (/tmp/s18.mjs): اکسپلور ۳۰ پست/۱۷ نشریه/۰ تکرار پیاپی، صفحهٔ ۲ بدون هم‌پوشانی؛ میانهٔ مراحل؛ ۱۶۸ خانهٔ heatmap؛ newPerYear؛ gaps با factors؛ ناظر محدود به ۲ نشریه
+  - صف بعدی: تیک ROADMAP فاز به فاز (هر فاز یک commit) ← README/CHANGELOG ← لینک موقت ← tag v1.0.0 + Release + بستن Milestoneها
   - صف باقی‌مانده: تیک‌زدن صادقانهٔ ROADMAP (فاز به فاز) ← README/CHANGELOG 1.1 ← build/test نهایی ← لینک موقت عمومی (GetServiceUrl) برای کاربر ← tag v1.0.0 + GitHub Release + بستن Milestoneها
 - **گفتگوی ۱۶:** شروع از commit 274 (f30ff6f). صف: تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
