@@ -390,6 +390,30 @@ function ExploreStats({ q }: { q: string }) {
             ].map(([l, v]) => <div key={l as string} className="card p-3"><div className="text-xs text-muted">{l}</div><div className="text-xl font-extrabold">{formatNumber(Number(v || 0))}</div></div>)}
             <div className="card p-3"><div className="text-xs text-muted">میانگین زمان بررسی</div><div className="text-xl font-extrabold">{toFaDigits(Math.round(d.moderation?.avg_hours || 0))} ساعت</div></div>
           </div>
+          {d.funnel && (
+            <Card title="قیف اکسپلور ← خواندن ← خرید (بازدیدکنندهٔ یکتا)">
+              <ol className="space-y-2">
+                {d.funnel.map((f: any, i: number) => {
+                  const top = Math.max(1, d.funnel[0].n)
+                  const prev = i ? d.funnel[i - 1].n : 0
+                  return (
+                    <li key={f.key} className="text-sm">
+                      <div className="mb-1 flex justify-between gap-2">
+                        <span>{toFaDigits(i + 1)}. {f.label}</span>
+                        <span className="text-muted">
+                          {formatNumber(f.n)}
+                          {i > 0 && prev > 0 && <> · {toFaDigits(Math.round((f.n / prev) * 100))}٪ از مرحلهٔ قبل</>}
+                        </span>
+                      </div>
+                      <div className="h-3 overflow-hidden rounded-full bg-surface-2">
+                        <div className="h-full rounded-full bg-brand" style={{ width: `${Math.max(2, (f.n / top) * 100)}%` }} />
+                      </div>
+                    </li>
+                  )
+                })}
+              </ol>
+            </Card>
+          )}
           <div className="grid gap-4 lg:grid-cols-2">
             <Card title="پست و بازدید هر نشریه">
               {!d.byPub.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="explore-by-pub" option={{ legend: {}, grid: { left: 110 }, xAxis: { type: 'value' }, yAxis: { type: 'category', inverse: true, data: d.byPub.map((x: any) => x.title) }, series: [{ name: 'بازدید', type: 'bar', data: d.byPub.map((x: any) => x.views) }, { name: 'پست', type: 'bar', data: d.byPub.map((x: any) => x.posts) }] }} height={Math.max(240, d.byPub.length * 28)} />}
