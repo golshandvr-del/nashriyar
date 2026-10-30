@@ -6,7 +6,11 @@
     "unicorn/no-new-array": "off",
     "unicorn/no-useless-fallback-in-spread": "off",
     "no-unused-expressions": "off",
-    "react/react-in-jsx-scope": "off"
+    "react/react-in-jsx-scope": "off",
+    "react/set-state-in-effect": "warn",
+    "react/purity": "warn",
+    "react/refs": "warn",
+    "no-unused-vars": ["error", { "ignoreRestSiblings": true, "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }]
   },
   "ignorePatterns": ["dist", "server-dist", "node_modules", "data"]
 }
