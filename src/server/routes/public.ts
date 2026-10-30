@@ -31,7 +31,7 @@ publicRoutes.get('/sitemap.xml', async (c) => {
     { loc: '/recruitment', priority: '0.4' }
   ]
   const pubs = await db.all<{ slug: string; last: string | null }>(
-    `SELECT p.slug, (SELECT MAX(i.published_at) FROM issues i WHERE i.publication_id = p.id AND i.status = 'published' AND i.deleted_at IS NULL) AS last
+    `SELECT p.slug, (SELECT MAX(i.published_at) FROM issues i WHERE i.publication_id = p.id AND i.status = 'published' AND i.published_at <= ${SQL_NOW} AND i.deleted_at IS NULL) AS last
      FROM publications p WHERE p.status = 'active' AND p.deleted_at IS NULL`
   )
   for (const p of pubs) urls.push({ loc: `/p/${encodeURIComponent(p.slug)}`, lastmod: day(p.last), priority: '0.8' })
@@ -118,7 +118,7 @@ publicRoutes.get('/publications', async (c) => {
   if (association) (where.push('p.association_id = ?'), params.push(association))
   const rows = await db.all(
     `SELECT p.id, p.slug, p.title, p.tagline, p.logo_key, p.theme_color, a.name AS association_name, f.name AS faculty_name,
-       (SELECT COUNT(*) FROM issues i WHERE i.publication_id = p.id AND i.status = 'published' AND i.deleted_at IS NULL) AS issue_count
+       (SELECT COUNT(*) FROM issues i WHERE i.publication_id = p.id AND i.status = 'published' AND i.published_at <= ${SQL_NOW} AND i.deleted_at IS NULL) AS issue_count
      FROM publications p JOIN associations a ON a.id = p.association_id LEFT JOIN faculties f ON f.id = p.faculty_id
      WHERE ${where.join(' AND ')} ORDER BY p.title`,
     params
@@ -243,7 +243,7 @@ publicRoutes.get('/search', async (c) => {
   const issues = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${issueWhere.join(' AND ')} ORDER BY i.published_at DESC LIMIT 60`, params)
   const people = await db.all(
     `SELECT tm.full_name, COUNT(DISTINCT t.issue_id) AS issue_count FROM team_members tm JOIN toc_assignments ta ON ta.team_member_id = tm.id
-     JOIN issue_toc_items t ON t.id = ta.toc_item_id JOIN issues i ON i.id = t.issue_id WHERE i.status = 'published' AND tm.full_name LIKE ? GROUP BY tm.full_name LIMIT 10`,
+     JOIN issue_toc_items t ON t.id = ta.toc_item_id JOIN issues i ON i.id = t.issue_id WHERE i.status = 'published' AND i.published_at <= ${SQL_NOW} AND tm.full_name LIKE ? GROUP BY tm.full_name LIMIT 10`,
     [like]
   )
   await trackView(c, 'search', q.slice(0, 60), null)
