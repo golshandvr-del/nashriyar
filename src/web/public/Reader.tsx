@@ -17,10 +17,38 @@ interface Manifest {
   progress: { last_page: number; percent: number } | null
   bookmarks: { id: string; page: number; note: string | null }[]
   watermark: string
+  mark?: string
 }
 
 /** Draws a page image + diagonal watermark onto a canvas (no <img> to right-click-save). */
-function PageCanvas({ url, watermark, zoom, onError }: { url: string; watermark: string; zoom: number; onError: () => void }) {
+/**
+ * Invisible watermark (ROADMAP phase 5): 0xA5 header + 32-bit trace code written into the blue
+ * channel's least significant bit, repeated over the whole page (survives lossless screenshots),
+ * plus a near-transparent tiled text copy (survives mild recompression). Decoder: docs/SECURITY.md.
+ */
+function embedMark(ctx: CanvasRenderingContext2D, w: number, h: number, mark: string) {
+  if (!/^[0-9a-f]{8}$/.test(mark)) return
+  const bits: number[] = []
+  const bytes = [0xa5, ...(mark.match(/../g) as string[]).map((x) => parseInt(x, 16))]
+  for (const b of bytes) for (let k = 7; k >= 0; k--) bits.push((b >> k) & 1)
+  try {
+    const im = ctx.getImageData(0, 0, w, h)
+    const d = im.data
+    for (let i = 0, px = 0; i < d.length; i += 4, px++) d[i + 2] = (d[i + 2] & 0xfe) | bits[px % bits.length]
+    ctx.putImageData(im, 0, 0)
+  } catch {
+    /* tainted canvas — skip the LSB layer */
+  }
+  ctx.save()
+  ctx.globalAlpha = 0.025
+  ctx.fillStyle = '#000'
+  const fs = Math.max(10, Math.round(w / 60))
+  ctx.font = `${fs}px monospace`
+  for (let y = fs * 2; y < h; y += fs * 6) for (let x = fs; x < w; x += fs * 10) ctx.fillText(mark, x, y)
+  ctx.restore()
+}
+
+function PageCanvas({ url, watermark, mark = '', zoom, onError }: { url: string; watermark: string; mark?: string; zoom: number; onError: () => void }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const [loading, setLoading] = useState(true)
   useEffect(() => {
@@ -47,6 +75,7 @@ function PageCanvas({ url, watermark, zoom, onError }: { url: string; watermark:
         for (let y = -cv.height; y < cv.height; y += fs * 5) ctx.fillText(watermark, 0, y)
         ctx.restore()
       }
+      if (mark) embedMark(ctx, cv.width, cv.height, mark)
       setLoading(false)
     }
     img.onerror = () => alive && onError()
@@ -54,7 +83,7 @@ function PageCanvas({ url, watermark, zoom, onError }: { url: string; watermark:
     return () => {
       alive = false
     }
-  }, [url, watermark, onError])
+  }, [url, watermark, mark, onError])
   return (
     <div className="relative mx-auto" style={{ width: `${zoom}%`, maxWidth: zoom > 100 ? 'none' : 900 }}>
       {loading && (
@@ -256,14 +285,14 @@ export default function Reader() {
           // RTL: the first page of the spread sits on the right, like a printed magazine.
           <div className="mx-auto flex gap-1" style={{ width: `${zoom}%`, maxWidth: zoom > 100 ? 'none' : 1600 }}>
             <div className="flex-1">
-              <PageCanvas key={p.url} url={p.url} watermark={m.watermark} zoom={100} onError={onPageError} />
+              <PageCanvas key={p.url} url={p.url} watermark={m.watermark} mark={m.mark} zoom={100} onError={onPageError} />
             </div>
             <div className="flex-1">
-              <PageCanvas key={p2.url} url={p2.url} watermark={m.watermark} zoom={100} onError={onPageError} />
+              <PageCanvas key={p2.url} url={p2.url} watermark={m.watermark} mark={m.mark} zoom={100} onError={onPageError} />
             </div>
           </div>
         ) : p ? (
-          <PageCanvas key={p.url} url={p.url} watermark={m.watermark} zoom={zoom} onError={onPageError} />
+          <PageCanvas key={p.url} url={p.url} watermark={m.watermark} mark={m.mark} zoom={zoom} onError={onPageError} />
         ) : (
           <Locked m={m} />
         )}
