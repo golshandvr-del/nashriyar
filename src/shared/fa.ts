@@ -192,3 +192,37 @@ export function jalaliPresets(now = new Date()) {
     { key: 'all', label: 'از ابتدا', from: '2015-01-01', to: today }
   ]
 }
+
+/**
+ * Current academic term bounds (ISO dates). Fall: 1 Mehr → end of Dey; spring: 1 Bahman → end of Tir;
+ * summer: 1 Mordad → end of Shahrivar. Used by the analytics forecast ("by the end of the term").
+ */
+export function termBounds(now = new Date()): { start: string; end: string; label: string } {
+  const j = toJalali(now.getFullYear(), now.getMonth() + 1, now.getDate())
+  const endOf = (y: number, m: number) => jalaliToIso(y, m, jalaliMonthLength(y, m))
+  if (j.jm >= 7 && j.jm <= 10) return { start: jalaliToIso(j.jy, 7, 1), end: endOf(j.jy, 10), label: `نیم‌سال اول ${toFaDigits(j.jy)}–${toFaDigits(j.jy + 1)}` }
+  if (j.jm >= 11) return { start: jalaliToIso(j.jy, 11, 1), end: endOf(j.jy + 1, 4), label: `نیم‌سال دوم ${toFaDigits(j.jy)}–${toFaDigits(j.jy + 1)}` }
+  if (j.jm <= 4) return { start: jalaliToIso(j.jy - 1, 11, 1), end: endOf(j.jy, 4), label: `نیم‌سال دوم ${toFaDigits(j.jy - 1)}–${toFaDigits(j.jy)}` }
+  return { start: jalaliToIso(j.jy, 5, 1), end: endOf(j.jy, 6), label: `ترم تابستان ${toFaDigits(j.jy)}` }
+}
+
+/** Least-squares line through (x, y) points. Returns slope/intercept and r² (0 when undefined). */
+export function linearFit(points: { x: number; y: number }[]): { slope: number; intercept: number; r2: number } {
+  const n = points.length
+  if (n < 2) return { slope: 0, intercept: n ? points[0].y : 0, r2: 0 }
+  let sx = 0, sy = 0, sxx = 0, sxy = 0
+  for (const p of points) {
+    sx += p.x; sy += p.y; sxx += p.x * p.x; sxy += p.x * p.y
+  }
+  const den = n * sxx - sx * sx
+  if (den === 0) return { slope: 0, intercept: sy / n, r2: 0 }
+  const slope = (n * sxy - sx * sy) / den
+  const intercept = (sy - slope * sx) / n
+  const mean = sy / n
+  let ssTot = 0, ssRes = 0
+  for (const p of points) {
+    ssTot += (p.y - mean) ** 2
+    ssRes += (p.y - (slope * p.x + intercept)) ** 2
+  }
+  return { slope, intercept, r2: ssTot === 0 ? 0 : Math.max(0, 1 - ssRes / ssTot) }
+}
