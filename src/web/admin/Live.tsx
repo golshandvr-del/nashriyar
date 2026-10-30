@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { ISSUE_STATUS, faDate, relativeFa, toFaDigits } from '../lib/format'
 import { Async, Badge, Button, Card, Empty, PageHeader, Progress, useAsync } from '../components/ui'
 
-const FEED_LABEL: Record<string, string> = {
+export const FEED_LABEL: Record<string, string> = {
   'issue.created': 'شمارهٔ جدید آغاز شد',
   'issue.members': 'اعضای شماره به‌روز شد',
   'issue.approval_requested': 'درخواست تأیید انتشار',
