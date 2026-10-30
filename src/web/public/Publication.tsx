@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Megaphone, UserCheck, UserPlus } from 'lucide-react'
 import { api, mediaUrl } from '../lib/api'
+import { absUrl, useMeta } from '../lib/meta'
 import { useAuth, PUB_ROLE_LABEL } from '../lib/auth'
 import { ASSOC_KIND, FREQUENCY, faDate, toFaDigits } from '../lib/format'
 import { Async, Avatar, Button, Card, Empty, Tabs, useAction, useAsync } from '../components/ui'
@@ -46,6 +47,28 @@ export default function Publication() {
   const { user } = useAuth()
   const nav = useNavigate()
   const act = useAction()
+  const pd = st.data?.publication
+  useMeta(
+    pd
+      ? {
+          title: pd.title,
+          description: pd.tagline || pd.description,
+          image: mediaUrl(pd.logo_key),
+          type: 'profile',
+          jsonLd: {
+            '@context': 'https://schema.org',
+            '@type': 'Periodical',
+            name: pd.title,
+            description: pd.description || pd.tagline || undefined,
+            url: location.origin + `/p/${pd.slug}`,
+            image: absUrl(mediaUrl(pd.logo_key)) || undefined,
+            inLanguage: 'fa',
+            keywords: pd.keywords || undefined,
+            publisher: { '@type': 'Organization', name: pd.association_name }
+          }
+        }
+      : null
+  )
 
   return (
     <Async state={st}>
