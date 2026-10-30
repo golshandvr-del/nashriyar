@@ -408,6 +408,7 @@ publicRoutes.get('/settings', async (c) => {
     site_name: await getSetting(db, 'site_name', 'نشریار'),
     university_name: await getSetting(db, 'university_name', 'دانشگاه'),
     registration_open: await getSetting(db, 'registration_open', true),
+    registration_mode: await getSetting(db, 'registration_mode', 'open'),
     ai_enabled: await getSetting(db, 'ai_enabled', false),
     features: await getFeatures(db)
   })
