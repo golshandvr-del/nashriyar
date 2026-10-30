@@ -51,6 +51,7 @@
 ## نکات کشف‌شده (برای جلوگیری از تکرار)
 - pdfjs-dist v6: `destroy()` روی loadingTask است نه PDFDocumentProxy.
 - گام بعدی: تست دود سرتاسری پنل admin ← PWA (manifest + service worker) ← Dockerfile/compose ← .github/workflows/ci.yml ← docs/OPERATIONS.md ← تیک‌زدن ROADMAP.
+- تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
 - `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
 - مسیر شمارهٔ admin: `issues/:id` (IssueDetail از `useParams().id` می‌خواند).
 - Button فقط variant های primary | ghost | danger دارد.
