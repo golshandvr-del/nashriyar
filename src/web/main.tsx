@@ -144,6 +144,7 @@ function App() {
           <Route path="verify/:code" element={<Verify />} />
           <Route path="recruitment" element={<Recruitment />} />
           <Route path="terms" element={<Terms />} />
+          <Route path="privacy" element={<Terms />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
