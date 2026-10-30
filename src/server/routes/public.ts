@@ -12,7 +12,10 @@ export const publicRoutes = new Hono<AppEnv>()
 
 const ISSUE_CARD = `i.id, i.number, i.title, i.cover_key, i.pricing, i.price_digital, i.published_at, i.page_count,
   p.id AS publication_id, p.slug AS publication_slug, p.title AS publication_title, p.theme_color`
-const PUBLISHED = `i.status = 'published' AND i.deleted_at IS NULL AND p.status = 'active' AND p.deleted_at IS NULL`
+/** ISO-8601 "now" in SQL, same format as JS toISOString() — works in both SQLite (node) and D1. */
+const SQL_NOW = `strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+// Scheduled publishing: an approved issue with a future published_at stays hidden until that moment.
+const PUBLISHED = `i.status = 'published' AND i.published_at <= ${SQL_NOW} AND i.deleted_at IS NULL AND p.status = 'active' AND p.deleted_at IS NULL`
 
 // SEO sitemap (referenced from /robots.txt). Lives under /api so the Cloudflare worker serves it;
 // URLs are absolute, built from the request origin so the same code works on any domain.
