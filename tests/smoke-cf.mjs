@@ -21,6 +21,15 @@ ok(home.status === 200 && String(home.data).includes('<div id="root"'), 'GET / s
 const csp = home.headers.get('content-security-policy') || ''
 ok(csp.includes("default-src 'self'") && !/https?:\/\//.test(csp), 'CSP present and allows no external origin')
 ok(home.headers.get('x-frame-options') === 'DENY', 'X-Frame-Options: DENY')
+const html = String(home.data)
+ok(!/(src|href)=["']https?:\/\//i.test(html), 'index.html loads no external script/style/font (ADR-003)')
+const assets = [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+\.(?:js|css))"/g)].map((m) => m[1])
+let ext = 0
+for (const a of assets) {
+  const body = await (await fetch(BASE + a)).text()
+  if (/@import\s+url\(["']?https?:|url\(["']?https?:\/\/(?!www\.w3\.org)/i.test(body)) ext++
+}
+ok(assets.length > 0 && ext === 0, `entry assets (${assets.length}) reference no external url() / @import`)
 
 for (const p of ['/api/public/home', '/api/public/explore', '/api/public/categories', '/api/auth/me']) {
   const r = await get(p)
