@@ -407,6 +407,9 @@ function Forecast({ q }: { q: string }) {
                   <div className="mt-1 text-xs text-muted">
                     سرعت: {toFaDigits(d[k].per_week)} در هفته · r² = {toFaDigits(d[k].r2)} · {reliability(d[k].r2, d.term.weeks_elapsed)}
                   </div>
+                  {d[k].low != null && d[k].high != null && d[k].high > d[k].low && (
+                    <div className="mt-1 text-xs text-muted">بازهٔ اطمینان تقریبی ۹۵٪: {formatNumber(d[k].low)} تا {formatNumber(d[k].high)}</div>
+                  )}
                 </div>
               ))}
             </div>
