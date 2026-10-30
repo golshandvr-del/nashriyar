@@ -58,7 +58,7 @@
   1. [x] publication_role_history ← لازم نیست: جدول publication_roles خودش با started_at/ended_at تاریخچه را نگه می‌دارد
   2. [x] فیلتر کامنت: src/server/lib/moderation.ts (flagComment) در me.ts — تست شد
   3. [x] SEO: /api/public/sitemap.xml و /robots.txt پویا + src/web/lib/meta.ts (useMeta: title/description/OG/canonical/JSON-LD) در Publication (Periodical) و Issue (PublicationIssue)
-  4. [ ] پیش‌بینی خطی تا پایان ترم (analytics/forecast) + نمایش در Analytics
+  4. [x] پیش‌بینی خطی: GET /api/analytics/forecast (termBounds + linearFit در shared/fa.ts) + تب «پیش‌بینی ترم» در admin/Analytics — تست شد
   5. [ ] کارنامهٔ یک‌صفحه‌ای قابل چاپ هر نشریه + گزارش دوره‌ای قابل چاپ
   6. [ ] feature_flags در settings (سوپرادمین)
   7. [ ] حالت‌های ثبت‌نام: آزاد / فهرست مجاز CSV / کد فعال‌سازی
