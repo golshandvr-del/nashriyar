@@ -24,6 +24,7 @@ const Following = lazy(() => import('./public/Following'))
 const Notifications = lazy(() => import('./public/Notifications'))
 const Login = lazy(() => import('./public/Login'))
 const Register = lazy(() => import('./public/Register'))
+const Recover = lazy(() => import('./public/Recover'))
 const Settings = lazy(() => import('./public/Settings'))
 const Verify = lazy(() => import('./public/Verify'))
 const Recruitment = lazy(() => import('./public/Recruitment'))
@@ -140,6 +141,7 @@ function App() {
           <Route path="notifications" element={<Notifications />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+          <Route path="recover" element={<Recover />} />
           <Route path="settings" element={<Settings />} />
           <Route path="verify" element={<Verify />} />
           <Route path="verify/:code" element={<Verify />} />
