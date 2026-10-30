@@ -16,7 +16,12 @@ const THRESHOLD_LABELS: Record<string, string> = {
   pending_comments: 'انباشت نظرهای در انتظار (تعداد)',
   growth_pct: 'رشد چشمگیر بازدید (٪)',
   drop_pct: 'افت بازدید (٪)',
-  expired_codes: 'کدهای منقضی‌شدهٔ بی‌استفاده (تعداد)'
+  expired_codes: 'کدهای منقضی‌شدهٔ بی‌استفاده (تعداد)',
+  slow_stage_factor: 'مرحلهٔ طولانی (× میانهٔ همان مرحله)',
+  irregular_cv: 'فاصلهٔ نامنظم (ضریب تغییرات)',
+  team_shrink: 'کوچک شدن تیم (ترک عضو در ۶۰ روز)',
+  bot_views: 'بازدید مشکوک ربات (بازدید یک نفر در روز)',
+  director_effect_days: 'پایش اثر تغییر مدیرمسئول (روز)'
 }
 const WEIGHT_LABELS: Record<string, string> = {
   regularity: 'نظم انتشار',
@@ -144,7 +149,7 @@ function Form({ initial, isSuper, reload }: { initial: S; isSuper: boolean; relo
           {Object.entries(THRESHOLD_LABELS).map(([k, label]) => (
             <label key={k} className="block">
               <span className="label">{label}</span>
-              <Input dir="ltr" type="number" min={0} step={k === 'overdue_factor' ? 0.1 : 1} value={s.insight_thresholds?.[k] ?? ''} onChange={(e) => set({ insight_thresholds: { ...(s.insight_thresholds || {}), [k]: Number(e.target.value) } })} />
+              <Input dir="ltr" type="number" min={0} step={k === 'overdue_factor' || k === 'slow_stage_factor' || k === 'irregular_cv' ? 0.1 : 1} value={s.insight_thresholds?.[k] ?? ''} onChange={(e) => set({ insight_thresholds: { ...(s.insight_thresholds || {}), [k]: Number(e.target.value) } })} />
             </label>
           ))}
         </div>
