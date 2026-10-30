@@ -31,6 +31,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Lint (oxlint, ESLint-compatible rules)
+        run: npm run lint
+
       - name: Build (SPA + Cloudflare worker + Node server)
         run: npm run build
 
