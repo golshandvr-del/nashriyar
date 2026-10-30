@@ -4,6 +4,7 @@ import { checkRateLimit, clearFailures, clientIp, recordFailure, requireUser } f
 import { newId, normalizePurchaseCode, sha256 } from '../lib/crypto'
 import { activity, bad, body, HttpError, notFound, nowIso, parseJson, str } from '../lib/util'
 import { toEnDigits } from '../../shared/fa'
+import { flagComment } from '../lib/moderation'
 
 export const meRoutes = new Hono<AppEnv>()
 
@@ -204,7 +205,8 @@ meRoutes.post('/posts/:postId/comments', async (c) => {
     await recordFailure(c, key)
     throw new HttpError(429, 'تعداد نظرهای ارسالی شما زیاد است؛ کمی بعد دوباره تلاش کنید')
   }
-  const flagged = /(https?:\/\/|www\.|@\w{4,})/i.test(text) ? 1 : 0
+  // pre-flag only (links, profanity, spam patterns) — the team still decides every comment
+  const flagged = flagComment(text).flagged ? 1 : 0
   await db.run(
     "INSERT INTO comments (id, post_id, user_id, parent_id, body, status, flagged, created_at) VALUES (?,?,?,?,?, 'pending', ?, ?)",
     [newId(), po.id, u.id, b.parent_id || null, text, flagged, nowIso()]
