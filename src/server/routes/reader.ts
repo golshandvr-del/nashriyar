@@ -102,6 +102,13 @@ readerRoutes.get('/:issueId/manifest', async (c) => {
     bookmarks = await db.all('SELECT id, page, note, created_at FROM reader_bookmarks WHERE user_id = ? AND issue_id = ? ORDER BY page', [user.id, issue.id])
   }
   if (full) await trackView(c, 'issue_read', issue.id, issue.publication_id)
+  // reading-session log for paid content (ROADMAP phase 5 — SECURITY.md §4): who opened what, when, from which client
+  if (user && full && issue.pricing === 'paid') {
+    await db.run('INSERT INTO activity_events (id, actor_user_id, publication_id, issue_id, type, payload_json, created_at) VALUES (?,?,?,?,?,?,?)', [
+      newId(), user.id, issue.publication_id, issue.id, 'reader.session',
+      JSON.stringify({ ip: (await hmac(c.get('deps').secret, clientIp(c))).slice(0, 12), ua: (c.req.header('user-agent') || '').slice(0, 120) }), nowIso()
+    ])
+  }
   return c.json({
     issue: { id: issue.id, title: issue.title, number: issue.number, page_count: issue.page_count, pricing: issue.pricing, publication_title: issue.publication_title, publication_slug: issue.publication_slug },
     full,
