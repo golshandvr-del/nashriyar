@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, mediaUrl, qs } from '../lib/api'
 import { faDate, formatNumber, jalaliPresets } from '../lib/format'
 import { Async, Card, Empty, PageHeader, Stat, useAsync } from '../components/ui'
-import { Chart, downloadCsv } from '../components/Chart'
+import { Chart, ExportButtons } from '../components/Chart'
 import { useTeam } from './Layout'
 
 /** Shared Jalali range picker (presets + custom from/to). */
@@ -77,17 +77,12 @@ export default function TeamStats() {
               <Card
                 title="شماره‌های منتشرشده"
                 action={
-                  <button
-                    className="text-xs text-brand"
-                    onClick={() =>
-                      downloadCsv(
-                        'issues',
-                        ['شماره,عنوان,نوع,بازدید,خواندن,فروش دیجیتال,فروش چاپی', ...d.byIssue.map((i: any) => [i.number, `"${i.title}"`, i.pricing === 'paid' ? 'پولی' : 'رایگان', i.views, i.reads, i.digital_sold, i.print_sold].join(','))].join('\n')
-                      )
+                  <ExportButtons
+                    name="issues"
+                    csv={() =>
+                      ['شماره,عنوان,نوع,بازدید,خواندن,فروش دیجیتال,فروش چاپی', ...d.byIssue.map((i: any) => [i.number, `"${String(i.title).replace(/"/g, '""')}"`, i.pricing === 'paid' ? 'پولی' : 'رایگان', i.views, i.reads, i.digital_sold, i.print_sold].join(','))].join('\n')
                     }
-                  >
-                    دریافت CSV
-                  </button>
+                  />
                 }
               >
                 {!d.byIssue.length ? (
