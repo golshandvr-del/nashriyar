@@ -25,7 +25,7 @@ export function normalizeFa(s: string): string {
     .replace(/[أإآ]/g, 'ا')
     .replace(/ؤ/g, 'و')
     .replace(/[\u064B-\u065F\u0670]/g, '') // harakat
-    .replace(/[\u200c\u200d\u200e\u200f]/g, ' ') // ZWNJ etc.
+    .replace(/\u200c|\u200d|\u200e|\u200f/g, ' ') // ZWNJ etc. (alternation: a class with ZWJ trips no-misleading-character-class)
     .replace(/ـ/g, '')
     .toLowerCase()
     .replace(/\s+/g, ' ')
