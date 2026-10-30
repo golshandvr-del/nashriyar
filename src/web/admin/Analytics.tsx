@@ -492,7 +492,7 @@ function Production({ q }: { q: string }) {
             )
           })()}
           {!!d.people?.length && (
-            <Card title="افراد فعال و فعالیتشان" action={<button className="btn-ghost !px-2 !py-1" onClick={() => downloadCsv('active-people', csvOf(['نام', 'نشریه', 'فعالیت', 'آخرین فعالیت'], d.people.map((r: any) => [r.display_name, r.publication_title, r.actions, r.last_at])))}><Download className="size-4" /></button>}>
+            <Card title="افراد فعال و فعالیتشان" action={<ExportButtons name="active-people" csv={() => csvOf(['نام', 'نشریه', 'فعالیت', 'آخرین فعالیت'], d.people.map((r: any) => [r.display_name, r.publication_title, r.actions, r.last_at]))} />}>
               <div className="max-h-80 overflow-auto">
                 <table className="w-full text-sm">
                   <thead className="text-xs text-muted"><tr><th className="p-2 text-right">نام</th><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">فعالیت</th><th className="p-2 text-right">آخرین</th></tr></thead>
