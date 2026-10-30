@@ -170,7 +170,7 @@ publicRoutes.get('/publications/:slug', async (c) => {
   const hl = []
   for (const h of highlights) {
     const posts = await db.all<{ id: string; images_json: string }>(
-      `SELECT po.id, po.images_json FROM posts po JOIN highlight_items hi ON hi.post_id = po.id WHERE hi.highlight_id = ? AND po.status = 'published' ORDER BY po.published_at DESC`,
+      `SELECT po.id, po.images_json FROM posts po JOIN highlight_items hi ON hi.post_id = po.id WHERE hi.highlight_id = ? AND po.status = 'published' AND po.published_at <= ${SQL_NOW} ORDER BY po.published_at DESC`,
       [h.id]
     )
     if (posts.length) hl.push({ ...h, cover: parseJson<string[]>(posts[0].images_json, [])[0] || null, post_ids: posts.map((x) => x.id) })
@@ -188,7 +188,7 @@ publicRoutes.get('/publications/:slug/posts', async (c) => {
   if (!p) throw notFound('نشریه یافت نشد')
   const posts = await db.all<any>(
     `SELECT po.id, po.caption, po.images_json, po.published_at, po.is_story, po.expires_at FROM posts po
-     WHERE po.publication_id = ? AND po.status = 'published' AND (po.is_story = 0 OR po.expires_at > ?) ORDER BY po.published_at DESC LIMIT 120`,
+     WHERE po.publication_id = ? AND po.status = 'published' AND po.published_at <= ${SQL_NOW} AND (po.is_story = 0 OR po.expires_at > ?) ORDER BY po.published_at DESC LIMIT 120`,
     [p.id, nowIso()]
   )
   return c.json({ posts: posts.map((x) => ({ ...x, images: parseJson(x.images_json, []), images_json: undefined })) })
@@ -337,7 +337,7 @@ publicRoutes.get('/explore', async (c) => {
   const posts = await db.all<any>(
     `SELECT po.id, po.caption, po.images_json, po.published_at, p.slug AS publication_slug, p.title AS publication_title, p.logo_key, p.theme_color
      FROM posts po JOIN publications p ON p.id = po.publication_id
-     WHERE po.status = 'published' AND po.published_at < ? AND (po.is_story = 0 OR po.expires_at > ?) AND p.status = 'active'${catWhere}
+     WHERE po.status = 'published' AND po.published_at <= ${SQL_NOW} AND po.published_at < ? AND (po.is_story = 0 OR po.expires_at > ?) AND p.status = 'active'${catWhere}
      ORDER BY po.published_at DESC LIMIT 30`,
     params
   )
@@ -360,7 +360,7 @@ publicRoutes.get('/stories', async (c) => {
   const rows = await db.all<any>(
     `SELECT po.id, po.images_json, po.caption, po.published_at, p.slug AS publication_slug, p.title AS publication_title, p.logo_key, p.theme_color
      FROM posts po JOIN publications p ON p.id = po.publication_id
-     WHERE po.status = 'published' AND po.is_story = 1 AND po.expires_at > ? AND p.status = 'active' ORDER BY po.published_at DESC LIMIT 60`,
+     WHERE po.status = 'published' AND po.published_at <= ${SQL_NOW} AND po.is_story = 1 AND po.expires_at > ? AND p.status = 'active' ORDER BY po.published_at DESC LIMIT 60`,
     [nowIso()]
   )
   return c.json({ stories: rows.map((x) => ({ ...x, images: parseJson(x.images_json, []), images_json: undefined })) })
@@ -375,7 +375,7 @@ publicRoutes.get('/posts/:id', async (c) => {
        i.title AS source_issue_title, i.number AS source_issue_number, t.title AS source_toc_title, t.page_start AS source_page
      FROM posts po JOIN publications p ON p.id = po.publication_id JOIN issues i ON i.id = po.source_issue_id
      LEFT JOIN issue_toc_items t ON t.id = po.source_toc_item_id
-     WHERE po.id = ? AND po.status = 'published'`,
+     WHERE po.id = ? AND po.status = 'published' AND po.published_at <= ${SQL_NOW}`,
     [c.req.param('id')]
   )
   if (!po) throw notFound('پست یافت نشد')
@@ -430,7 +430,7 @@ publicRoutes.post('/track', async (c) => {
   if (b.type === 'explore') await trackView(c, 'explore', null, null)
   // explore → "read full" click (ROADMAP phase 6 funnel); de-duplicated per viewer/day by trackView
   if (b.type === 'read_full' && typeof b.id === 'string' && b.id.length <= 40) {
-    const po = await c.get('db').first<{ id: string; publication_id: string }>("SELECT id, publication_id FROM posts WHERE id = ? AND status = 'published'", [b.id])
+    const po = await c.get('db').first<{ id: string; publication_id: string }>(`SELECT id, publication_id FROM posts WHERE id = ? AND status = 'published' AND published_at <= ${SQL_NOW}`, [b.id])
     if (po) await trackView(c, 'post_read_full', po.id, po.publication_id)
   }
   return c.json({ ok: true })
