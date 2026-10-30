@@ -175,6 +175,28 @@ html.text-lg-mode {
   .no-print {
     display: none !important;
   }
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  .scorecard,
+  .print-sheet {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    break-inside: avoid;
+  }
+  .print-sheet section,
+  .scorecard section {
+    break-inside: avoid;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
