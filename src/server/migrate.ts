@@ -4,12 +4,14 @@ import m0001 from '../../migrations/0001_init.sql'
 import m0002 from '../../migrations/0002_totp.sql'
 import m0003 from '../../migrations/0003_shelf_rules.sql'
 import m0004 from '../../migrations/0004_registration_modes.sql'
+import m0005 from '../../migrations/0005_post_alt_text.sql'
 
 export const MIGRATIONS: { name: string; sql: string }[] = [
   { name: '0001_init', sql: m0001 },
   { name: '0002_totp', sql: m0002 },
   { name: '0003_shelf_rules', sql: m0003 },
-  { name: '0004_registration_modes', sql: m0004 }
+  { name: '0004_registration_modes', sql: m0004 },
+  { name: '0005_post_alt_text', sql: m0005 }
 ]
 
 /** Split a SQL script into single statements (strips `--` comments). */
