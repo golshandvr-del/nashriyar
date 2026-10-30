@@ -76,9 +76,11 @@ class NullProvider implements AIProvider {
 class OpenAICompatibleProvider implements AIProvider {
   readonly enabled = true
   lastTokens = 0
-  constructor(private baseUrl: string, private apiKey: string, private model: string) {}
+  constructor(private baseUrl: string, private apiKey: string, private model: string, private timeoutMs = 15000) {}
   async complete(system: string, user: string): Promise<string> {
+    // Short timeout: a slow AI service must never slow down the dashboard (ROADMAP phase 10).
     const res = await fetch(this.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+      signal: AbortSignal.timeout(this.timeoutMs),
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
       body: JSON.stringify({ model: this.model, temperature: 0.3, max_tokens: 900, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] })
@@ -98,7 +100,8 @@ export async function getProvider(c: Context<AppEnv>): Promise<AIProvider> {
   const apiKey = (await getSetting(db, 'ai_api_key', '')) || deps.ai?.apiKey || ''
   const model = (await getSetting(db, 'ai_model', '')) || deps.ai?.model || 'gpt-4o-mini'
   if (!baseUrl || !apiKey) return new NullProvider()
-  return new GuardedProvider(new OpenAICompatibleProvider(baseUrl, apiKey, model), db)
+  const timeoutSec = Math.min(60, Math.max(3, Number(await getSetting(db, 'ai_timeout_sec', 15)) || 15))
+  return new GuardedProvider(new OpenAICompatibleProvider(baseUrl, apiKey, model, timeoutSec * 1000), db)
 }
 
 const SYSTEM_FA =
