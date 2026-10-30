@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -51,5 +51,15 @@ t('termBounds returns an ordered range', () => {
   const b = m.termBounds(new Date('2026-10-30T00:00:00Z'))
   const s = b.start ?? b[0], e = b.end ?? b[1]
   assert.ok(String(s) < String(e))
+})
+t('reminderMark: picks the tightest applicable mark', () => {
+  assert.equal(m.reminderMark(10, m.DEADLINE_MARKS), null)
+  assert.equal(m.reminderMark(7, m.DEADLINE_MARKS), 7)
+  assert.equal(m.reminderMark(5, m.DEADLINE_MARKS), 7)
+  assert.equal(m.reminderMark(3, m.DEADLINE_MARKS), 3)
+  assert.equal(m.reminderMark(0, m.DEADLINE_MARKS), 1)
+  assert.equal(m.reminderMark(-1, m.DEADLINE_MARKS), null)
+  assert.equal(m.reminderMark(45, m.LICENSE_MARKS), 60)
+  assert.equal(m.reminderMark(20, m.LICENSE_MARKS), 30)
 })
 console.log(`unit: ${n} passed`)
