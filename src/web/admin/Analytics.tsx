@@ -584,6 +584,29 @@ function ExploreStats({ q }: { q: string }) {
     <Async state={st}>
       {(d: any) => (
         <div className="space-y-4">
+          {d.totals && (
+            <section id="explore-public-space" className="grid gap-3 md:grid-cols-3" aria-label="فضای عمومی">
+              <div className="card p-3">
+                <div className="text-xs text-muted">بازدید کل فضای عمومی</div>
+                <div className="text-2xl font-extrabold">{formatNumber(d.totals.views || 0)}</div>
+                <div className="text-xs text-muted">{formatNumber(d.totals.uniq || 0)} بازدیدکنندهٔ یکتا</div>
+              </div>
+              <Card title="پربازدیدترین دسته‌ها">
+                <ol className="space-y-1 text-xs">
+                  {(d.byCategory || []).slice(0, 6).map((r: any) => (
+                    <li key={r.id} className="flex justify-between"><span>{r.name}</span><span>{formatNumber(r.views)} <span className="text-muted">({formatNumber(r.uniq)} یکتا)</span></span></li>
+                  ))}
+                </ol>
+              </Card>
+              <Card title="انجمن‌ها و کانون‌های پربازدید">
+                <ol className="space-y-1 text-xs">
+                  {(d.byAssociation || []).slice(0, 6).map((r: any) => (
+                    <li key={r.id} className="flex justify-between"><span>{r.name}</span><span>{formatNumber(r.views)} <span className="text-muted">({formatNumber(r.uniq)} یکتا)</span></span></li>
+                  ))}
+                </ol>
+              </Card>
+            </section>
+          )}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             {[
               ['کل نظرها', d.moderation?.total], ['در انتظار', d.moderation?.pending], ['تأییدشده', d.moderation?.approved], ['ردشده', d.moderation?.rejected]
