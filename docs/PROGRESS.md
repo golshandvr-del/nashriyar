@@ -51,7 +51,9 @@
 ## نکات کشف‌شده (برای جلوگیری از تکرار)
 - pdfjs-dist v6: `destroy()` روی loadingTask است نه PDFDocumentProxy.
 - انجام‌شده (گفتگوی ۱۰): theme-init.js خارجی، sw.js، offline.html، ثبت SW، public/_headers (CSP)، pdf.js isEvalSupported=false، CSP در app.ts (export const CSP).
-- گام بعدی (به ترتیب): /healthz با بررسی DB ← Dockerfile + .dockerignore ← deploy/nginx.conf + docker-compose.yml ← .env.example ← scripts/backup.sh ← scripts/test-e2e.sh + اصلاح npm test ← .github/workflows/ci.yml (+gitleaks) ← قالب Issue/PR ← docs/OPERATIONS.md ← README/CHANGELOG ← تیک‌زدن ROADMAP ← بستن Milestoneها و Release v1.0.0 روی GitHub.
+- انجام‌شده (گفتگوی ۱۱، commits 162–176): /api/health با پروب DB (503)، Dockerfile چندمرحله‌ای (runtime بدون node_modules)، .dockerignore، deploy/nginx.conf، docker-compose.yml (app+nginx+certbot)، .env.example، فلگ `--backup` (VACUUM INTO + حذف قدیمی‌تر از BACKUP_KEEP_DAYS) و `npm run backup`، scripts/test-e2e.mjs و `npm test` (seed موقت روی پورت 3999 + هر دو suite) — **پاس**، .github/workflows/ci.yml (typecheck/build/e2e/gitleaks/docker)، قالب‌های Issue و PR.
+- pdfjs v6 گزینهٔ `isEvalSupported` را ندارد (حذف شد؛ v6 اصلاً eval ندارد).
+- گام بعدی: بررسی اجرای CI روی GitHub ← docs/OPERATIONS.md ← README/CHANGELOG ← تیک‌زدن ROADMAP ← بستن Milestoneها و Release v1.0.0.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
 - `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
 - مسیر شمارهٔ admin: `issues/:id` (IssueDetail از `useParams().id` می‌خواند).
