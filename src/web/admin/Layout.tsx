@@ -1,6 +1,6 @@
 import { Link, NavLink, Navigate, Outlet } from 'react-router-dom'
 import {
-  Activity, BarChart3, BookCopy, Building2, CheckSquare, FolderTree, House, LayoutDashboard, Lightbulb, Megaphone, ScrollText, Settings, ShieldAlert, Store, UserCog, Users
+  Activity, BarChart3, BookCopy, Building2, CheckSquare, FileText, FolderTree, House, LayoutDashboard, Lightbulb, Megaphone, ScrollText, Settings, ShieldAlert, Store, UserCog, Users
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { ROLE_LABEL, isAdmin, isMonitor, useAuth } from '../lib/auth'
@@ -18,7 +18,8 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { to: '', label: 'نمای کلی', icon: LayoutDashboard, access: 'monitor', end: true },
       { to: 'live', label: 'برد زنده', icon: Activity, access: 'monitor' },
       { to: 'analytics', label: 'آمار و تحلیل', icon: BarChart3, access: 'monitor' },
-      { to: 'insights', label: 'بینش‌ها', icon: Lightbulb, access: 'monitor' }
+      { to: 'insights', label: 'بینش‌ها', icon: Lightbulb, access: 'monitor' },
+      { to: 'report', label: 'گزارش دوره‌ای', icon: FileText, access: 'monitor' }
     ]
   },
   {
