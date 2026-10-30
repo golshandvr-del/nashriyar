@@ -159,24 +159,24 @@ meRoutes.delete('/follows/:publicationId', async (c) => {
 meRoutes.get('/feed', async (c) => {
   const u = requireUser(c)
   const rows = await c.get('db').all<any>(
-    `SELECT po.id, po.caption, po.images_json, po.published_at, p.slug AS publication_slug, p.title AS publication_title, p.logo_key, p.theme_color
+    `SELECT po.id, po.caption, po.images_json, po.alt_json, po.published_at, p.slug AS publication_slug, p.title AS publication_title, p.logo_key, p.theme_color
      FROM posts po JOIN publications p ON p.id = po.publication_id JOIN follows f ON f.publication_id = po.publication_id AND f.user_id = ? AND f.unfollowed_at IS NULL
      WHERE po.status = 'published' AND po.published_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now') AND po.is_story = 0 ORDER BY po.published_at DESC LIMIT 60`,
     [u.id]
   )
-  return c.json({ posts: rows.map((x) => ({ ...x, images: parseJson(x.images_json, []), images_json: undefined })) })
+  return c.json({ posts: rows.map((x) => ({ ...x, images: parseJson(x.images_json, []), alts: parseJson(x.alt_json, []), images_json: undefined, alt_json: undefined })) })
 })
 
 // ───────── Saved posts ─────────
 meRoutes.get('/saved', async (c) => {
   const u = requireUser(c)
   const rows = await c.get('db').all<any>(
-    `SELECT po.id, po.caption, po.images_json, po.published_at, p.slug AS publication_slug, p.title AS publication_title
+    `SELECT po.id, po.caption, po.images_json, po.alt_json, po.published_at, p.slug AS publication_slug, p.title AS publication_title
      FROM saved_posts s JOIN posts po ON po.id = s.post_id JOIN publications p ON p.id = po.publication_id
      WHERE s.user_id = ? AND po.status = 'published' AND po.published_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now') ORDER BY s.created_at DESC`,
     [u.id]
   )
-  return c.json({ posts: rows.map((x) => ({ ...x, images: parseJson(x.images_json, []), images_json: undefined })) })
+  return c.json({ posts: rows.map((x) => ({ ...x, images: parseJson(x.images_json, []), alts: parseJson(x.alt_json, []), images_json: undefined, alt_json: undefined })) })
 })
 
 meRoutes.post('/saved/:postId', async (c) => {
