@@ -240,7 +240,22 @@ publicRoutes.get('/search', async (c) => {
       OR i.id IN (SELECT ip.issue_id FROM issue_pages ip WHERE ip.text_content LIKE ?))`]
   const params: unknown[] = [like, like, like, like]
   if (pricing === 'free' || pricing === 'paid') (issueWhere.push('i.pricing = ?'), params.push(pricing))
-  const issues = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${issueWhere.join(' AND ')} ORDER BY i.published_at DESC LIMIT 60`, params)
+  // ROADMAP phase 4: filters (faculty, category incl. publication-level categories) and sorting
+  const faculty = c.req.query('faculty')
+  if (faculty) (issueWhere.push('p.faculty_id = ?'), params.push(faculty))
+  const category = c.req.query('category')
+  if (category) {
+    issueWhere.push('(i.id IN (SELECT issue_id FROM issue_categories WHERE category_id = ?) OR p.id IN (SELECT publication_id FROM publication_categories WHERE category_id = ?))')
+    params.push(category, category)
+  }
+  const SORTS: Record<string, string> = {
+    newest: 'i.published_at DESC',
+    oldest: 'i.published_at ASC',
+    popular: "(SELECT COUNT(*) FROM view_events v WHERE v.entity_id = i.id AND v.entity_type IN ('issue','issue_read')) DESC, i.published_at DESC",
+    title: 'i.title ASC'
+  }
+  const order = SORTS[c.req.query('sort') || ''] || SORTS.newest
+  const issues = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${issueWhere.join(' AND ')} ORDER BY ${order} LIMIT 60`, params)
   const people = await db.all(
     `SELECT tm.full_name, COUNT(DISTINCT t.issue_id) AS issue_count FROM team_members tm JOIN toc_assignments ta ON ta.team_member_id = tm.id
      JOIN issue_toc_items t ON t.id = ta.toc_item_id JOIN issues i ON i.id = t.issue_id WHERE i.status = 'published' AND i.published_at <= ${SQL_NOW} AND tm.full_name LIKE ? GROUP BY tm.full_name LIMIT 10`,
