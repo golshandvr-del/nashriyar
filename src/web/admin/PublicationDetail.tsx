@@ -1,0 +1,400 @@
+import { useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { KeyRound, Pencil, UserRoundCog } from 'lucide-react'
+import { api, mediaUrl } from '../lib/api'
+import { FREQUENCY, ISSUE_STATUS, PUB_STATUS, faDate, faMonthLabel, formatNumber, relativeFa, toFaDigits } from '../lib/format'
+import { Async, Avatar, Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Progress, Select, Tabs, Textarea, useAction, useAsync, useToast } from '../components/ui'
+import { Chart } from '../components/Chart'
+import { CredentialsSheet } from './PublicationNew'
+import type { Credential } from './PublicationNew'
+import { useAdminRole } from './Layout'
+
+const ROLE_FA: Record<string, string> = { managing_director: 'مدیرمسئول', editor_in_chief: 'سردبیر', license_holder: 'صاحب امتیاز' }
+type Tab = 'issues' | 'roles' | 'members' | 'followers' | 'activity'
+
+export default function AdminPublicationDetail() {
+  const { id = '' } = useParams()
+  const { admin } = useAdminRole()
+  const st = useAsync(() => api.get(`/api/admin/publications/${id}`), [id])
+  const [tab, setTab] = useState<Tab>('issues')
+  const [editing, setEditing] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
+
+  return (
+    <Async state={st}>
+      {(d: any) => {
+        const p = d.publication
+        return (
+          <div className="space-y-4">
+            <PageHeader
+              back={<Link to="/admin/publications" className="text-sm text-muted">← نشریات</Link>}
+              title={
+                <span className="flex items-center gap-2">
+                  <Avatar src={mediaUrl(p.logo_key)} name={p.title} size={36} color={p.theme_color} />
+                  {p.title}
+                  <Badge tone={p.status === 'active' ? 'ok' : p.status === 'suspended' ? 'danger' : 'muted'}>{PUB_STATUS[p.status]}</Badge>
+                </span>
+              }
+              subtitle={p.tagline}
+              actions={
+                <div className="flex flex-wrap gap-2">
+                  <Link to={`/p/${p.slug}`} className="btn-ghost">صفحهٔ عمومی</Link>
+                  {admin && <Button variant="ghost" icon={<Pencil className="size-4" />} onClick={() => setEditing(true)}>ویرایش</Button>}
+                  {admin && <Button variant="ghost" onClick={() => setStatusOpen(true)}>تغییر وضعیت</Button>}
+                </div>
+              }
+            />
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <Info label="دورهٔ انتشار" value={FREQUENCY[p.frequency] || p.frequency} />
+              <Info label="شمارهٔ مجوز" value={p.license_number ? toFaDigits(p.license_number) : '—'} />
+              <Info label="انقضای مجوز" value={faDate(p.license_expires_at)} danger={!!p.license_expires_at && new Date(p.license_expires_at) < new Date()} />
+              <Info label="دنبال‌کننده" value={formatNumber(d.followers)} />
+            </div>
+            <Tabs<Tab>
+              value={tab}
+              onChange={setTab}
+              tabs={[
+                { key: 'issues', label: `شماره‌ها (${toFaDigits(d.issues.length)})` },
+                { key: 'roles', label: 'ارکان' },
+                { key: 'members', label: `اعضا (${toFaDigits(d.members.length)})` },
+                ...(admin ? [{ key: 'followers' as Tab, label: 'دنبال‌کنندگان' }] : []),
+                { key: 'activity', label: 'فعالیت' }
+              ]}
+            />
+            {tab === 'issues' && <IssuesTab issues={d.issues} stages={d.stages} />}
+            {tab === 'roles' && <RolesTab pubId={p.id} roles={d.roles} admin={admin} onChange={st.reload} />}
+            {tab === 'members' && <MembersTab members={d.members} />}
+            {tab === 'followers' && <FollowersTab pubId={p.id} />}
+            {tab === 'activity' && (
+              <Card>
+                {!d.activity.length ? (
+                  <Empty title="فعالیتی ثبت نشده" />
+                ) : (
+                  <ol className="space-y-2 text-sm">
+                    {d.activity.map((a: any, i: number) => (
+                      <li key={i} className="flex justify-between gap-2 border-b border-line pb-2 last:border-0">
+                        <span>
+                          <span className="font-mono text-xs text-muted" dir="ltr">{a.type}</span>
+                          {a.issue_number ? ` · شمارهٔ ${toFaDigits(a.issue_number)}` : ''} {a.actor_name ? ` · ${a.actor_name}` : ''}
+                        </span>
+                        <span className="shrink-0 text-xs text-muted">{relativeFa(a.created_at)}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </Card>
+            )}
+            {editing && <EditModal pub={p} categories={d.categories} onClose={() => setEditing(false)} onDone={() => (setEditing(false), st.reload())} />}
+            {statusOpen && <StatusModal pub={p} onClose={() => setStatusOpen(false)} onDone={() => (setStatusOpen(false), st.reload())} />}
+          </div>
+        )
+      }}
+    </Async>
+  )
+}
+
+function Info({ label, value, danger }: { label: string; value: React.ReactNode; danger?: boolean }) {
+  return (
+    <div className="card p-3">
+      <div className="text-xs text-muted">{label}</div>
+      <div className={danger ? 'font-bold text-danger' : 'font-bold'}>{value}</div>
+    </div>
+  )
+}
+
+function IssuesTab({ issues, stages }: { issues: any[]; stages: any[] }) {
+  if (!issues.length) return <Empty title="هنوز شماره‌ای تعریف نشده" />
+  const byIssue: Record<string, any[]> = {}
+  for (const s of stages) (byIssue[s.issue_id] ||= []).push(s)
+  return (
+    <div className="space-y-2">
+      {issues.map((i) => {
+        const st = ISSUE_STATUS[i.status]
+        const pct = i.toc_total ? Math.round((i.toc_done / i.toc_total) * 100) : 0
+        return (
+          <Link key={i.id} to={`/admin/issues/${i.id}`} className="card block p-3 hover:border-brand">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="font-bold">
+                شمارهٔ {toFaDigits(i.number)} — {i.title}
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted">
+                {i.published_at ? `انتشار: ${faDate(i.published_at)}` : i.planned_publish_at ? `برنامه: ${faDate(i.planned_publish_at)}` : `آغاز: ${faDate(i.created_at)}`}
+                {st && <Badge tone={st.tone}>{st.label}</Badge>}
+              </div>
+            </div>
+            {i.status !== 'published' && i.status !== 'archived' && <Progress value={pct} className="mt-2" />}
+            {!!byIssue[i.id]?.length && (
+              <div className="mt-2 flex gap-0.5" title="مراحل تولید">
+                {byIssue[i.id].map((s) => (
+                  <span
+                    key={s.key}
+                    title={`${s.title}: ${s.status === 'done' ? 'انجام‌شده' : s.status === 'in_progress' ? 'در جریان' : s.status === 'skipped' ? 'ردشده' : 'در انتظار'}`}
+                    className={`h-1.5 flex-1 rounded-full ${s.status === 'done' ? 'bg-ok' : s.status === 'in_progress' ? 'bg-brand' : s.status === 'skipped' ? 'bg-line' : 'bg-surface-2'}`}
+                  />
+                ))}
+              </div>
+            )}
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
+function RolesTab({ pubId, roles, admin, onChange }: { pubId: string; roles: any[]; admin: boolean; onChange: () => void }) {
+  const [replace, setReplace] = useState<string | null>(null)
+  const [creds, setCreds] = useState<Credential[] | null>(null)
+  const { run } = useAction()
+  const { confirm } = useToast()
+  const current = roles.filter((r) => !r.ended_at)
+  const past = roles.filter((r) => r.ended_at)
+  const reset = async (r: any) => {
+    if (!(await confirm(`رمز «${r.display_name}» بازنشانی شود؟ نشست‌های فعال او بسته می‌شود.`))) return
+    const res = await run(() => api.post(`/api/admin/users/${r.user_id}/reset-password`), 'رمز بازنشانی شد')
+    if (res) setCreds([{ ...res.credentials, role_fa: ROLE_FA[r.role] }])
+  }
+  if (creds) return <CredentialsSheet title="رمز موقت جدید" items={creds} onDone={() => setCreds(null)} />
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        {Object.keys(ROLE_FA).map((role) => {
+          const r = current.find((x) => x.role === role)
+          return (
+            <Card key={role} title={ROLE_FA[role]}>
+              {r ? (
+                <div className="space-y-1 text-sm">
+                  <div className="font-bold">{r.display_name}</div>
+                  <div className="font-mono text-xs text-muted" dir="ltr">{r.username}</div>
+                  <div className="text-xs text-muted">از {faDate(r.started_at)} · آخرین ورود: {r.last_login_at ? relativeFa(r.last_login_at) : 'هرگز'}</div>
+                  {!!r.must_change_password && <Badge tone="warn">رمز موقت تغییر نکرده</Badge>}
+                </div>
+              ) : (
+                <div className="text-sm text-muted">خالی</div>
+              )}
+              {admin && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button variant="ghost" className="!px-3 !py-1.5" icon={<UserRoundCog className="size-4" />} onClick={() => setReplace(role)}>جایگزینی</Button>
+                  {r && <Button variant="ghost" className="!px-3 !py-1.5" icon={<KeyRound className="size-4" />} onClick={() => reset(r)}>بازنشانی رمز</Button>}
+                </div>
+              )}
+            </Card>
+          )
+        })}
+      </div>
+      <Card title="سابقهٔ ارکان">
+        {!past.length ? (
+          <Empty title="سابقه‌ای ثبت نشده" />
+        ) : (
+          <table className="w-full text-sm">
+            <tbody>
+              {past.map((r) => (
+                <tr key={r.id} className="border-t border-line first:border-0">
+                  <td className="p-2">{ROLE_FA[r.role]}</td>
+                  <td className="p-2">{r.display_name}</td>
+                  <td className="p-2 text-xs text-muted">
+                    {faDate(r.started_at)} تا {faDate(r.ended_at)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+      {replace && (
+        <ReplaceModal
+          pubId={pubId}
+          role={replace}
+          onClose={() => setReplace(null)}
+          onDone={(c) => {
+            setReplace(null)
+            onChange()
+            if (c) setCreds([c])
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ReplaceModal({ pubId, role, onClose, onDone }: { pubId: string; role: string; onClose: () => void; onDone: (c: Credential | null) => void }) {
+  const tu = useAsync(() => api.get('/api/admin/team-users'), [])
+  const { busy, run } = useAction()
+  const [mode, setMode] = useState<'new' | 'existing'>('new')
+  const [f, setF] = useState({ display_name: '', username: '', existing_user_id: '' })
+  const submit = async () => {
+    const r = await run(() => api.post(`/api/admin/publications/${pubId}/roles`, mode === 'existing' ? { role, existing_user_id: f.existing_user_id } : { role, display_name: f.display_name, username: f.username }), 'جایگزینی انجام شد')
+    if (r) onDone(r.credentials)
+  }
+  return (
+    <Modal open onClose={onClose} title={`جایگزینی ${ROLE_FA[role]}`} footer={<><Button variant="ghost" onClick={onClose}>انصراف</Button><Button loading={busy} onClick={submit}>ثبت</Button></>}>
+      <p className="mb-3 text-xs text-muted">دورهٔ فرد قبلی بسته می‌شود و در سابقه می‌ماند (مبنای سنجش عملکرد هر مدیر).</p>
+      <div className="mb-3 flex gap-3 text-sm">
+        <label className="flex items-center gap-1"><input type="radio" checked={mode === 'new'} onChange={() => setMode('new')} /> حساب جدید</label>
+        <label className="flex items-center gap-1"><input type="radio" checked={mode === 'existing'} onChange={() => setMode('existing')} /> حساب موجود</label>
+      </div>
+      {mode === 'new' ? (
+        <div className="space-y-3">
+          <Field label="نام و نام خانوادگی"><Input value={f.display_name} onChange={(e) => setF({ ...f, display_name: e.target.value })} /></Field>
+          <Field label="نام کاربری" hint="حروف لاتین، عدد و . _ -"><Input value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} dir="ltr" /></Field>
+        </div>
+      ) : (
+        <Async state={tu}>
+          {(d: any) => (
+            <Field label="حساب تیمی">
+              <Select value={f.existing_user_id} onChange={(e) => setF({ ...f, existing_user_id: e.target.value })} placeholder="انتخاب کنید" options={d.users.map((u: any) => ({ value: u.id, label: `${u.display_name} (${u.username})` }))} />
+            </Field>
+          )}
+        </Async>
+      )}
+    </Modal>
+  )
+}
+
+function MembersTab({ members }: { members: any[] }) {
+  if (!members.length) return <Empty title="عضوی ثبت نشده" />
+  return (
+    <div className="card overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-surface-2 text-xs text-muted">
+          <tr>
+            <th className="p-3 text-right">نام</th>
+            <th className="p-3 text-right">نقش</th>
+            <th className="p-3 text-center">شماره‌ها</th>
+            <th className="p-3 text-center">بخش‌ها</th>
+            <th className="hidden p-3 text-right sm:table-cell">پیوستن</th>
+          </tr>
+        </thead>
+        <tbody>
+          {members.map((m) => (
+            <tr key={m.id} className={`border-t border-line ${m.is_active ? '' : 'opacity-50'}`}>
+              <td className="p-3">
+                <Link to={`/admin/people/${encodeURIComponent(m.student_number || m.full_name)}`} className="font-medium hover:text-brand">{m.full_name}</Link>
+              </td>
+              <td className="p-3 text-xs">{m.default_role || '—'}</td>
+              <td className="p-3 text-center">{toFaDigits(m.issue_count)}</td>
+              <td className="p-3 text-center">{toFaDigits(m.section_count)}</td>
+              <td className="hidden p-3 text-xs text-muted sm:table-cell">{faDate(m.joined_at)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function FollowersTab({ pubId }: { pubId: string }) {
+  const st = useAsync(() => api.get(`/api/admin/publications/${pubId}/followers`), [pubId])
+  return (
+    <Async state={st}>
+      {(d: any) => (
+        <div className="space-y-4">
+          <p className="text-xs text-muted">این فهرست فقط برای مسئول نشریات قابل مشاهده است و هرگز به تیم نشریه نشان داده نمی‌شود.</p>
+          {!!d.monthly.length && (
+            <Card title="روند دنبال‌کردن (ماهانه)">
+              <Chart
+                height={220}
+                csvName="followers-monthly"
+                option={{ xAxis: { type: 'category', data: d.monthly.map((m: any) => faMonthLabel(m.month)) }, yAxis: { type: 'value', minInterval: 1 }, series: [{ name: 'دنبال‌کنندهٔ جدید', type: 'bar', data: d.monthly.map((m: any) => m.n) }] }}
+              />
+            </Card>
+          )}
+          {!d.followers.length ? (
+            <Empty title="دنبال‌کننده‌ای ندارد" />
+          ) : (
+            <div className="card overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-surface-2 text-xs text-muted">
+                  <tr>
+                    <th className="p-3 text-right">نام</th>
+                    <th className="p-3 text-right">شمارهٔ دانشجویی</th>
+                    <th className="hidden p-3 text-right sm:table-cell">دانشکده</th>
+                    <th className="p-3 text-right">از</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.followers.map((f: any, i: number) => (
+                    <tr key={i} className="border-t border-line">
+                      <td className="p-3">{f.display_name}</td>
+                      <td className="p-3 font-mono text-xs" dir="ltr">{f.student_number ? toFaDigits(f.student_number) : '—'}</td>
+                      <td className="hidden p-3 text-xs sm:table-cell">{f.faculty_name || '—'}</td>
+                      <td className="p-3 text-xs text-muted">{faDate(f.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </Async>
+  )
+}
+
+function EditModal({ pub, categories, onClose, onDone }: { pub: any; categories: string[]; onClose: () => void; onDone: () => void }) {
+  const st = useAsync(() => Promise.all([api.get('/api/admin/structure'), api.get('/api/admin/categories')]), [])
+  const { busy, run } = useAction()
+  const [f, setF] = useState({
+    title: pub.title || '', tagline: pub.tagline || '', description: pub.description || '', association_id: pub.association_id || '', faculty_id: pub.faculty_id || '',
+    license_number: pub.license_number || '', license_issued_at: (pub.license_issued_at || '').slice(0, 10), license_expires_at: (pub.license_expires_at || '').slice(0, 10),
+    frequency: pub.frequency, theme_color: pub.theme_color || '#0f766e', keywords: pub.keywords || ''
+  })
+  const [cats, setCats] = useState<string[]>(categories)
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
+  const submit = async () => {
+    const r = await run(() => api.put(`/api/admin/publications/${pub.id}`, { ...f, category_ids: cats }), 'ذخیره شد')
+    if (r) onDone()
+  }
+  return (
+    <Modal open wide onClose={onClose} title="ویرایش نشریه" footer={<><Button variant="ghost" onClick={onClose}>انصراف</Button><Button loading={busy} onClick={submit}>ذخیره</Button></>}>
+      <Async state={st}>
+        {([s, c]: any) => (
+          <div className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Field label="نام"><Input value={f.title} onChange={set('title')} /></Field>
+              <Field label="شعار"><Input value={f.tagline} onChange={set('tagline')} /></Field>
+              <Field label="صاحب امتیاز"><Select value={f.association_id} onChange={set('association_id')} options={s.associations.map((a: any) => ({ value: a.id, label: a.name }))} /></Field>
+              <Field label="دانشکده"><Select value={f.faculty_id} onChange={set('faculty_id')} placeholder="بدون دانشکده" options={s.faculties.map((x: any) => ({ value: x.id, label: x.name }))} /></Field>
+              <Field label="دورهٔ انتشار"><Select value={f.frequency} onChange={set('frequency')} options={Object.entries(FREQUENCY).map(([value, label]) => ({ value, label }))} /></Field>
+              <Field label="شمارهٔ مجوز"><Input value={f.license_number} onChange={set('license_number')} /></Field>
+              <Field label="تاریخ صدور مجوز"><Input type="date" dir="ltr" value={f.license_issued_at} onChange={set('license_issued_at')} /></Field>
+              <Field label="تاریخ انقضای مجوز"><Input type="date" dir="ltr" value={f.license_expires_at} onChange={set('license_expires_at')} /></Field>
+              <Field label="کلیدواژه‌ها"><Input value={f.keywords} onChange={set('keywords')} /></Field>
+              <Field label="رنگ شاخص"><input type="color" value={f.theme_color} onChange={set('theme_color')} className="h-10 w-20 rounded-lg border border-line" /></Field>
+            </div>
+            <Field label="معرفی"><Textarea value={f.description} onChange={set('description')} /></Field>
+            <Field label="دسته‌بندی‌ها">
+              <div className="flex flex-wrap gap-2">
+                {c.categories.filter((x: any) => x.is_active).map((x: any) => {
+                  const on = cats.includes(x.id)
+                  return (
+                    <button type="button" key={x.id} onClick={() => setCats(on ? cats.filter((i) => i !== x.id) : [...cats, x.id].slice(0, 15))} className={on ? 'chip border-brand bg-brand-soft text-brand' : 'chip'}>
+                      {x.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </Field>
+          </div>
+        )}
+      </Async>
+    </Modal>
+  )
+}
+
+function StatusModal({ pub, onClose, onDone }: { pub: any; onClose: () => void; onDone: () => void }) {
+  const { busy, run } = useAction()
+  const [status, setStatus] = useState(pub.status)
+  const [reason, setReason] = useState('')
+  const submit = async () => {
+    const r = await run(() => api.post(`/api/admin/publications/${pub.id}/status`, { status, reason: reason.trim() || undefined }), 'وضعیت تغییر کرد')
+    if (r) onDone()
+  }
+  return (
+    <Modal open onClose={onClose} title="تغییر وضعیت نشریه" footer={<><Button variant="ghost" onClick={onClose}>انصراف</Button><Button variant={status === 'active' ? 'primary' : 'danger'} loading={busy} onClick={submit}>ثبت</Button></>}>
+      <div className="space-y-3">
+        <Field label="وضعیت"><Select value={status} onChange={(e) => setStatus(e.target.value)} options={Object.entries(PUB_STATUS).map(([value, label]) => ({ value, label }))} /></Field>
+        <Field label="دلیل (به ارکان نشریه اعلام می‌شود)"><Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} /></Field>
+      </div>
+    </Modal>
+  )
+}
