@@ -187,11 +187,11 @@ publicRoutes.get('/publications/:slug/posts', async (c) => {
   const p = await db.first<{ id: string }>("SELECT id FROM publications WHERE slug = ? AND status = 'active' AND deleted_at IS NULL", [c.req.param('slug')])
   if (!p) throw notFound('نشریه یافت نشد')
   const posts = await db.all<any>(
-    `SELECT po.id, po.caption, po.images_json, po.published_at, po.is_story, po.expires_at FROM posts po
+    `SELECT po.id, po.caption, po.images_json, po.alt_json, po.published_at, po.is_story, po.expires_at FROM posts po
      WHERE po.publication_id = ? AND po.status = 'published' AND po.published_at <= ${SQL_NOW} AND (po.is_story = 0 OR po.expires_at > ?) ORDER BY po.published_at DESC LIMIT 120`,
     [p.id, nowIso()]
   )
-  return c.json({ posts: posts.map((x) => ({ ...x, images: parseJson(x.images_json, []), images_json: undefined })) })
+  return c.json({ posts: posts.map((x) => ({ ...x, images: parseJson(x.images_json, []), alts: parseJson(x.alt_json, []), images_json: undefined, alt_json: undefined })) })
 })
 
 publicRoutes.get('/issues/:id', async (c) => {
@@ -341,7 +341,7 @@ publicRoutes.get('/explore', async (c) => {
     params.push(fac)
   }
   const posts = await db.all<any>(
-    `SELECT po.id, po.caption, po.images_json, po.published_at, p.slug AS publication_slug, p.title AS publication_title, p.logo_key, p.theme_color
+    `SELECT po.id, po.caption, po.images_json, po.alt_json, po.published_at, p.slug AS publication_slug, p.title AS publication_title, p.logo_key, p.theme_color
      FROM posts po JOIN publications p ON p.id = po.publication_id
      WHERE po.status = 'published' AND po.published_at <= ${SQL_NOW} AND po.published_at < ? AND (po.is_story = 0 OR po.expires_at > ?) AND p.status = 'active'${catWhere}
      ORDER BY po.published_at DESC LIMIT 30`,
@@ -358,25 +358,25 @@ publicRoutes.get('/explore', async (c) => {
     mixed.push(pool.splice(k, 1)[0])
   }
   const next = posts.length ? posts[posts.length - 1].published_at : null
-  return c.json({ next, posts: mixed.map((x) => ({ ...x, images: parseJson(x.images_json, []), images_json: undefined })) })
+  return c.json({ next, posts: mixed.map((x) => ({ ...x, images: parseJson(x.images_json, []), alts: parseJson(x.alt_json, []), images_json: undefined, alt_json: undefined })) })
 })
 
 publicRoutes.get('/stories', async (c) => {
   const db = c.get('db')
   const rows = await db.all<any>(
-    `SELECT po.id, po.images_json, po.caption, po.published_at, p.slug AS publication_slug, p.title AS publication_title, p.logo_key, p.theme_color
+    `SELECT po.id, po.images_json, po.alt_json, po.caption, po.published_at, p.slug AS publication_slug, p.title AS publication_title, p.logo_key, p.theme_color
      FROM posts po JOIN publications p ON p.id = po.publication_id
      WHERE po.status = 'published' AND po.published_at <= ${SQL_NOW} AND po.is_story = 1 AND po.expires_at > ? AND p.status = 'active' ORDER BY po.published_at DESC LIMIT 60`,
     [nowIso()]
   )
-  return c.json({ stories: rows.map((x) => ({ ...x, images: parseJson(x.images_json, []), images_json: undefined })) })
+  return c.json({ stories: rows.map((x) => ({ ...x, images: parseJson(x.images_json, []), alts: parseJson(x.alt_json, []), images_json: undefined, alt_json: undefined })) })
 })
 
 publicRoutes.get('/posts/:id', async (c) => {
   await requireFeature(c.get('db'), 'explore')
   const db = c.get('db')
   const po = await db.first<any>(
-    `SELECT po.id, po.caption, po.images_json, po.published_at, po.publication_id, po.source_issue_id, po.source_toc_item_id,
+    `SELECT po.id, po.caption, po.images_json, po.alt_json, po.published_at, po.publication_id, po.source_issue_id, po.source_toc_item_id,
        p.slug AS publication_slug, p.title AS publication_title, p.logo_key, p.theme_color,
        i.title AS source_issue_title, i.number AS source_issue_number, t.title AS source_toc_title, t.page_start AS source_page
      FROM posts po JOIN publications p ON p.id = po.publication_id JOIN issues i ON i.id = po.source_issue_id
@@ -393,7 +393,7 @@ publicRoutes.get('/posts/:id', async (c) => {
   const u = c.get('user')
   const saved = u ? !!(await db.first('SELECT 1 FROM saved_posts WHERE user_id = ? AND post_id = ?', [u.id, po.id])) : false
   await trackView(c, 'post', po.id, po.publication_id)
-  return c.json({ post: { ...po, images: parseJson(po.images_json, []), images_json: undefined }, comments, saved })
+  return c.json({ post: { ...po, images: parseJson(po.images_json, []), alts: parseJson(po.alt_json, []), images_json: undefined, alt_json: undefined }, comments, saved })
 })
 
 publicRoutes.get('/recruitment', async (c) => {
