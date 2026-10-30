@@ -435,7 +435,38 @@ analyticsRoutes.get('/ranking', async (c) => {
     [fromTs, toTs, fromTs, toTs, from, to, from, to, fromTs, toTs, fromTs, toTs, fromTs, toTs, from, to, fromTs, toTs, ...s.params]
   )
   const health = await healthScores(db, rows.map((r) => r.id))
-  return c.json({ from, to, rows: rows.map((r) => ({ ...r, health: health[r.id] ?? null })) })
+  // Organisational summary (ROADMAP phase 7): owners active in range (published an issue or a post),
+  // pages/issues by owner kind and by faculty, most active faculties.
+  const pubIssues = `FROM issues i JOIN publications p ON p.id = i.publication_id
+     WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ? AND p.deleted_at IS NULL${s.sql}`
+  const byOwnerKind = await db.all<any>(
+    `SELECT COALESCE(a.kind, 'none') AS kind, COUNT(i.id) AS issues, COALESCE(SUM(i.page_count),0) AS pages,
+       COUNT(DISTINCT p.association_id) AS owners
+     FROM issues i JOIN publications p ON p.id = i.publication_id LEFT JOIN associations a ON a.id = p.association_id
+     WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ? AND p.deleted_at IS NULL${s.sql} GROUP BY a.kind ORDER BY pages DESC`,
+    [fromTs, toTs, ...s.params]
+  )
+  const activeOwners = await db.all<any>(
+    `SELECT a.kind, COUNT(DISTINCT a.id) AS n FROM associations a JOIN publications p ON p.association_id = a.id
+     WHERE p.deleted_at IS NULL${s.sql} AND (
+       EXISTS (SELECT 1 FROM issues i WHERE i.publication_id = p.id AND i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?)
+       OR EXISTS (SELECT 1 FROM posts po WHERE po.publication_id = p.id AND po.published_at BETWEEN ? AND ?))
+     GROUP BY a.kind`,
+    [...s.params, fromTs, toTs, fromTs, toTs]
+  )
+  const byFaculty = await db.all<any>(
+    `SELECT f.id, COALESCE(f.name, 'بدون دانشکده') AS name, COUNT(i.id) AS issues, COALESCE(SUM(i.page_count),0) AS pages, COUNT(DISTINCT p.id) AS pubs
+     FROM issues i JOIN publications p ON p.id = i.publication_id LEFT JOIN faculties f ON f.id = p.faculty_id
+     WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ? AND p.deleted_at IS NULL${s.sql} GROUP BY f.id ORDER BY pages DESC`,
+    [fromTs, toTs, ...s.params]
+  )
+  const totals = await db.first<any>(`SELECT COUNT(i.id) AS issues, COALESCE(SUM(i.page_count),0) AS pages ${pubIssues}`, [fromTs, toTs, ...s.params])
+  return c.json({
+    from,
+    to,
+    rows: rows.map((r) => ({ ...r, health: health[r.id] ?? null })),
+    org: { totals, byOwnerKind, activeOwners, byFaculty }
+  })
 })
 
 /** Production speed: average days per stage and per issue, by publication. */
