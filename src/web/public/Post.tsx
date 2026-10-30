@@ -77,6 +77,7 @@ export default function Post() {
             toast((r as any).message || 'نظر ثبت شد')
             setText('')
             setReplyTo(null)
+            st.reload() // show the author's own pending comment right away
           }
         }
         const roots = d.comments.filter((c) => !c.parent_id)
