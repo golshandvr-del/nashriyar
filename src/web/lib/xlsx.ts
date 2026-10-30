@@ -169,7 +169,7 @@ export function csvToRows(csv: string): string[][] {
 
 export function downloadXlsx(name: string, rows: unknown[][]) {
   const bytes = buildXlsx(rows, name)
-  const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const blob = new Blob([bytes as unknown as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = `${name}.xlsx`
