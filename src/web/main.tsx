@@ -7,7 +7,7 @@ import { getLargeText, setLargeText } from './lib/theme'
 import { PageLoader, ToastProvider } from './components/ui'
 import PublicLayout from './public/Layout'
 import Home from './public/Home'
-import { NotFound, Terms } from './public/Static'
+import { ErrorBoundary, NotFound, Terms } from './public/Static'
 
 // Public pages: lazily loaded to keep the first paint small.
 const Explore = lazy(() => import('./public/Explore'))
@@ -156,7 +156,9 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
