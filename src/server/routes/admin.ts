@@ -819,7 +819,7 @@ adminRoutes.get('/audit', async (c) => {
 
 // ───────── Settings (super admin for technical ones) ─────────
 const OFFICER_SETTINGS = ['site_name', 'university_name', 'registration_open', 'supervisor_can_approve', 'guest_can_read_free'] as const
-const SUPER_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit'] as const
+const SUPER_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit', 'ai_timeout_sec'] as const
 
 adminRoutes.get('/settings', async (c) => {
   const u = admin(c)
@@ -827,7 +827,7 @@ adminRoutes.get('/settings', async (c) => {
   const out: Record<string, unknown> = {}
   for (const k of OFFICER_SETTINGS) out[k] = await getSetting(db, k, k === 'registration_open' || k === 'guest_can_read_free' ? true : k === 'supervisor_can_approve' ? false : k === 'site_name' ? 'نشریار' : 'دانشگاه')
   if (u.system_role === 'super_admin') {
-    for (const k of SUPER_SETTINGS) out[k] = await getSetting(db, k, k === 'ai_enabled' ? false : k === 'ai_monthly_call_limit' ? 0 : '')
+    for (const k of SUPER_SETTINGS) out[k] = await getSetting(db, k, k === 'ai_enabled' ? false : k === 'ai_monthly_call_limit' ? 0 : k === 'ai_timeout_sec' ? 15 : '')
     if (out.ai_api_key) out.ai_api_key = '••••' + String(out.ai_api_key).slice(-4)
     out.ai_status = await getAiStatus(db)
   }
@@ -846,6 +846,7 @@ adminRoutes.post('/settings', async (c) => {
     let v = b[k]
     if (k === 'ai_api_key' && typeof v === 'string' && v.startsWith('••••')) continue
     if (k === 'ai_monthly_call_limit') v = Math.max(0, Math.min(1_000_000, Math.floor(Number(v) || 0)))
+    if (k === 'ai_timeout_sec') v = Math.max(3, Math.min(60, Math.floor(Number(v) || 15)))
     if (typeof v === 'string') v = v.slice(0, 500)
     await setSetting(db, k, v)
     changed[k] = k === 'ai_api_key' ? '(changed)' : v
