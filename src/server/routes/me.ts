@@ -33,7 +33,7 @@ meRoutes.post('/library/:issueId', async (c) => {
   const u = requireUser(c)
   const db = c.get('db')
   const i = await db.first<{ id: string; pricing: string; publication_id: string }>(
-    "SELECT id, pricing, publication_id FROM issues WHERE id = ? AND status = 'published' AND deleted_at IS NULL",
+    "SELECT id, pricing, publication_id FROM issues WHERE id = ? AND status = 'published' AND published_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now') AND deleted_at IS NULL",
     [c.req.param('issueId')]
   )
   if (!i) throw notFound('شماره یافت نشد')
