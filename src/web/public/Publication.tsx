@@ -24,6 +24,7 @@ interface PubData {
     keywords: string | null
     founded_at: string | null
     association_name: string
+    association_id?: string
     association_kind: string
     faculty_name: string | null
     faculty_id: string | null
@@ -94,7 +95,15 @@ export default function Publication() {
                   <h1 className="text-xl font-extrabold">{p.title}</h1>
                   {p.tagline && <p className="text-sm text-muted">{p.tagline}</p>}
                   <p className="mt-1 text-xs text-muted">
-                    {ASSOC_KIND[p.association_kind] || ''} {p.association_name}
+                    {p.association_id ? (
+                      <Link to={`/association/${p.association_id}`} className="hover:text-brand">
+                        {ASSOC_KIND[p.association_kind] || ''} {p.association_name}
+                      </Link>
+                    ) : (
+                      <>
+                        {ASSOC_KIND[p.association_kind] || ''} {p.association_name}
+                      </>
+                    )}
                     {p.faculty_name && (
                       <>
                         {' · '}
