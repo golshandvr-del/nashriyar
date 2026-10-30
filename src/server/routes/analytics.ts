@@ -240,7 +240,7 @@ analyticsRoutes.get('/scorecard/:id', async (c) => {
   const kpis = keys.map((k) => ({ key: k, value: Number(mine?.[k] || 0), average: Math.round((Number(all?.[k] || 0) / n) * 10) / 10 }))
   const issues = await db.all<any>(
     `SELECT i.id, i.number, i.title, i.page_count, i.created_at, i.published_at, i.planned_publish_at,
-       (SELECT COUNT(*) FROM view_events v WHERE v.issue_id = i.id AND v.entity_type = 'issue_read') AS reads
+       (SELECT COUNT(*) FROM view_events v WHERE v.entity_id = i.id AND v.entity_type = 'issue_read') AS reads
      FROM issues i WHERE i.publication_id = ? AND i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ? ORDER BY i.published_at`,
     [pub.id, fromTs, toTs]
   )
