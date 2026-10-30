@@ -41,13 +41,16 @@
   - [x] src/web/lib/api.ts (api.get/post/put/del، qs، upload با XHR، mediaUrl) ؛ lib/auth.tsx (AuthProvider/useAuth، ROLE_LABEL، isAdmin/isMonitor) ؛ lib/theme.ts ؛ lib/format.ts (برچسب‌ها + cx + fileSize)
   - [x] src/web/components/ui.tsx (useAsync، Async، Button، Card، Field، Input/Textarea/Select، Badge، Modal، ToastProvider/useToast(toast, confirm)، useAction، Tabs، PageHeader، Stat، Progress، Avatar، Empty، ErrorBox) ؛ components/cards.tsx (Cover، IssueCard، IssueGrid، Shelf، PubCard، PostTile، PostGrid، PostCard)
   - مسیرهای SPA: / ، /explore ، /post/:id ، /categories ، /c/:slug ، /faculty/:id ، /search ، /p/:slug ، /issue/:id ، /read/:id ، /library ، /redeem ، /following ، /notifications ، /login ، /register ، /settings ، /verify/:code ، /recruitment ، /team/* ، /admin/*
-  - [ ] src/web/main.tsx (Router + lazy برای team/admin)
-  - [ ] src/web/public/*: Layout(BottomNav) Home Explore Post Categories Category Faculty Search Publication Issue Reader Library Redeem Following Notifications Login Register Settings Verify Recruitment
+  - [x] src/web/main.tsx (Router + lazy؛ /read/:id خارج از Layout) — مسیرهای team/admin هنوز اضافه نشده‌اند
+  - [x] src/web/public/*: Layout Home Explore Post Categories Category(+faculty) Search Publication Issue Reader Library Redeem Following Notifications Login Register Settings Verify Recruitment Static(NotFound, Terms)
   - [ ] src/web/team/*: Layout Select Dashboard Members Issues IssueNew IssueRoom(تب‌ها: کلی/فهرست/پیشرفت/رسانه و انتشار/تأیید) Posts Comments Sales Stats Profile Recruit
   - [ ] src/web/admin/*: Layout Overview Live Approvals Publications PublicationNew PublicationDetail People Structure Categories Analytics(Charts با echarts) Insights Moderation Storefront Announcements Users Audit Settings
 - [ ] ecosystem.config.cjs ؛ Dockerfile ؛ deploy/ ؛ .github/workflows/ci.yml ؛ tests/
 
 ## نکات کشف‌شده (برای جلوگیری از تکرار)
+- Tailwind 4: نمی‌توان کلاس سفارشی (مثل btn) را @apply کرد؛ یوتیلیتی‌ها را مستقیم بنویس.
+- `npx vite build` (~۱ ثانیه) و `npx tsc --noEmit` هر دو پاس (۱۴۰۵/۰۸/۰۸، commit 103).
+- برای db.first روی `c: any` آرگومان نوع (<any>) نگذار (TS2347).
 - تست سریع بک‌اند: `node scripts/build-server.mjs && node server-dist/node.mjs --seed && setsid -f node server-dist/node.mjs > /tmp/srv.log 2>&1 < /dev/null; node tests/smoke.mjs`
 - مسیر بازخرید کد: `POST /api/me/codes/redeem` ؛ هش کد = sha256(normalizePurchaseCode(code)).
 - CSRF: درخواست‌های غیر GET باید هدر Origin هم‌دامنه داشته باشند.
