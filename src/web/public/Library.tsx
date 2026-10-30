@@ -26,7 +26,7 @@ interface Item {
   read_at: string | null
 }
 
-type Tab = 'all' | 'reading' | 'saved'
+type Tab = 'all' | 'purchased' | 'free' | 'reading' | 'finished' | 'saved'
 
 export default function Library() {
   const { user, loading } = useAuth()
@@ -54,7 +54,10 @@ export default function Library() {
       <Tabs<Tab>
         tabs={[
           { key: 'all', label: 'همه' },
+          ...(paidOn ? [{ key: 'purchased' as Tab, label: 'خریداری‌شده' }] : []),
+          { key: 'free', label: 'رایگان' },
           { key: 'reading', label: 'در حال خواندن' },
+          { key: 'finished', label: 'تمام‌شده' },
           { key: 'saved', label: 'پست‌های ذخیره‌شده' }
         ]}
         value={tab}
@@ -65,12 +68,19 @@ export default function Library() {
       ) : (
         <Async state={st}>
           {(d) => {
-            const items = tab === 'reading' ? d.items.filter((i) => (i.percent ?? 0) > 0 && (i.percent ?? 0) < 100) : d.items
+            // ROADMAP phase 5: purchased (code/gift), free added, reading, finished
+            const FILTERS: Partial<Record<Tab, (i: Item) => boolean>> = {
+              purchased: (i) => i.source !== 'free',
+              free: (i) => i.source === 'free',
+              reading: (i) => (i.percent ?? 0) > 0 && (i.percent ?? 0) < 100,
+              finished: (i) => (i.percent ?? 0) >= 100
+            }
+            const items = FILTERS[tab] ? d.items.filter(FILTERS[tab]!) : d.items
             if (!items.length)
               return (
                 <Empty
                   icon={<BookOpen className="size-10 opacity-60" />}
-                  title={tab === 'reading' ? 'شماره‌ای در حال خواندن ندارید' : 'کتابخانهٔ شما خالی است'}
+                  title={tab === 'all' ? 'کتابخانهٔ شما خالی است' : 'در این بخش شماره‌ای ندارید'}
                   hint="شماره‌های رایگان را از پیشخوان اضافه کنید یا کد خرید شماره‌های پولی را ثبت کنید."
                   action={
                     <Link to="/" className="btn-primary">
