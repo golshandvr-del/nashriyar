@@ -12,6 +12,22 @@ import { adminRoutes } from './routes/admin'
 import { analyticsRoutes } from './routes/analytics'
 import { mediaRoutes } from './routes/media'
 
+export const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "media-src 'self' blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "manifest-src 'self'"
+].join('; ')
+
 /**
  * Builds the API application. `getDeps` is called per request so the Cloudflare entry can build
  * deps from `env` bindings, while the Node entry returns a singleton.
@@ -32,6 +48,8 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     c.header('Referrer-Policy', 'same-origin')
     c.header('X-Frame-Options', 'DENY')
     c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+    // Same policy as public/_headers (Cloudflare Pages); here it also covers the self-hosted Node server's static files.
+    if (!c.res.headers.has('Content-Security-Policy')) c.header('Content-Security-Policy', CSP)
   })
 
   app.use('/api/*', async (c, next) => {
