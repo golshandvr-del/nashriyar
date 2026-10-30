@@ -126,6 +126,18 @@ export default function TocTab({ d, reload, pubId }: RoomProps) {
     const r = await run(() => api.post(`/api/team/${pubId}/issues/${issueId}/toc-order`, { order: a.map((x) => ({ id: x.id, parent_id: x.parent_id })) }))
     if (r) reload()
   }
+  /** Suggest page_start/page_end from the PDF's extracted text, show them, and apply on confirmation. */
+  const suggestPages = async () => {
+    const r = await run(() => api.get<any>(`/api/team/${pubId}/issues/${issueId}/toc/page-suggestions`))
+    if (!r) return
+    const hits = (r.suggestions as any[]).filter((x) => x.page_start != null && (x.page_start !== x.current_start || x.page_end !== x.current_end))
+    if (!r.with_text) return void (await confirm('متن صفحات هنوز استخراج نشده است؛ ابتدا PDF را در تب «رسانه» پردازش کنید.', { okLabel: 'باشه' }))
+    if (!hits.length) return void (await confirm('پیشنهاد تازه‌ای پیدا نشد (عنوان بخش‌ها در متن صفحات یافت نشد یا شماره‌ها از قبل درست است).', { okLabel: 'باشه' }))
+    const list = hits.map((x) => `• ${x.title}: ص ${formatNumber(x.page_start)}${x.page_end ? '–' + formatNumber(x.page_end) : ''}`).join('\n')
+    if (!(await confirm(`این شماره صفحه‌ها اعمال شود؟\n${list}`, { okLabel: 'اعمال' }))) return
+    for (const x of hits) await api.put(`/api/team/${pubId}/issues/${issueId}/toc/${x.id}`, { page_start: x.page_start, page_end: x.page_end })
+    reload()
+  }
   /** Drag-and-drop reorder (HTML5); the up/down buttons remain as the keyboard-accessible alternative. */
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const dropAt = async (to: number) => {
@@ -152,7 +164,17 @@ export default function TocTab({ d, reload, pubId }: RoomProps) {
 
   return (
     <div className="space-y-4">
-      <Card title="فهرست مطالب" action={<Badge tone={done === toc.length && toc.length ? 'ok' : 'muted'}>{formatNumber(done)} از {formatNumber(toc.length)} نهایی</Badge>}>
+      <Card
+        title="فهرست مطالب"
+        action={
+          <span className="flex items-center gap-2">
+            {d.pages_uploaded > 0 && toc.length > 0 && (
+              <button className="text-xs text-brand hover:underline disabled:opacity-50" disabled={busy} onClick={suggestPages}>پیشنهاد شمارهٔ صفحات</button>
+            )}
+            <Badge tone={done === toc.length && toc.length ? 'ok' : 'muted'}>{formatNumber(done)} از {formatNumber(toc.length)} نهایی</Badge>
+          </span>
+        }
+      >
         {toc.length ? (
           <ol className="divide-y divide-line">
             {toc.map((t, idx) => {
