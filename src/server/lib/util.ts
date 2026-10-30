@@ -1,6 +1,7 @@
 import type { Context } from 'hono'
 import type { Db } from '../adapters/db'
 import { newId } from './crypto'
+import { deliverOutbound } from './notifier'
 import { normalizeFa } from '../../shared/fa'
 
 export const nowIso = () => new Date().toISOString()
@@ -85,6 +86,8 @@ export async function activity(db: Db, actor: string | null | undefined, type: s
 
 export async function notify(db: Db, userId: string, type: string, title: string, link?: string) {
   await db.run('INSERT INTO notifications (id, user_id, type, title, link, created_at) VALUES (?,?,?,?,?,?)', [newId(), userId, type, title, link ?? null, nowIso()])
+  // Optional outbound channel (email/messenger); NullNotifier by default, never throws.
+  await deliverOutbound({ userId, type, title, link })
 }
 
 export async function getSetting<T>(db: Db, key: string, def: T): Promise<T> {
