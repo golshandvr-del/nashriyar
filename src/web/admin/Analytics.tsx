@@ -54,7 +54,7 @@ export default function AdminAnalytics() {
         }
       />
       <Tabs<Tab> value={tab} onChange={(k) => setSp({ tab: k }, { replace: true })} tabs={TABS} />
-      {tab === 'trends' && <Trends q={q} />}
+      {tab === 'trends' && <Trends q={q} range={range} />}
       {tab === 'ranking' && <Ranking q={q} />}
       {tab === 'production' && <Production q={q} />}
       {tab === 'gaps' && <Gaps q={q} />}
@@ -66,9 +66,33 @@ export default function AdminAnalytics() {
   )
 }
 
-function Trends({ q }: { q: string }) {
-  const st = useAsync(() => api.get(`/api/analytics/trends${q}`), [q])
+/** Previous range of the same length, ending the day before `from` (default for the comparison mode). */
+function prevSameLength(r: { from: string; to: string }) {
+  const D = 86400000
+  const len = new Date(r.to).getTime() - new Date(r.from).getTime() + D
+  const to = new Date(new Date(r.from).getTime() - D).toISOString().slice(0, 10)
+  const from = new Date(new Date(r.from).getTime() - len).toISOString().slice(0, 10)
+  return { from, to, key: 'custom' }
+}
+
+function Trends({ q, range }: { q: string; range: { from: string; to: string; key: string } }) {
+  const [cmp, setCmp] = useState<{ from: string; to: string; key: string } | null>(null)
+  const q2 = cmp ? `${q}${q.includes('?') ? '&' : '?'}from2=${cmp.from}&to2=${cmp.to}` : q
+  const st = useAsync(() => api.get(`/api/analytics/trends${q2}`), [q2])
   return (
+    <div className="space-y-4">
+      <div className="card flex flex-wrap items-center gap-3 p-3 text-sm">
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={!!cmp} onChange={(e) => setCmp(e.target.checked ? prevSameLength(range) : null)} />
+          حالت مقایسهٔ دو بازه
+        </label>
+        {cmp && (
+          <>
+            <span className="text-muted">بازهٔ ۲:</span>
+            <RangePicker value={cmp} onChange={setCmp} />
+          </>
+        )}
+      </div>
     <Async state={st}>
       {(d: any) => {
         const months = Array.from(new Set([...d.published, ...d.views, ...d.sales, ...d.followers].map((x: any) => x.m))).sort() as string[]
