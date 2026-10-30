@@ -109,13 +109,13 @@ html.text-lg-mode {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn bg-brand text-brand-ink hover:opacity-90;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 bg-brand text-brand-ink hover:opacity-90;
   }
   .btn-ghost {
-    @apply btn border border-line bg-surface hover:bg-surface-2;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 border border-line bg-surface hover:bg-surface-2;
   }
   .btn-danger {
-    @apply btn bg-danger text-white hover:opacity-90;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 bg-danger text-white hover:opacity-90;
   }
   .input {
     @apply w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none placeholder:text-muted focus:border-brand;
