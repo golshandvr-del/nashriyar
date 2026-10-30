@@ -4,6 +4,7 @@ import { clientIp } from '../auth'
 import { hmac, newId } from '../lib/crypto'
 import { body, getSetting, inList, notFound, nowIso, parseJson, today } from '../lib/util'
 import { normalizeFa } from '../../shared/fa'
+import { getFeatures, requireFeature } from '../lib/features'
 
 export const publicRoutes = new Hono<AppEnv>()
 
@@ -339,7 +340,8 @@ publicRoutes.get('/settings', async (c) => {
     site_name: await getSetting(db, 'site_name', 'نشریار'),
     university_name: await getSetting(db, 'university_name', 'دانشگاه'),
     registration_open: await getSetting(db, 'registration_open', true),
-    ai_enabled: await getSetting(db, 'ai_enabled', false)
+    ai_enabled: await getSetting(db, 'ai_enabled', false),
+    features: await getFeatures(db)
   })
 })
 
