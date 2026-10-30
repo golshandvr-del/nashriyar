@@ -8,6 +8,7 @@ import type { SystemRole } from '../lib/auth'
 import { cx } from '../lib/format'
 import { PageLoader } from '../components/ui'
 import { CommandPalette, PaletteButton } from '../components/CommandPalette'
+import { NotificationBell } from '../components/NotificationBell'
 import type { PaletteItem } from '../components/CommandPalette'
 import { api } from '../lib/api'
 
@@ -98,9 +99,12 @@ export default function AdminLayout() {
             <div className="truncate text-sm font-bold">{user.display_name}</div>
             <div className="text-[11px] text-muted">{ROLE_LABEL[role]}</div>
           </div>
-          <Link to="/" className="rounded-lg p-2 hover:bg-surface-2" aria-label="سایت">
-            <House className="size-5" />
-          </Link>
+          <div className="flex items-center">
+            <NotificationBell />
+            <Link to="/" className="rounded-lg p-2 hover:bg-surface-2" aria-label="سایت">
+              <House className="size-5" />
+            </Link>
+          </div>
         </div>
         <div className="hidden px-2 pt-2 md:block">
           <PaletteButton />
