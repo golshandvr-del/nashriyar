@@ -71,6 +71,7 @@
   - [x] آستانه‌ها/وزن‌ها: insights.ts (DEFAULT_THRESHOLDS/DEFAULT_WEIGHTS، getThresholds/getWeights، امتیاز نرمال ۰–۱۰۰) + GET/POST /api/admin/settings (insight_thresholds, health_weights؛ مسئول و سوپرادمین) + کارت در admin/Settings — تست شد (آستانهٔ پایین ۳۹ بینش، پیش‌فرض ۱۷، بالا ۵؛ دانشجو 403). پاسخ /api/analytics/insights کلید `items` دارد.
   - [x] حالت دوصفحه‌ای کتاب‌خوان (Reader.tsx: دکمهٔ Columns2، فقط ≥1024px، localStorage `nsh-reader-spread`، گام ۲ صفحه، صفحهٔ اول در راست)
   - [x] پایش نرخ صفحات کتاب‌خوان (reader.ts: checkPageRate روی login_attempts با کلید pages:<viewer>، ۹۰/دقیقه ← ۵ دقیقه 429 page_rate + activity reader.signal kind=rate) + throttle رفرش manifest در Reader.tsx
+- **گفتگوی ۱۶ — یافته‌های ممیزی:** publication_roles (started_at/ended_at) = همان role_history ✔؛ QR هیچ‌جا پیاده نشده ✘؛ صفحهٔ مستقل انجمن، DnD دسته‌ها، نوار پایین موبایل: نیازمند بررسی؛ Milestoneهای ۱..۱۳ و برچسب‌های phase:* در GitHub موجود و همه open.
 - **گفتگوی ۱۶:** شروع از commit 274 (f30ff6f). صف: تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
 - `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
