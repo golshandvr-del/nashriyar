@@ -128,13 +128,48 @@ async function kpis(c: Context<AppEnv>, from: string, to: string) {
   }
 }
 
+/**
+ * KPI sparklines (ROADMAP phase 7 overview): each key split into up to 24 equal buckets over [from, to].
+ * Uses per-day GROUP BY queries, so cost is one query per key regardless of range length.
+ */
+async function sparklines(c: Context<AppEnv>, from: string, to: string) {
+  const db = c.get('db')
+  const s = pubScope(c)
+  const t0 = new Date(from + 'T00:00:00Z').getTime()
+  const days = Math.max(1, Math.round((new Date(to + 'T00:00:00Z').getTime() - t0) / DAY) + 1)
+  const n = Math.min(24, days)
+  const bucket = (day: string) => Math.min(n - 1, Math.floor(((new Date(day.slice(0, 10) + 'T00:00:00Z').getTime() - t0) / DAY) * (n / days)))
+  const fill = (rows: { d: string; n: number }[]) => {
+    const out = new Array(n).fill(0)
+    for (const r of rows) if (r.d) out[bucket(r.d)] += Number(r.n) || 0
+    return out
+  }
+  const fromTs = from + 'T00:00:00.000Z'
+  const toTs = to + 'T23:59:59.999Z'
+  const views = (type?: string) =>
+    db.all<{ d: string; n: number }>(
+      `SELECT v.day AS d, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${type ? ' AND v.entity_type = ?' : ''}${s.sql} GROUP BY v.day`,
+      [from, to, ...(type ? [type] : []), ...s.params]
+    )
+  return {
+    published: fill(await db.all(`SELECT substr(i.published_at,1,10) AS d, COUNT(*) AS n FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY d`, [fromTs, toTs, ...s.params])),
+    pages: fill(await db.all(`SELECT substr(i.published_at,1,10) AS d, COALESCE(SUM(i.page_count),0) AS n FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY d`, [fromTs, toTs, ...s.params])),
+    views: fill(await views()),
+    reads: fill(await views('issue_read')),
+    post_views: fill(await views('post')),
+    new_followers: fill(await db.all(`SELECT substr(f.created_at,1,10) AS d, COUNT(*) AS n FROM follows f JOIN publications p ON p.id = f.publication_id WHERE f.created_at BETWEEN ? AND ?${s.sql} GROUP BY d`, [fromTs, toTs, ...s.params])),
+    digital_sold: fill(await db.all(`SELECT substr(ac.redeemed_at,1,10) AS d, COUNT(*) AS n FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql} GROUP BY d`, [fromTs, toTs, ...s.params])),
+    revenue_digital: fill(await db.all(`SELECT substr(ac.redeemed_at,1,10) AS d, COALESCE(SUM(ac.price_paid),0) AS n FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql} GROUP BY d`, [fromTs, toTs, ...s.params]))
+  }
+}
+
 /** Main dashboard: KPIs with comparison to the previous equal-length period. */
 analyticsRoutes.get('/summary', async (c) => {
   const { from, to } = dateRange(c, 365)
   const { pFrom, pTo } = previousRange(from, to)
   const cur = await kpis(c, from, to)
   const prev = await kpis(c, pFrom, pTo)
-  return c.json({ from, to, prevFrom: pFrom, prevTo: pTo, current: cur, previous: prev })
+  return c.json({ from, to, prevFrom: pFrom, prevTo: pTo, current: cur, previous: prev, spark: await sparklines(c, from, to) })
 })
 
 /** Live board: what is happening right now. */
