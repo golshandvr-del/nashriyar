@@ -78,6 +78,11 @@ export default function Login() {
             ورود
           </Button>
         </form>
+        <p className="mt-3 text-center text-xs">
+          <Link to="/recover" className="text-muted hover:text-brand">
+            رمز عبور را فراموش کرده‌اید؟
+          </Link>
+        </p>
         <p className="mt-4 text-center text-sm text-muted">
           حساب ندارید؟{' '}
           <Link to={`/register${sp.get('next') ? `?next=${encodeURIComponent(sp.get('next')!)}` : ''}`} className="font-bold text-brand">
