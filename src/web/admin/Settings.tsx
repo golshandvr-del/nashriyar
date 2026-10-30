@@ -6,6 +6,25 @@ import { Async, Button, Card, Input, PageHeader, useAction, useAsync } from '../
 
 type S = Record<string, any>
 
+const THRESHOLD_LABELS: Record<string, string> = {
+  overdue_factor: 'ضریب تأخیر انتشار (× دورهٔ اعلامی)',
+  inactive_days: 'روزهای بی‌فعالیتی تیم',
+  license_warn_days: 'هشدار انقضای مجوز (روز قبل)',
+  stuck_days: 'توقف تولید شماره (روز)',
+  approval_wait_days: 'معطلی تأیید انتشار (روز)',
+  pending_comments: 'انباشت نظرهای در انتظار (تعداد)',
+  growth_pct: 'رشد چشمگیر بازدید (٪)',
+  drop_pct: 'افت بازدید (٪)',
+  expired_codes: 'کدهای منقضی‌شدهٔ بی‌استفاده (تعداد)'
+}
+const WEIGHT_LABELS: Record<string, string> = {
+  regularity: 'نظم انتشار',
+  activity: 'فعالیت تولید',
+  audience: 'مخاطب و بازدید',
+  explore: 'فعالیت اکسپلور',
+  hygiene: 'رسیدگی به نظرها'
+}
+
 const FEATURE_LABELS: Record<string, string> = {
   explore: 'اکسپلور و پست‌ها',
   comments: 'نظر دانشجویان زیر پست‌ها',
@@ -89,6 +108,28 @@ function Form({ initial, isSuper, reload }: { initial: S; isSuper: boolean; relo
                 onChange={(e) => set({ feature_flags: { ...(s.feature_flags || {}), [k]: e.target.checked } })}
               />
               <span className="font-medium">{label}</span>
+            </label>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <h2 className="text-lg font-bold">قواعد بینش و امتیاز سلامت</h2>
+        <p className="text-sm text-muted">آستانهٔ هشدارهای خودکار و وزن هر مؤلفه در امتیاز سلامت نشریه (امتیاز همیشه به ۰ تا ۱۰۰ نرمال می‌شود).</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {Object.entries(THRESHOLD_LABELS).map(([k, label]) => (
+            <label key={k} className="block">
+              <span className="label">{label}</span>
+              <Input dir="ltr" type="number" min={0} step={k === 'overdue_factor' ? 0.1 : 1} value={s.insight_thresholds?.[k] ?? ''} onChange={(e) => set({ insight_thresholds: { ...(s.insight_thresholds || {}), [k]: Number(e.target.value) } })} />
+            </label>
+          ))}
+        </div>
+        <h3 className="font-bold">وزن مؤلفه‌های امتیاز سلامت</h3>
+        <div className="grid gap-3 sm:grid-cols-5">
+          {Object.entries(WEIGHT_LABELS).map(([k, label]) => (
+            <label key={k} className="block">
+              <span className="label">{label}</span>
+              <Input dir="ltr" type="number" min={0} max={100} value={s.health_weights?.[k] ?? ''} onChange={(e) => set({ health_weights: { ...(s.health_weights || {}), [k]: Number(e.target.value) } })} />
             </label>
           ))}
         </div>
