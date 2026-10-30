@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowRight, Bookmark, ChevronLeft, ChevronRight, Columns2, KeyRound, List, Maximize, Trash2, ZoomIn, ZoomOut } from 'lucide-react'
+import { ArrowRight, Bookmark, ChevronLeft, ChevronRight, Columns2, KeyRound, List, Maximize, Moon, Trash2, ZoomIn, ZoomOut } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useFeature } from '../lib/features'
@@ -96,6 +96,13 @@ export default function Reader() {
     const v = !spreadPref
     setSpreadPref(v)
     localStorage.setItem('nsh-reader-spread', v ? '1' : '0')
+  }
+  // Night mode (ROADMAP phase 5): display-only CSS filter on page canvases; remembered per device.
+  const [night, setNight] = useState(() => localStorage.getItem('nsh-reader-night') === '1')
+  const toggleNight = () => {
+    const v = !night
+    setNight(v)
+    localStorage.setItem('nsh-reader-night', v ? '1' : '0')
   }
   const touch = useRef<number | null>(null)
 
@@ -219,6 +226,9 @@ export default function Reader() {
         <button className={cx('hidden rounded-lg p-2 hover:bg-surface-2 lg:block', spread && 'bg-surface-2 text-brand')} onClick={toggleSpread} aria-label="نمای دوصفحه‌ای" aria-pressed={spread}>
           <Columns2 className="size-5" />
         </button>
+        <button className={cx('rounded-lg p-2 hover:bg-surface-2', night && 'bg-surface-2 text-brand')} onClick={toggleNight} aria-label="حالت شب" aria-pressed={night}>
+          <Moon className="size-5" />
+        </button>
         <button className="hidden rounded-lg p-2 hover:bg-surface-2 sm:block" onClick={() => document.documentElement.requestFullscreen?.()} aria-label="تمام‌صفحه">
           <Maximize className="size-5" />
         </button>
@@ -231,7 +241,7 @@ export default function Reader() {
       </header>
 
       <main
-        className={cx('flex-1 overflow-auto px-2 py-4 transition', hidden && 'blur-2xl')}
+        className={cx('flex-1 overflow-auto px-2 py-4 transition', hidden && 'blur-2xl', night && 'bg-[#111] [&_canvas]:[filter:invert(0.9)_hue-rotate(180deg)]')}
         onTouchStart={(e) => (touch.current = e.touches[0].clientX)}
         onTouchEnd={(e) => {
           if (touch.current == null || zoom > 100) return
