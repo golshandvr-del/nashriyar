@@ -428,6 +428,11 @@ publicRoutes.get('/settings', async (c) => {
 publicRoutes.post('/track', async (c) => {
   const b = await body<{ type?: string; id?: string }>(c)
   if (b.type === 'explore') await trackView(c, 'explore', null, null)
+  // explore → "read full" click (ROADMAP phase 6 funnel); de-duplicated per viewer/day by trackView
+  if (b.type === 'read_full' && typeof b.id === 'string' && b.id.length <= 40) {
+    const po = await c.get('db').first<{ id: string; publication_id: string }>("SELECT id, publication_id FROM posts WHERE id = ? AND status = 'published'", [b.id])
+    if (po) await trackView(c, 'post_read_full', po.id, po.publication_id)
+  }
   return c.json({ ok: true })
 })
 
