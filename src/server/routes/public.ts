@@ -296,7 +296,7 @@ publicRoutes.get('/explore', async (c) => {
   )
   // Mixed ordering (ROADMAP phase 6): recency first, but never two posts of the same publication in a row when
   // another candidate exists (diversity over popularity). Paging uses `next` (oldest timestamp of this page).
-  const pool = posts.map((x) => ({ ...x, publication_id: x.publication_slug }))
+  const pool = [...posts]
   const mixed: typeof pool = []
   while (pool.length) {
     const prev = mixed[mixed.length - 1]?.publication_slug
@@ -305,7 +305,7 @@ publicRoutes.get('/explore', async (c) => {
     mixed.push(pool.splice(k, 1)[0])
   }
   const next = posts.length ? posts[posts.length - 1].published_at : null
-  return c.json({ next, posts: mixed.map((x) => ({ ...x, publication_id: undefined, images: parseJson(x.images_json, []), images_json: undefined })) })
+  return c.json({ next, posts: mixed.map((x) => ({ ...x, images: parseJson(x.images_json, []), images_json: undefined })) })
 })
 
 publicRoutes.get('/stories', async (c) => {
