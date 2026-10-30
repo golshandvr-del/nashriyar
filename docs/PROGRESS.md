@@ -88,7 +88,8 @@
   - **گفتگوی ۱۸ — شواهد تیک ROADMAP (grep):** تک‌پکیج/SQL خام (تصمیم مستند، نه monorepo/Drizzle)؛ strict=true، .editorconfig هست، ESLint/Prettier نیست؛ کشیدن‌ورها نیست (دکمهٔ بالا/پایین در TocTab و Categories)؛ Excel = CSV با BOM؛ نقشهٔ حرارتی و rollup روزانه نیست؛ ورود اعضای عادی نیست؛ جلسات خواندن = activity_events reader.signal؛ رسانهٔ پولی با بررسی entitlement در /api/media/k (نه لینک امضاشده)؛ بازیابی رمز = reset-password مسئول؛ پیش‌نمایش پیش از انتشار = دکمهٔ /read/:id در IssueRoom؛ pdftoppm/Cron/اسکریپت انتقال/Playwright/Lighthouse نیست؛ ۱۳ Milestone باز با ۰ issue؛ هیچ tag/release نیست.
   - [x] (گفتگوی ۱۸) Reader.tsx: تار شدن با visibilitychange + سیگنال DevTools (اختلاف outer/inner)
   - [x] (گفتگوی ۱۸) اکسپلور: درهم‌سازی تنوع در /api/public/explore (دو پست پیاپی از یک نشریه نه) + کلید next؛ Explore.tsx مکان‌نما = قدیمی‌ترین پست بارگذاری‌شده
-  - صف تحلیل‌های فاز ۷ در حال انجام: میانهٔ مدت مراحل ← نقشهٔ حرارتی روز×ساعت ← نشریات جدید در هر سال ← عوامل هم‌زمان در فاصلهٔ انتشار ← سپس تیک ROADMAP
+  - [x] (گفتگوی ۱۸) /production → median_days + bottlenecks (نشریه×مرحله) + نمودار میانه و heatmap گلوگاه؛ /explore → hourly (روز×ساعت تهران +210min) + calendar + دو heatmap در ExploreStats
+  - صف تحلیل‌های فاز ۷ در حال انجام: نشریات جدید در هر سال ← عوامل هم‌زمان در فاصلهٔ انتشار ← سپس تیک ROADMAP
   - صف باقی‌مانده: تیک‌زدن صادقانهٔ ROADMAP (فاز به فاز) ← README/CHANGELOG 1.1 ← build/test نهایی ← لینک موقت عمومی (GetServiceUrl) برای کاربر ← tag v1.0.0 + GitHub Release + بستن Milestoneها
 - **گفتگوی ۱۶:** شروع از commit 274 (f30ff6f). صف: تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
