@@ -324,7 +324,32 @@ analyticsRoutes.get('/production', async (c) => {
      FROM issue_approvals a JOIN issues i ON i.id = a.issue_id JOIN publications p ON p.id = i.publication_id WHERE a.decided_at BETWEEN ? AND ? AND a.decision IN ('approved','changes_requested')${s.sql}`,
     [fromTs, toTs, ...s.params]
   )
-  return c.json({ from, to, stages, cycle, approvals })
+  // Median duration per stage (SQLite has no MEDIAN) + bottleneck heatmap rows: publication × stage avg days
+  const durs = await db.all<{ key: string; pub: string; d: number }>(
+    `SELECT st.key, p.title AS pub, julianday(st.completed_at) - julianday(st.started_at) AS d
+     FROM issue_stages st JOIN issues i ON i.id = st.issue_id JOIN publications p ON p.id = i.publication_id
+     WHERE st.status = 'done' AND st.started_at IS NOT NULL AND st.completed_at IS NOT NULL AND st.completed_at BETWEEN ? AND ?${s.sql}`,
+    [fromTs, toTs, ...s.params]
+  )
+  const byKey: Record<string, number[]> = {}
+  const heat: Record<string, Record<string, { sum: number; n: number }>> = {}
+  for (const r of durs) {
+    ;(byKey[r.key] ||= []).push(r.d)
+    const cell = ((heat[r.pub] ||= {})[r.key] ||= { sum: 0, n: 0 })
+    cell.sum += r.d
+    cell.n++
+  }
+  const median = (xs: number[]) => {
+    const a = [...xs].sort((x, y) => x - y)
+    const m = a.length >> 1
+    return a.length ? (a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2) : null
+  }
+  const stagesOut = (stages as any[]).map((st) => ({ ...st, median_days: median(byKey[st.key] || []) }))
+  const bottlenecks = Object.entries(heat).map(([pub, cells]) => ({
+    publication: pub,
+    cells: Object.fromEntries(Object.entries(cells).map(([k, v]) => [k, Math.round((v.sum / v.n) * 10) / 10]))
+  }))
+  return c.json({ from, to, stages: stagesOut, cycle, approvals, bottlenecks })
 })
 
 /** Publishing gaps: days between consecutive issues vs. declared frequency. */
