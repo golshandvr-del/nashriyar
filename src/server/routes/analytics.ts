@@ -4,7 +4,7 @@ import type { AppEnv } from '../context'
 import { MONITOR_ROLES } from '../context'
 import { requireRole } from '../auth'
 import { body, dateRange, getSetting, nowIso, parseJson } from '../lib/util'
-import { computeInsights, healthScores } from '../insights'
+import { computeInsights, getWeights, healthScores } from '../insights'
 import { linearFit, termBounds } from '../../shared/fa'
 import { aiNarrative, aiAsk } from '../ai'
 import { cacheGet, cachePut, ensureRollup } from '../lib/rollup'
@@ -465,7 +465,8 @@ analyticsRoutes.get('/ranking', async (c) => {
     from,
     to,
     rows: rows.map((r) => ({ ...r, health: health[r.id] ?? null })),
-    org: { totals, byOwnerKind, activeOwners, byFaculty }
+    org: { totals, byOwnerKind, activeOwners, byFaculty },
+    weights: await getWeights(db)
   })
 })
 
