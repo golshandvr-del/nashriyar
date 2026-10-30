@@ -5,6 +5,7 @@ import { MONITOR_ROLES } from '../context'
 import { requireRole } from '../auth'
 import { body, dateRange, nowIso, parseJson } from '../lib/util'
 import { computeInsights, healthScores } from '../insights'
+import { linearFit, termBounds } from '../../shared/fa'
 import { aiNarrative, aiAsk } from '../ai'
 
 export const analyticsRoutes = new Hono<AppEnv>()
@@ -133,6 +134,66 @@ analyticsRoutes.get('/trends', async (c) => {
     [from, to, ...s.params]
   )
   return c.json({ from, to, published, views, sales, followers, byFaculty, byCategory, weekday })
+})
+
+/**
+ * Linear forecast to the end of the current academic term (ROADMAP phase 8).
+ * Fits a least-squares line to the cumulative weekly counts of published issues / pages since the term start
+ * and extrapolates to the term end. Also projects each publication from its own pace. Purely descriptive —
+ * shown with r² and the number of observed weeks so the officer can judge how reliable it is.
+ */
+analyticsRoutes.get('/forecast', async (c) => {
+  const db = c.get('db')
+  const s = pubScope(c)
+  const term = termBounds()
+  const today = new Date().toISOString().slice(0, 10)
+  const startMs = new Date(term.start + 'T00:00:00Z').getTime()
+  const endMs = new Date(term.end + 'T23:59:59Z').getTime()
+  const nowMs = Math.min(Date.now(), endMs)
+  const WEEK = 7 * DAY
+  const weeksElapsed = Math.max(1, Math.ceil((nowMs - startMs) / WEEK))
+  const weeksTotal = Math.max(weeksElapsed, Math.ceil((endMs - startMs) / WEEK))
+  const rows = await db.all<{ published_at: string; page_count: number | null; publication_id: string }>(
+    `SELECT i.published_at, i.page_count, i.publication_id FROM issues i JOIN publications p ON p.id = i.publication_id
+     WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql}`,
+    [term.start + 'T00:00:00.000Z', today + 'T23:59:59.999Z', ...s.params]
+  )
+  const weekly = Array.from({ length: weeksElapsed }, () => ({ issues: 0, pages: 0 }))
+  for (const r of rows) {
+    const w = Math.min(weeksElapsed - 1, Math.max(0, Math.floor((new Date(r.published_at).getTime() - startMs) / WEEK)))
+    weekly[w].issues++
+    weekly[w].pages += Number(r.page_count || 0)
+  }
+  let ci = 0, cp = 0
+  const cumulative = weekly.map((w, idx) => ((ci += w.issues), (cp += w.pages), { week: idx + 1, issues: ci, pages: cp }))
+  const project = (key: 'issues' | 'pages') => {
+    const fit = linearFit(cumulative.map((p) => ({ x: p.week, y: p[key] })))
+    const actual = cumulative[cumulative.length - 1]?.[key] ?? 0
+    const projected = Math.max(actual, Math.round(fit.slope * weeksTotal + fit.intercept))
+    return { actual, projected, per_week: Math.round(fit.slope * 100) / 100, r2: Math.round(fit.r2 * 100) / 100 }
+  }
+  // Per publication: simple pace (count so far scaled to the whole term), active publications only.
+  const pubs = await db.all<{ id: string; title: string; frequency: string | null }>(
+    `SELECT p.id, p.title, p.frequency FROM publications p WHERE p.status = 'active' AND p.deleted_at IS NULL${s.sql} ORDER BY p.title`,
+    s.params
+  )
+  const FREQ_DAYS: Record<string, number> = { monthly: 30, bimonthly: 60, quarterly: 90, biannual: 180 }
+  const counts = new Map<string, number>()
+  for (const r of rows) counts.set(r.publication_id, (counts.get(r.publication_id) || 0) + 1)
+  const termDays = (endMs - startMs) / DAY
+  const publications = pubs.map((p) => {
+    const actual = counts.get(p.id) || 0
+    const projected = Math.round((actual / weeksElapsed) * weeksTotal)
+    const expected = p.frequency && FREQ_DAYS[p.frequency] ? Math.max(1, Math.floor(termDays / FREQ_DAYS[p.frequency])) : null
+    return { id: p.id, title: p.title, frequency: p.frequency, actual, projected, expected, behind: expected != null && projected < expected }
+  })
+  return c.json({
+    term: { ...term, weeks_elapsed: weeksElapsed, weeks_total: weeksTotal },
+    cumulative,
+    issues: project('issues'),
+    pages: project('pages'),
+    publications
+  })
 })
 
 /** Ranking table of publications on many metrics (officer only sees this — never teams). */
