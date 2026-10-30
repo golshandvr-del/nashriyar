@@ -92,6 +92,11 @@ function Form({ initial, isSuper, reload }: { initial: S; isSuper: boolean; relo
             <span className="mt-1 block text-xs text-muted">با ورود از دستگاه جدید، قدیمی‌ترین نشست‌های اضافه خارج می‌شوند (مقابله با اشتراک حساب).</span>
           </label>
           <label className="block">
+            <span className="label">اعتبار پیش‌فرض کد خرید (ساعت)</span>
+            <Input dir="ltr" type="number" min={1} max={24} value={s.default_code_ttl_hours ?? 24} onChange={(e) => set({ default_code_ttl_hours: Number(e.target.value) || 24 })} />
+            <span className="mt-1 block text-xs text-muted">برای شماره‌های تازه اعمال می‌شود؛ تیم می‌تواند برای هر شماره تا سقف ۲۴ ساعت تغییرش دهد.</span>
+          </label>
+          <label className="block">
             <span className="label">روش ثبت‌نام دانشجویان</span>
             <Select
               value={s.registration_mode || 'open'}
