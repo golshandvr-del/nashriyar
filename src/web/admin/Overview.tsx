@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, ArrowDown, ArrowUp, CheckSquare, Info, Lightbulb, ShieldAlert } from 'lucide-react'
 import { api, qs } from '../lib/api'
-import { delta, formatNumber, formatToman, toFaDigits } from '../lib/format'
+import { delta, faMonthLabel, formatNumber, formatToman, relativeFa, toFaDigits } from '../lib/format'
 import { Async, Card, PageHeader, Stat, useAsync } from '../components/ui'
 import { RangePicker, defaultRange } from '../team/Stats'
+import { Chart } from '../components/Chart'
+import { FEED_LABEL } from './Live'
 import { useAdminRole } from './Layout'
 
 const KPIS: { key: string; label: string; money?: boolean }[] = [
@@ -61,6 +63,10 @@ export default function AdminOverview() {
   const [range, setRange] = useState(defaultRange('30d'))
   const base = useAsync(() => Promise.all([api.get('/api/admin/overview'), api.get('/api/analytics/insights')]), [])
   const sum = useAsync(() => api.get(`/api/analytics/summary${qs({ from: range.from, to: range.to })}`), [range.from, range.to])
+  // ROADMAP phase 7 overview: overall monthly trend (last 12 months) + recent activity feed
+  const trendRange = defaultRange('acad')
+  const trend = useAsync(() => api.get(`/api/analytics/trends${qs({ from: trendRange.from < range.from ? trendRange.from : range.from, to: range.to })}`), [range.from, range.to])
+  const live = useAsync(() => api.get('/api/analytics/live'), [])
 
   return (
     <div className="space-y-6">
@@ -135,6 +141,37 @@ export default function AdminOverview() {
           </Card>
         )}
       </Async>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Async state={trend}>
+          {(t: any) => {
+            const months = Array.from(new Set([...t.published, ...t.views].map((x: any) => x.m))).sort() as string[]
+            const pick = (arr: any[]) => months.map((m) => arr.find((x: any) => x.m === m)?.n ?? 0)
+            return (
+              <Card title="روند کلی (ماهانه)" className="lg:col-span-2">
+                <Chart csvName="overview-trend" option={{ legend: {}, xAxis: { type: 'category', data: months.map(faMonthLabel) }, yAxis: [{ type: 'value', minInterval: 1 }, { type: 'value' }], series: [{ name: 'شمارهٔ منتشرشده', type: 'bar', data: pick(t.published) }, { name: 'بازدید', type: 'line', smooth: true, yAxisIndex: 1, data: pick(t.views) }] }} />
+              </Card>
+            )
+          }}
+        </Async>
+        <Async state={live}>
+          {(l: any) => (
+            <Card title="فعالیت‌های اخیر" action={<Link to="/admin/live" className="text-sm text-brand">برد زنده</Link>}>
+              <ol className="space-y-2 text-sm">
+                {l.feed.slice(0, 8).map((f: any, i: number) => (
+                  <li key={i} className="border-b border-line pb-2 last:border-0">
+                    <div className="font-medium">{FEED_LABEL[f.type] || f.type}</div>
+                    <div className="text-xs text-muted">
+                      {f.publication_title}
+                      {f.issue_number ? ` · شمارهٔ ${toFaDigits(f.issue_number)}` : ''} · {relativeFa(f.created_at)}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </Card>
+          )}
+        </Async>
+      </div>
     </div>
   )
 }
