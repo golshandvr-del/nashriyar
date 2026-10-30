@@ -325,7 +325,20 @@ analyticsRoutes.get('/forecast', async (c) => {
     const fit = linearFit(cumulative.map((p) => ({ x: p.week, y: p[key] })))
     const actual = cumulative[cumulative.length - 1]?.[key] ?? 0
     const projected = Math.max(actual, Math.round(fit.slope * weeksTotal + fit.intercept))
-    return { actual, projected, per_week: Math.round(fit.slope * 100) / 100, r2: Math.round(fit.r2 * 100) / 100 }
+    // ~95% prediction interval at the term end: ŷ ± 2·se·sqrt(1 + 1/n + (x0 − x̄)² / Sxx) (needs n >= 3)
+    const pts = cumulative.map((p) => ({ x: p.week, y: p[key] }))
+    const n = pts.length
+    let low = projected, high = projected
+    if (n >= 3) {
+      const xm = pts.reduce((a, p) => a + p.x, 0) / n
+      const sxx = pts.reduce((a, p) => a + (p.x - xm) ** 2, 0) || 1
+      const sse = pts.reduce((a, p) => a + (p.y - (fit.slope * p.x + fit.intercept)) ** 2, 0)
+      const se = Math.sqrt(sse / (n - 2))
+      const half = 2 * se * Math.sqrt(1 + 1 / n + (weeksTotal - xm) ** 2 / sxx)
+      low = Math.max(actual, Math.round(projected - half))
+      high = Math.max(low, Math.round(projected + half))
+    }
+    return { actual, projected, low, high, per_week: Math.round(fit.slope * 100) / 100, r2: Math.round(fit.r2 * 100) / 100 }
   }
   // Per publication: simple pace (count so far scaled to the whole term), active publications only.
   const pubs = await db.all<{ id: string; title: string; frequency: string | null }>(
