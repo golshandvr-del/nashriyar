@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { BookOpen, KeyRound, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { useFeature } from '../lib/features'
 import { faDate, relativeFa, toFaDigits, cx } from '../lib/format'
 import { Async, Button, Empty, Progress, Tabs, useAction, useAsync, useToast } from '../components/ui'
 import { Cover, PostGrid } from '../components/cards'
@@ -29,6 +30,7 @@ type Tab = 'all' | 'reading' | 'saved'
 
 export default function Library() {
   const { user, loading } = useAuth()
+  const paidOn = useFeature('paid_content')
   const st = useAsync(() => (user ? api.get<{ items: Item[] }>('/api/me/library') : Promise.resolve({ items: [] })), [user?.id])
   const saved = useAsync(() => (user ? api.get<{ posts: PostLite[] }>('/api/me/saved') : Promise.resolve({ posts: [] })), [user?.id])
   const [tab, setTab] = useState<Tab>('all')
@@ -41,11 +43,13 @@ export default function Library() {
     <div>
       <header className="mb-4 flex items-center justify-between gap-2">
         <h1 className="text-xl font-extrabold">کتابخانهٔ من</h1>
-        <Link to="/redeem">
-          <Button variant="ghost" icon={<KeyRound className="size-4" />}>
-            ثبت کد خرید
-          </Button>
-        </Link>
+        {paidOn && (
+          <Link to="/redeem">
+            <Button variant="ghost" icon={<KeyRound className="size-4" />}>
+              ثبت کد خرید
+            </Button>
+          </Link>
+        )}
       </header>
       <Tabs<Tab>
         tabs={[
