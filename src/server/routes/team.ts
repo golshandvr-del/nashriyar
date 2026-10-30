@@ -763,9 +763,9 @@ teamRoutes.post('/:pubId/posts', async (c) => {
     if (t > Date.now()) publishAt = new Date(t).toISOString()
   }
   await db.run(
-    'INSERT INTO posts (id, publication_id, kind, caption, images_json, source_issue_id, source_toc_item_id, is_story, expires_at, status, published_at, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    'INSERT INTO posts (id, publication_id, kind, caption, images_json, source_issue_id, source_toc_item_id, is_story, expires_at, status, published_at, created_by, created_at, alt_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
     [id, p.id, images.length > 1 ? 'carousel' : 'image', str(b.caption, 'متن پست', { max: 2200, optional: true }), JSON.stringify(images), src.id, b.source_toc_item_id, isStory,
-      isStory ? addHours(24) : null, status, status === 'published' ? publishAt : null, user.id, now]
+      isStory ? addHours(24) : null, status, status === 'published' ? publishAt : null, user.id, now, altJson(b.alt, images.length)]
   )
   await activity(db, user.id, isStory ? 'story.published' : 'post.published', p.id, src.id, { id, scheduled: publishAt !== now ? publishAt : undefined })
   // in-app notification to followers for immediately-published posts (ROADMAP phase 6); identities never exposed to the team
@@ -790,6 +790,13 @@ teamRoutes.put('/:pubId/posts/:postId', async (c) => {
   await activity(db, user.id, 'post.updated', p.id, po.source_issue_id, { id: po.id, status })
   return c.json({ ok: true })
 })
+
+/** Image alt texts (ROADMAP phase 6 accessibility): aligned with images_json; null when none provided. */
+function altJson(v: unknown, n: number): string | null {
+  if (!Array.isArray(v)) return null
+  const out = v.slice(0, n).map((x) => (typeof x === 'string' ? x.trim().slice(0, 300) : ''))
+  return out.some(Boolean) ? JSON.stringify(out) : null
+}
 
 function forbiddenAdmin() {
   return new HttpError(403, 'این پست توسط مسئول نشریات پنهان شده و قابل تغییر نیست')
