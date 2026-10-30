@@ -1,5 +1,6 @@
 // Rule-based insight engine (Phase 8). Deterministic, explainable, no AI required.
 import type { Db } from './adapters/db'
+import { getSetting } from './lib/util'
 
 export interface Insight {
   key: string
@@ -13,8 +14,45 @@ export interface Insight {
 const DAY = 86400_000
 const EXPECTED: Record<string, number> = { monthly: 30, bimonthly: 60, quarterly: 90, biannual: 180, irregular: 120 }
 
+/** Rule thresholds (editable by the officer in admin settings; stored in settings.insight_thresholds). */
+export const DEFAULT_THRESHOLDS = {
+  overdue_factor: 1.5, // warn when days since last issue > declared period × factor
+  inactive_days: 45,
+  license_warn_days: 60,
+  stuck_days: 21,
+  approval_wait_days: 3,
+  pending_comments: 5,
+  growth_pct: 50,
+  drop_pct: 50,
+  expired_codes: 5
+}
+export type Thresholds = typeof DEFAULT_THRESHOLDS
+/** Health score weights (settings.health_weights); the score is normalised to 0..100 whatever the total. */
+export const DEFAULT_WEIGHTS = { regularity: 35, activity: 25, audience: 20, explore: 10, hygiene: 10 }
+export type Weights = typeof DEFAULT_WEIGHTS
+
+function merge<T extends Record<string, number>>(def: T, raw: unknown, min: number, max: number): T {
+  const out = { ...def }
+  if (raw && typeof raw === 'object') {
+    for (const k of Object.keys(def) as (keyof T)[]) {
+      const v = Number((raw as any)[k])
+      if (Number.isFinite(v)) (out as any)[k] = Math.min(max, Math.max(min, v))
+    }
+  }
+  return out
+}
+export const sanitizeThresholds = (raw: unknown) => merge(DEFAULT_THRESHOLDS, raw, 0, 3650)
+export const sanitizeWeights = (raw: unknown) => merge(DEFAULT_WEIGHTS, raw, 0, 100)
+export async function getThresholds(db: Db): Promise<Thresholds> {
+  return sanitizeThresholds(await getSetting(db, 'insight_thresholds', null))
+}
+export async function getWeights(db: Db): Promise<Weights> {
+  return sanitizeWeights(await getSetting(db, 'health_weights', null))
+}
+
 export async function computeInsights(db: Db, scope: { sql: string; params: unknown[] }): Promise<Insight[]> {
   const out: Insight[] = []
+  const t = await getThresholds(db)
   const now = Date.now()
   const today = new Date().toISOString().slice(0, 10)
   const pubs = await db.all<any>(
@@ -29,15 +67,15 @@ export async function computeInsights(db: Db, scope: { sql: string; params: unkn
     const exp = EXPECTED[p.frequency] ?? 120
     const ref = p.last_pub || p.created_at
     const since = Math.round((now - new Date(ref).getTime()) / DAY)
-    if (since > exp * 1.5) out.push({ key: `overdue:${p.id}`, severity: since > exp * 2.5 ? 'critical' : 'warning', title: `${p.title}: ${since} روز بدون انتشار`, detail: `دورهٔ اعلامی حدود ${exp} روز است. ${p.last_pub ? 'آخرین انتشار' : 'از زمان ثبت نشریه'} ${since} روز گذشته است.`, publication_id: p.id, link: `/admin/publications/${p.id}` })
+    if (since > exp * t.overdue_factor) out.push({ key: `overdue:${p.id}`, severity: since > exp * 2.5 ? 'critical' : 'warning', title: `${p.title}: ${since} روز بدون انتشار`, detail: `دورهٔ اعلامی حدود ${exp} روز است. ${p.last_pub ? 'آخرین انتشار' : 'از زمان ثبت نشریه'} ${since} روز گذشته است.`, publication_id: p.id, link: `/admin/publications/${p.id}` })
     // 2. Team inactivity
     const act = p.last_act ? Math.round((now - new Date(p.last_act).getTime()) / DAY) : null
-    if (act == null || act > 45) out.push({ key: `inactive:${p.id}`, severity: 'warning', title: `${p.title}: تیم غیرفعال`, detail: act == null ? 'هیچ فعالیتی از تیم ثبت نشده است.' : `آخرین فعالیت تیم ${act} روز پیش بوده است.`, publication_id: p.id, link: `/admin/publications/${p.id}` })
+    if (act == null || act > t.inactive_days) out.push({ key: `inactive:${p.id}`, severity: 'warning', title: `${p.title}: تیم غیرفعال`, detail: act == null ? 'هیچ فعالیتی از تیم ثبت نشده است.' : `آخرین فعالیت تیم ${act} روز پیش بوده است.`, publication_id: p.id, link: `/admin/publications/${p.id}` })
     // 3. License expiry
     if (p.license_expires_at) {
       const left = Math.round((new Date(p.license_expires_at).getTime() - now) / DAY)
       if (left < 0) out.push({ key: `license_expired:${p.id}`, severity: 'critical', title: `${p.title}: مجوز منقضی شده`, detail: `مجوز انتشار ${-left} روز پیش منقضی شده است.`, publication_id: p.id, link: `/admin/publications/${p.id}` })
-      else if (left < 60) out.push({ key: `license_soon:${p.id}`, severity: 'warning', title: `${p.title}: مجوز رو به اتمام`, detail: `${left} روز تا پایان اعتبار مجوز باقی است.`, publication_id: p.id, link: `/admin/publications/${p.id}` })
+      else if (left < t.license_warn_days) out.push({ key: `license_soon:${p.id}`, severity: 'warning', title: `${p.title}: مجوز رو به اتمام`, detail: `${left} روز تا پایان اعتبار مجوز باقی است.`, publication_id: p.id, link: `/admin/publications/${p.id}` })
     }
   }
   // 4. Stuck issues: in production, no progress in 21 days
@@ -48,7 +86,7 @@ export async function computeInsights(db: Db, scope: { sql: string; params: unkn
   )
   for (const s of stuck) {
     const d = Math.round((now - new Date(s.last_ev || s.created_at).getTime()) / DAY)
-    if (d > 21) out.push({ key: `stuck:${s.id}`, severity: d > 45 ? 'critical' : 'warning', title: `${s.pt} — شمارهٔ ${s.number}: توقف تولید`, detail: `${d} روز است که هیچ پیشرفتی در «${s.title}» ثبت نشده است.`, publication_id: s.pid, link: `/admin/issues/${s.id}` })
+    if (d > t.stuck_days) out.push({ key: `stuck:${s.id}`, severity: d > 45 ? 'critical' : 'warning', title: `${s.pt} — شمارهٔ ${s.number}: توقف تولید`, detail: `${d} روز است که هیچ پیشرفتی در «${s.title}» ثبت نشده است.`, publication_id: s.pid, link: `/admin/issues/${s.id}` })
   }
   // 5. Overdue deadlines on stages
   const late = await db.first<{ n: number }>(
@@ -65,13 +103,13 @@ export async function computeInsights(db: Db, scope: { sql: string; params: unkn
   )
   for (const w of waiting) {
     const d = Math.round((now - new Date(w.requested_at).getTime()) / DAY)
-    if (d >= 3) out.push({ key: `approval_wait:${w.id}`, severity: 'warning', title: `تأیید انتشار ${w.pt} — شمارهٔ ${w.number} معطل مانده`, detail: `${d} روز از درخواست تأیید گذشته است.`, link: '/admin/approvals' })
+    if (d >= t.approval_wait_days) out.push({ key: `approval_wait:${w.id}`, severity: 'warning', title: `تأیید انتشار ${w.pt} — شمارهٔ ${w.number} معطل مانده`, detail: `${d} روز از درخواست تأیید گذشته است.`, link: '/admin/approvals' })
   }
   // 7. Pending comments piling up
   const pend = await db.all<any>(
     `SELECT p.id, p.title, COUNT(*) AS n, MIN(cm.created_at) AS oldest FROM comments cm JOIN posts po ON po.id = cm.post_id JOIN publications p ON p.id = po.publication_id
-     WHERE cm.status = 'pending'${scope.sql} GROUP BY p.id HAVING n >= 5`,
-    scope.params
+     WHERE cm.status = 'pending'${scope.sql} GROUP BY p.id HAVING n >= ?`,
+    [...scope.params, t.pending_comments]
   )
   for (const r of pend) out.push({ key: `comments:${r.id}`, severity: 'info', title: `${r.title}: ${r.n} نظر در انتظار بررسی`, detail: `قدیمی‌ترین نظر از ${Math.round((now - new Date(r.oldest).getTime()) / DAY)} روز پیش منتظر است.`, publication_id: r.id })
   // 8. Positive: view growth > 50% month over month
@@ -83,15 +121,15 @@ export async function computeInsights(db: Db, scope: { sql: string; params: unkn
     [m1, m1, m2, m2, ...scope.params]
   )
   for (const g of growth) {
-    if (g.prev >= 20 && g.cur > g.prev * 1.5) out.push({ key: `growth:${g.id}:${today.slice(0, 7)}`, severity: 'positive', title: `${g.title}: رشد ${Math.round((g.cur / g.prev - 1) * 100)}٪ بازدید`, detail: `بازدید ۳۰ روز اخیر ${g.cur} در برابر ${g.prev} در ۳۰ روز قبل.`, publication_id: g.id })
-    else if (g.prev >= 30 && g.cur < g.prev * 0.5) out.push({ key: `drop:${g.id}:${today.slice(0, 7)}`, severity: 'warning', title: `${g.title}: افت ${Math.round((1 - g.cur / g.prev) * 100)}٪ بازدید`, detail: `بازدید ۳۰ روز اخیر ${g.cur} در برابر ${g.prev} در ۳۰ روز قبل.`, publication_id: g.id })
+    if (g.prev >= 20 && g.cur > g.prev * (1 + t.growth_pct / 100)) out.push({ key: `growth:${g.id}:${today.slice(0, 7)}`, severity: 'positive', title: `${g.title}: رشد ${Math.round((g.cur / g.prev - 1) * 100)}٪ بازدید`, detail: `بازدید ۳۰ روز اخیر ${g.cur} در برابر ${g.prev} در ۳۰ روز قبل.`, publication_id: g.id })
+    else if (g.prev >= 30 && g.cur < g.prev * (1 - t.drop_pct / 100)) out.push({ key: `drop:${g.id}:${today.slice(0, 7)}`, severity: 'warning', title: `${g.title}: افت ${Math.round((1 - g.cur / g.prev) * 100)}٪ بازدید`, detail: `بازدید ۳۰ روز اخیر ${g.cur} در برابر ${g.prev} در ۳۰ روز قبل.`, publication_id: g.id })
   }
   // 9. Codes expiring unused (lost sales)
   const expired = await db.first<{ n: number }>(
     `SELECT COUNT(*) AS n FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.redeemed_at IS NULL AND ac.revoked_at IS NULL AND ac.expires_at < ? AND ac.expires_at > ?${scope.sql}`,
     [new Date().toISOString(), new Date(now - 30 * DAY).toISOString(), ...scope.params]
   )
-  if ((expired?.n ?? 0) >= 5) out.push({ key: `codes_expired:${today.slice(0, 7)}`, severity: 'info', title: `${expired!.n} کد خرید بدون استفاده منقضی شد`, detail: 'خریداران ممکن است در ثبت کد مشکل داشته باشند؛ راهنمای ثبت کد را به تیم‌ها یادآوری کنید.' })
+  if ((expired?.n ?? 0) >= t.expired_codes) out.push({ key: `codes_expired:${today.slice(0, 7)}`, severity: 'info', title: `${expired!.n} کد خرید بدون استفاده منقضی شد`, detail: 'خریداران ممکن است در ثبت کد مشکل داشته باشند؛ راهنمای ثبت کد را به تیم‌ها یادآوری کنید.' })
 
   const dismissed = new Set((await db.all<{ insight_key: string }>('SELECT insight_key FROM insight_dismissals')).map((r) => r.insight_key))
   const order = { critical: 0, warning: 1, info: 2, positive: 3 }
@@ -104,6 +142,8 @@ export async function computeInsights(db: Db, scope: { sql: string; params: unkn
  */
 export async function healthScores(db: Db, ids: string[]): Promise<Record<string, { score: number; parts: Record<string, number> }>> {
   const out: Record<string, { score: number; parts: Record<string, number> }> = {}
+  const w = await getWeights(db)
+  const total = Object.values(w).reduce((a, b) => a + b, 0) || 1
   const now = Date.now()
   const d90 = new Date(now - 90 * DAY).toISOString()
   for (const id of ids) {
@@ -112,17 +152,17 @@ export async function healthScores(db: Db, ids: string[]): Promise<Record<string
     const last = await db.first<{ d: string }>("SELECT MAX(published_at) AS d FROM issues WHERE publication_id = ? AND status IN ('published','archived')", [id])
     const exp = EXPECTED[p.frequency] ?? 120
     const since = (now - new Date(last?.d || p.created_at).getTime()) / DAY
-    const regularity = Math.max(0, Math.min(1, 1.5 - since / exp)) * 35
+    const regularity = Math.max(0, Math.min(1, 1.5 - since / exp)) * w.regularity
     const acts = (await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM activity_events WHERE publication_id = ? AND created_at > ? AND type IN ('toc.status','stage.status','issue.created','member.added')", [id, d90]))?.n ?? 0
-    const activity = Math.min(1, acts / 30) * 25
+    const activity = Math.min(1, acts / 30) * w.activity
     const views = (await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM view_events WHERE publication_id = ? AND day > ?', [id, d90.slice(0, 10)]))?.n ?? 0
-    const audience = Math.min(1, views / 300) * 20
+    const audience = Math.min(1, views / 300) * w.audience
     const posts = (await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM posts WHERE publication_id = ? AND published_at > ? AND status = 'published'", [id, d90]))?.n ?? 0
-    const explore = Math.min(1, posts / 6) * 10
+    const explore = Math.min(1, posts / 6) * w.explore
     const pending = (await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM comments cm JOIN posts po ON po.id = cm.post_id WHERE po.publication_id = ? AND cm.status = 'pending' AND cm.created_at < ?", [id, new Date(now - 7 * DAY).toISOString()]))?.n ?? 0
-    const hygiene = Math.max(0, 1 - pending / 10) * 10
+    const hygiene = Math.max(0, 1 - pending / 10) * w.hygiene
     const parts = { regularity, activity, audience, explore, hygiene }
-    out[id] = { score: Math.round(regularity + activity + audience + explore + hygiene), parts: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, Math.round(v)])) }
+    out[id] = { score: Math.round(((regularity + activity + audience + explore + hygiene) * 100) / total), parts: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, Math.round(v)])) }
   }
   return out
 }
