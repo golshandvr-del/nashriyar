@@ -91,8 +91,9 @@
   - [x] (گفتگوی ۱۸) /production → median_days + bottlenecks (نشریه×مرحله) + نمودار میانه و heatmap گلوگاه؛ /explore → hourly (روز×ساعت تهران +210min) + calendar + دو heatmap در ExploreStats
   - [x] (گفتگوی ۱۸) /trends → newPerYear + نمودار «نشریات جدید در هر سال»؛ /gaps → gap_window + factors (تغییر مدیرمسئول، ترک عضو، مرحلهٔ >۳۰ روز) در طولانی‌ترین فاصلهٔ غیرعادی (>۱.۵×دوره) + نمایش در جدول Gaps
   - [x] (گفتگوی ۱۸) tsc/build/smoke/admin-writes پاس؛ تست زنده (/tmp/s18.mjs): اکسپلور ۳۰ پست/۱۷ نشریه/۰ تکرار پیاپی، صفحهٔ ۲ بدون هم‌پوشانی؛ میانهٔ مراحل؛ ۱۶۸ خانهٔ heatmap؛ newPerYear؛ gaps با factors؛ ناظر محدود به ۲ نشریه
-  - [x] (گفتگوی ۱۸) مقایسهٔ دو بازه: /api/analytics/trends?from2&to2 → compare{a,b,growth} + کارت UI در Trends (کد push شد؛ تست زنده در گفتگوی ۱۹)
+  - [x] (گفتگوی ۱۸) مقایسهٔ دو بازه: /api/analytics/trends?from2&to2 → compare{a,b,growth} + کارت UI در Trends (گفتگوی ۱۹: تست زنده پاس — ۱۸۳/۱۸۲ روز، growth درصدی، پارامتر نامعتبر → compare=null)
   - نکتهٔ محیط: fuser نصب نیست؛ `pkill -f "node server-dist/node.mjs"` شِل خودش را هم می‌کشد (الگو در خط فرمان bash هست)! درست: `pkill -f "[n]ode server-dist"`
+  - برنامهٔ گفتگوی ۱۹ برای فاز ۰: monorepo و Drizzle = انحراف آگاهانه → ADR-013/ADR-014 در DECISIONS.md و تیک با یادداشت؛ ESLint+Prettier واقعاً اضافه شود (npm run lint/format)؛ بقیهٔ موارد فاز ۰ شواهد دارند
   - صف بعدی: تیک ROADMAP فاز به فاز (هر فاز یک commit) ← README/CHANGELOG ← لینک موقت ← tag v1.0.0 + Release + بستن Milestoneها
   - صف باقی‌مانده: تیک‌زدن صادقانهٔ ROADMAP (فاز به فاز) ← README/CHANGELOG 1.1 ← build/test نهایی ← لینک موقت عمومی (GetServiceUrl) برای کاربر ← tag v1.0.0 + GitHub Release + بستن Milestoneها
 - **گفتگوی ۱۶:** شروع از commit 274 (f30ff6f). صف: تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
