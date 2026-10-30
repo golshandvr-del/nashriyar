@@ -3,12 +3,67 @@
 // personal data (names, student numbers) — see docs/SECURITY.md.
 import type { Context } from 'hono'
 import type { AppEnv } from './context'
-import { getSetting } from './lib/util'
+import { getSetting, setSetting } from './lib/util'
+import type { Db } from './adapters/db'
 
 export interface AIProvider {
   readonly enabled: boolean
   complete(system: string, user: string): Promise<string>
+  /** Tokens reported by the last call (0 when unknown). */
+  lastTokens?: number
 }
+
+// ---- Usage budget + circuit breaker (ROADMAP phase 10) ----
+// State lives in the settings table (no migration): `ai_usage` = calls/tokens of the current month,
+// `ai_breaker` = consecutive failures and an "open until" time. `ai_monthly_call_limit` (0 = unlimited)
+// is the monthly budget set by the super admin.
+export interface AIUsage { month: string; calls: number; tokens: number; failures: number }
+interface Breaker { fails: number; open_until: string | null }
+const BREAKER_THRESHOLD = 3
+const BREAKER_COOLDOWN_MS = 10 * 60 * 1000
+const monthKey = (d = new Date()) => d.toISOString().slice(0, 7)
+
+export async function getAiUsage(db: Db): Promise<AIUsage> {
+  const u = await getSetting<AIUsage | null>(db, 'ai_usage', null)
+  const m = monthKey()
+  return u && u.month === m ? { month: m, calls: u.calls || 0, tokens: u.tokens || 0, failures: u.failures || 0 } : { month: m, calls: 0, tokens: 0, failures: 0 }
+}
+
+export async function getAiStatus(db: Db) {
+  const usage = await getAiUsage(db)
+  const limit = Number(await getSetting(db, 'ai_monthly_call_limit', 0)) || 0
+  const br = await getSetting<Breaker>(db, 'ai_breaker', { fails: 0, open_until: null })
+  const open = !!br.open_until && new Date(br.open_until).getTime() > Date.now()
+  return { usage, limit, remaining: limit ? Math.max(0, limit - usage.calls) : null, breaker_open: open, breaker_open_until: open ? br.open_until : null }
+}
+
+class BudgetError extends Error {}
+
+/** Wraps a real provider: refuses when over budget or while the breaker is open, records usage and failures. */
+class GuardedProvider implements AIProvider {
+  readonly enabled = true
+  constructor(private inner: AIProvider, private db: Db) {}
+  async complete(system: string, user: string): Promise<string> {
+    const st = await getAiStatus(this.db)
+    if (st.breaker_open) throw new BudgetError('سرویس هوش مصنوعی پس از چند خطای پیاپی موقتاً متوقف شده است؛ چند دقیقهٔ دیگر دوباره تلاش کنید.')
+    if (st.limit && st.usage.calls >= st.limit) throw new BudgetError('سقف ماهانهٔ استفاده از هوش مصنوعی پر شده است؛ سوپرادمین می‌تواند سقف را در تنظیمات افزایش دهد.')
+    const usage = st.usage
+    try {
+      const out = await this.inner.complete(system, user)
+      await setSetting(this.db, 'ai_usage', { ...usage, calls: usage.calls + 1, tokens: usage.tokens + (this.inner.lastTokens || 0) })
+      await setSetting(this.db, 'ai_breaker', { fails: 0, open_until: null })
+      return out
+    } catch (e) {
+      const br = await getSetting<Breaker>(this.db, 'ai_breaker', { fails: 0, open_until: null })
+      const fails = (br.fails || 0) + 1
+      await setSetting(this.db, 'ai_breaker', { fails, open_until: fails >= BREAKER_THRESHOLD ? new Date(Date.now() + BREAKER_COOLDOWN_MS).toISOString() : null })
+      await setSetting(this.db, 'ai_usage', { ...usage, failures: usage.failures + 1 })
+      throw e
+    }
+  }
+}
+
+const failMessage = (e: unknown) => (e instanceof BudgetError ? e.message : 'پاسخ از سرویس هوش مصنوعی دریافت نشد. بعداً تلاش کنید.')
 
 class NullProvider implements AIProvider {
   readonly enabled = false
@@ -20,6 +75,7 @@ class NullProvider implements AIProvider {
 /** OpenAI-compatible chat completions provider (works with any compatible endpoint). */
 class OpenAICompatibleProvider implements AIProvider {
   readonly enabled = true
+  lastTokens = 0
   constructor(private baseUrl: string, private apiKey: string, private model: string) {}
   async complete(system: string, user: string): Promise<string> {
     const res = await fetch(this.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
@@ -29,6 +85,7 @@ class OpenAICompatibleProvider implements AIProvider {
     })
     if (!res.ok) throw new Error(`AI provider error ${res.status}`)
     const j: any = await res.json()
+    this.lastTokens = Number(j?.usage?.total_tokens) || 0
     return String(j?.choices?.[0]?.message?.content || '').trim()
   }
 }
@@ -41,7 +98,7 @@ export async function getProvider(c: Context<AppEnv>): Promise<AIProvider> {
   const apiKey = (await getSetting(db, 'ai_api_key', '')) || deps.ai?.apiKey || ''
   const model = (await getSetting(db, 'ai_model', '')) || deps.ai?.model || 'gpt-4o-mini'
   if (!baseUrl || !apiKey) return new NullProvider()
-  return new OpenAICompatibleProvider(baseUrl, apiKey, model)
+  return new GuardedProvider(new OpenAICompatibleProvider(baseUrl, apiKey, model), db)
 }
 
 const SYSTEM_FA =
@@ -57,7 +114,7 @@ export async function aiNarrative(c: Context<AppEnv>, data: unknown) {
     const text = await p.complete(SYSTEM_FA, 'گزارش روایی کوتاهی از وضعیت نشریات در این بازه بنویس. داده‌ها (JSON):\n' + JSON.stringify(data))
     return { enabled: true, text }
   } catch (e) {
-    return { enabled: true, text: '', message: 'پاسخ از سرویس هوش مصنوعی دریافت نشد. بعداً تلاش کنید.' }
+    return { enabled: true, text: '', message: failMessage(e) }
   }
 }
 
@@ -68,8 +125,8 @@ export async function aiAsk(c: Context<AppEnv>, question: string, data: unknown)
   try {
     const text = await p.complete(SYSTEM_FA, `پرسش مسئول نشریات: ${question}\nداده‌های تجمیعی موجود (JSON):\n${JSON.stringify(data)}`)
     return { enabled: true, text }
-  } catch {
-    return { enabled: true, text: '', message: 'پاسخ از سرویس هوش مصنوعی دریافت نشد. بعداً تلاش کنید.' }
+  } catch (e) {
+    return { enabled: true, text: '', message: failMessage(e) }
   }
 }
 
