@@ -34,6 +34,20 @@ export function DeltaBadge({ cur, prev }: { cur: number; prev: number }) {
   )
 }
 
+/** Tiny dependency-free SVG sparkline (ROADMAP phase 7 overview KPIs). */
+export function Sparkline({ data, className = 'mt-2 h-8 w-full text-brand' }: { data?: number[]; className?: string }) {
+  if (!data || data.length < 2) return null
+  const max = Math.max(...data, 1)
+  const step = 100 / (data.length - 1)
+  const pts = data.map((v, i) => `${(i * step).toFixed(2)},${(30 - (v / max) * 28).toFixed(2)}`).join(' ')
+  return (
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className={className} aria-hidden="true">
+      <polyline points={`0,30 ${pts} 100,30`} fill="currentColor" opacity="0.12" stroke="none" />
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+    </svg>
+  )
+}
+
 export const SEVERITY_ICON = { critical: AlertTriangle, warning: AlertTriangle, info: Info, positive: Lightbulb } as Record<string, typeof Info>
 export const SEVERITY_CLS: Record<string, string> = {
   critical: 'border-danger/40 bg-danger/5 text-danger',
@@ -113,6 +127,7 @@ export default function AdminOverview() {
                     <div className="text-xs text-muted">{k.label}</div>
                     <div className="mt-1 text-xl font-extrabold">{k.money ? formatToman(cur) : formatNumber(cur)}</div>
                     <DeltaBadge cur={cur} prev={prev} />
+                    <Sparkline data={s.spark?.[k.key]} />
                   </div>
                 )
               })}
