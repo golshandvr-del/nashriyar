@@ -370,7 +370,32 @@ analyticsRoutes.get('/gaps', async (c) => {
     for (let k = 1; k < dates.length; k++) gaps.push(Math.round((new Date(dates[k]).getTime() - new Date(dates[k - 1]).getTime()) / DAY))
     const last = dates[dates.length - 1] || null
     const since = last ? Math.round((Date.now() - new Date(last).getTime()) / DAY) : null
+    // Concurrent factors (ROADMAP phase 7): what happened inside the longest gap (or the open gap since the last issue)
+    const exp = expected[p.frequency] ?? 120
+    let win: [string, string] | null = null
+    if (gaps.length) {
+      const k = gaps.indexOf(Math.max(...gaps))
+      if (gaps[k] > exp * 1.5) win = [dates[k], dates[k + 1]]
+    }
+    if (last && since != null && since > exp * 1.5 && (!win || since > Math.max(...gaps))) win = [last, nowIso()]
+    const factors: string[] = []
+    if (win) {
+      const dir = await db.first<{ n: number }>(
+        "SELECT COUNT(*) AS n FROM publication_roles WHERE publication_id = ? AND role = 'managing_director' AND started_at > ? AND started_at <= ?",
+        [p.id, win[0], win[1]]
+      )
+      if (dir?.n) factors.push('تغییر مدیرمسئول')
+      const left = await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM team_members WHERE publication_id = ? AND left_at > ? AND left_at <= ?', [p.id, win[0], win[1]])
+      if (left?.n) factors.push(`ترک ${left.n} عضو`)
+      const slow = await db.first<{ title: string; d: number }>(
+        `SELECT st.title, MAX(julianday(COALESCE(st.completed_at, ?)) - julianday(st.started_at)) AS d FROM issue_stages st JOIN issues i ON i.id = st.issue_id
+         WHERE i.publication_id = ? AND st.started_at IS NOT NULL AND st.started_at < ? AND COALESCE(st.completed_at, ?) > ?`,
+        [win[1], p.id, win[1], win[1], win[0]]
+      )
+      if (slow?.title && slow.d > 30) factors.push(`مرحلهٔ طولانی «${slow.title}» (${Math.round(slow.d)} روز)`)
+    }
     out.push({
+      gap_window: win, factors,
       id: p.id, title: p.title, frequency: p.frequency, expected_days: expected[p.frequency] ?? 120, issues: dates.length,
       avg_gap: gaps.length ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null, max_gap: gaps.length ? Math.max(...gaps) : null,
       days_since_last: since, last_published_at: last, overdue: since != null && since > (expected[p.frequency] ?? 120)
