@@ -43,6 +43,30 @@ const TeamStats = lazy(() => import('./team/Stats'))
 const TeamRecruit = lazy(() => import('./team/Recruit'))
 const TeamProfile = lazy(() => import('./team/Profile'))
 
+// Admin / monitoring panel: separate chunks, only downloaded by staff.
+const AdminLayout = lazy(() => import('./admin/Layout'))
+const Guard = lazy(() => import('./admin/Layout').then((m) => ({ default: m.RequireAccess })))
+const AdminOverview = lazy(() => import('./admin/Overview'))
+const AdminLive = lazy(() => import('./admin/Live'))
+const AdminAnalytics = lazy(() => import('./admin/Analytics'))
+const AdminInsights = lazy(() => import('./admin/Insights'))
+const AdminApprovals = lazy(() => import('./admin/Approvals'))
+const AdminPublications = lazy(() => import('./admin/Publications'))
+const AdminPublicationNew = lazy(() => import('./admin/PublicationNew'))
+const AdminPublicationDetail = lazy(() => import('./admin/PublicationDetail'))
+const AdminIssueDetail = lazy(() => import('./admin/IssueDetail'))
+const AdminPeople = lazy(() => import('./admin/People'))
+const AdminPerson = lazy(() => import('./admin/People').then((m) => ({ default: m.AdminPerson })))
+const AdminStructure = lazy(() => import('./admin/Structure'))
+const AdminCategories = lazy(() => import('./admin/Categories'))
+const AdminModeration = lazy(() => import('./admin/Moderation'))
+const AdminStorefront = lazy(() => import('./admin/Storefront'))
+const AdminAnnouncements = lazy(() => import('./admin/Announcements'))
+const AdminUsers = lazy(() => import('./admin/Users'))
+const AdminAudit = lazy(() => import('./admin/Audit'))
+const AdminSettings = lazy(() => import('./admin/Settings'))
+
+
 if (getLargeText()) setLargeText(true)
 
 function App() {
@@ -64,6 +88,28 @@ function App() {
           <Route path="stats" element={<TeamStats />} />
           <Route path="recruit" element={<TeamRecruit />} />
           <Route path="profile" element={<TeamProfile />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminOverview />} />
+          <Route path="live" element={<AdminLive />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="insights" element={<AdminInsights />} />
+          <Route path="approvals" element={<Guard access="approver"><AdminApprovals /></Guard>} />
+          <Route path="publications" element={<AdminPublications />} />
+          <Route path="publications/new" element={<Guard access="admin"><AdminPublicationNew /></Guard>} />
+          <Route path="publications/:id" element={<AdminPublicationDetail />} />
+          <Route path="issues/:issueId" element={<AdminIssueDetail />} />
+          <Route path="people" element={<AdminPeople />} />
+          <Route path="people/:key" element={<AdminPerson />} />
+          <Route path="structure" element={<AdminStructure />} />
+          <Route path="categories" element={<AdminCategories />} />
+          <Route path="moderation" element={<Guard access="admin"><AdminModeration /></Guard>} />
+          <Route path="storefront" element={<Guard access="admin"><AdminStorefront /></Guard>} />
+          <Route path="announcements" element={<Guard access="admin"><AdminAnnouncements /></Guard>} />
+          <Route path="users" element={<Guard access="admin"><AdminUsers /></Guard>} />
+          <Route path="audit" element={<Guard access="admin"><AdminAudit /></Guard>} />
+          <Route path="settings" element={<Guard access="admin"><AdminSettings /></Guard>} />
           <Route path="*" element={<NotFound />} />
         </Route>
         <Route element={<PublicLayout />}>
