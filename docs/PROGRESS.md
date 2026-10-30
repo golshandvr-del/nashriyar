@@ -129,6 +129,8 @@
 
 - **گفتگوی ۲۴:** migration 0005 (posts.alt_json، متن جایگزین تصاویر: API ساخت پست + alts[] در همهٔ خروجی‌ها + فیلد در composer)، نظرهای pending فقط برای نویسنده با برچسب، زمان‌بندی پست، «خواندن کامل»، فیلتر دانشکده در اکسپلور، اعلان پست تازه. **فاز ۶ کامل تیک خورد** (تیک‌ها: ۱۱۶). نکته: `/api/team/my` → `publications[].publication_id`.
 
+- **گفتگوی ۲۴ (ادامه — فاز ۷):** migration 0006 (view_daily + analytics_cache)، `lib/rollup.ts` (ensureRollup تنبل تا دیروز، حداکثر ۱۲۰ روز در هر درخواست؛ watermark در setting `analytics_rollup_until`)، middleware کش ۵ دقیقه‌ای در analytics.ts (کلید = نقش + دانشکدهٔ ناظر + مسیر + query؛ `?fresh=1` دور می‌زند؛ /live، /insights و /ai کش نمی‌شوند؛ هدر X-Cache: hit). KPIهای views/reads/post_views از viewCount (rollup + خام پس از watermark) — تطابق دقیق با خام تست شد.
+
 ## حساب‌های نمایشی (پس از seed)
 - سوپرادمین: `admin` / `admin1234` — مسئول نشریات: `officer` / `officer1234`
 - تیم نمونه: `pub1-director` / `team1234` (و `pub1-editor`، `pub1-holder`)
