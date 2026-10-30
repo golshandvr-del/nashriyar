@@ -62,7 +62,7 @@
   5. [x] کارنامه: GET /api/analytics/scorecard/:id + admin/Scorecard.tsx (/admin/publications/:id/scorecard)؛ گزارش دوره‌ای: admin/Report.tsx (/admin/report، منوی پایش)؛ استایل چاپ A4 در styles.css
   6. [x] feature flags: src/server/lib/features.ts (getFeatures/sanitizeFeatures/requireFeature) + POST /api/admin/settings {feature_flags} فقط سوپرادمین + features در /api/public/settings + gate روی explore/posts/recruitment/certificates/comments/redeem/physical-sales + src/web/lib/features.ts (useFeature/usePublicSettings) و پنهان‌سازی UI — تست شد (403 هنگام خاموش)
   7. [x] حالت‌های ثبت‌نام ← طبق تصمیم کارفرما #۱ (ROADMAP) برای نسخهٔ اولیه توسعه داده نمی‌شود و به فاز ۱۲ منتقل شد؛ ثبت‌نام آزاد + سوییچ registration_open کافی است
-  8. [ ] TOTP برای سوپرادمین و مسئول
+  8. [x] TOTP: migrations/0002_totp.sql + src/server/lib/totp.ts (RFC 6238، تست‌برداری RFC پاس) + login با کد totp_required/totp_invalid و ضد replay + /api/auth/totp{,/setup,/enable,/disable} + کارت در /settings (فقط کارکنان) + POST /api/admin/users/:id/reset-totp + `--create-admin` 2FA را هم پاک می‌کند — تست شد
   9. [ ] پالت فرمان Ctrl+K
   10. [ ] AI: circuit breaker، سقف بودجهٔ ماهانه، ثبت مصرف
   11. [ ] (تصمیم) FTS5 ← فعلاً LIKE روی search_text نرمال‌شده؛ در DECISIONS ثبت شود
@@ -80,6 +80,9 @@
 - @hono/node-server v2: فایل‌های تایپ `.d.mts` هستند.
 - داده‌ها در `data/` (gitignore) — `nashriyar.db` + `files/`.
 - مسیر ذخیرهٔ تنظیمات ادمین **POST** `/api/admin/settings` است (نه PUT).
+- در سندباکس `fuser` وجود ندارد؛ برای کشتن پورت از `ss -ltnp` استفاده کن (توابع killport/startsrv در ~/ck.sh).
+- `npm test` نیاز به `npm run build` کامل قبلی دارد (dist/ و server-dist/).
+- مایگریشن جدید: فایل در migrations/ + افزودن به آرایهٔ MIGRATIONS در src/server/migrate.ts.
 
 ## حساب‌های نمایشی (پس از seed)
 - سوپرادمین: `admin` / `admin1234` — مسئول نشریات: `officer` / `officer1234`
