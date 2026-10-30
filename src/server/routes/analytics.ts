@@ -435,13 +435,23 @@ analyticsRoutes.get('/explore', async (c) => {
   const uniq = async (type: string) =>
     Number((await db.first<{ n: number }>(`SELECT COUNT(DISTINCT v.viewer_hash) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.entity_type = ? AND v.day BETWEEN ? AND ?${s.sql}`, [type, from, to, ...s.params]))?.n ?? 0)
   const bought = Number((await db.first<{ n: number }>(`SELECT COUNT(DISTINCT ac.redeemed_by) AS n FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql}`, [fromTs, toTs, ...s.params]))?.n ?? 0)
+  // Weekday × hour heatmap (Tehran local time, UTC+03:30) and daily calendar heatmap (ROADMAP phase 7)
+  const hourly = await db.all<{ d: number; h: number; n: number }>(
+    `SELECT CAST(strftime('%w', datetime(v.created_at, '+210 minutes')) AS INTEGER) AS d, CAST(strftime('%H', datetime(v.created_at, '+210 minutes')) AS INTEGER) AS h, COUNT(*) AS n
+     FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY d, h`,
+    [from, to, ...s.params]
+  )
+  const calendar = await db.all<{ day: string; n: number }>(
+    `SELECT v.day, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY v.day ORDER BY v.day`,
+    [from, to, ...s.params]
+  )
   const funnel = [
     { key: 'post', label: 'دیدن پست اکسپلور', n: await uniq('post') },
     { key: 'issue', label: 'ورود به صفحهٔ شماره', n: await uniq('issue') },
     { key: 'issue_read', label: 'شروع خواندن', n: await uniq('issue_read') },
     { key: 'purchase', label: 'خرید (بازخرید کد)', n: bought }
   ]
-  return c.json({ from, to, top: top.map((r) => ({ ...r, image: parseJson<string[]>(r.images_json, [])[0] || null, images_json: undefined })), byPub, moderation, funnel })
+  return c.json({ from, to, top: top.map((r) => ({ ...r, image: parseJson<string[]>(r.images_json, [])[0] || null, images_json: undefined })), byPub, moderation, funnel, hourly, calendar })
 })
 
 /** Sales: digital codes and print, by publication and issue. */
