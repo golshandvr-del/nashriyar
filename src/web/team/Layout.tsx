@@ -4,6 +4,7 @@ import { BarChart3, BookOpen, ClipboardCheck, House, Images, LayoutDashboard, Me
 import { useAuth, PUB_ROLE_LABEL, isAdmin } from '../lib/auth'
 import type { PubRole } from '../lib/auth'
 import { cx } from '../lib/format'
+import { usePublicSettings } from '../lib/features'
 import { Empty, PageLoader } from '../components/ui'
 
 interface TeamCtx {
@@ -62,6 +63,15 @@ export default function TeamLayout() {
   const { pubId = '' } = useParams()
   const { user, publications, loading } = useAuth()
   const nav = useNavigate()
+  // Hide menu items whose whole feature was switched off by the super admin (the API enforces it too).
+  const ff = usePublicSettings()?.features || {}
+  const off = (k: string) => (ff as Record<string, boolean | undefined>)[k] === false
+  const navItems = NAV.filter(
+    (n) =>
+      !((n.to === 'posts' || n.to === 'comments') && off('explore')) &&
+      !(n.to === 'recruit' && off('recruitment')) &&
+      !(n.to === 'sales' && off('paid_content') && off('physical_sales'))
+  )
   if (loading) return <PageLoader />
   if (!user) return <Navigate to={`/login?next=/team/${pubId}`} replace />
   const pub = publications.find((p) => p.publication_id === pubId) || null
@@ -93,7 +103,7 @@ export default function TeamLayout() {
             </Link>
           </div>
           <nav className="no-scrollbar flex gap-1 overflow-x-auto p-2 md:flex-col md:overflow-visible">
-            {NAV.map((n) => (
+            {navItems.map((n) => (
               <NavLink
                 key={n.to}
                 to={n.to ? `${base}/${n.to}` : base}
