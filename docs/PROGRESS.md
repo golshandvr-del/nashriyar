@@ -61,7 +61,7 @@
   4. [x] پیش‌بینی خطی: GET /api/analytics/forecast (termBounds + linearFit در shared/fa.ts) + تب «پیش‌بینی ترم» در admin/Analytics — تست شد
   5. [x] کارنامه: GET /api/analytics/scorecard/:id + admin/Scorecard.tsx (/admin/publications/:id/scorecard)؛ گزارش دوره‌ای: admin/Report.tsx (/admin/report، منوی پایش)؛ استایل چاپ A4 در styles.css
   6. [x] feature flags: src/server/lib/features.ts (getFeatures/sanitizeFeatures/requireFeature) + POST /api/admin/settings {feature_flags} فقط سوپرادمین + features در /api/public/settings + gate روی explore/posts/recruitment/certificates/comments/redeem/physical-sales + src/web/lib/features.ts (useFeature/usePublicSettings) و پنهان‌سازی UI — تست شد (403 هنگام خاموش)
-  7. [ ] حالت‌های ثبت‌نام: آزاد / فهرست مجاز CSV / کد فعال‌سازی
+  7. [x] حالت‌های ثبت‌نام ← طبق تصمیم کارفرما #۱ (ROADMAP) برای نسخهٔ اولیه توسعه داده نمی‌شود و به فاز ۱۲ منتقل شد؛ ثبت‌نام آزاد + سوییچ registration_open کافی است
   8. [ ] TOTP برای سوپرادمین و مسئول
   9. [ ] پالت فرمان Ctrl+K
   10. [ ] AI: circuit breaker، سقف بودجهٔ ماهانه، ثبت مصرف
