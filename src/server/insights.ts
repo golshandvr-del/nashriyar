@@ -24,7 +24,12 @@ export const DEFAULT_THRESHOLDS = {
   pending_comments: 5,
   growth_pct: 50,
   drop_pct: 50,
-  expired_codes: 5
+  expired_codes: 5,
+  slow_stage_factor: 2, // stage in progress longer than factor × the median of the same stage elsewhere
+  irregular_cv: 0.6, // coefficient of variation of publishing gaps above which a publication is "irregular"
+  team_shrink: 2, // members who left in the last 60 days
+  bot_views: 60, // views from one viewer on one day considered bot-like
+  director_effect_days: 90 // look-back window for the managing-director change effect
 }
 export type Thresholds = typeof DEFAULT_THRESHOLDS
 /** Health score weights (settings.health_weights); the score is normalised to 0..100 whatever the total. */
@@ -130,6 +135,75 @@ export async function computeInsights(db: Db, scope: { sql: string; params: unkn
     [new Date().toISOString(), new Date(now - 30 * DAY).toISOString(), ...scope.params]
   )
   if ((expired?.n ?? 0) >= t.expired_codes) out.push({ key: `codes_expired:${today.slice(0, 7)}`, severity: 'info', title: `${expired!.n} کد خرید بدون استفاده منقضی شد`, detail: 'خریداران ممکن است در ثبت کد مشکل داشته باشند؛ راهنمای ثبت کد را به تیم‌ها یادآوری کنید.' })
+
+  // 10. Abnormally long stage: in progress > factor × median duration of the same stage key (needs >= 3 samples)
+  const doneStages = await db.all<{ key: string; d: number }>(
+    `SELECT key, julianday(completed_at) - julianday(started_at) AS d FROM issue_stages WHERE status = 'done' AND started_at IS NOT NULL AND completed_at IS NOT NULL`
+  )
+  const byKey: Record<string, number[]> = {}
+  for (const r of doneStages) (byKey[r.key] ||= []).push(r.d)
+  const med = (xs: number[]) => { const a = [...xs].sort((x, y) => x - y); const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2 }
+  const running = await db.all<any>(
+    `SELECT st.id, st.key, st.title, st.started_at, i.number, p.id AS pid, p.title AS pt FROM issue_stages st JOIN issues i ON i.id = st.issue_id JOIN publications p ON p.id = i.publication_id
+     WHERE st.status = 'in_progress' AND st.started_at IS NOT NULL AND i.deleted_at IS NULL AND p.deleted_at IS NULL${scope.sql}`,
+    scope.params
+  )
+  for (const r of running) {
+    const xs = byKey[r.key]
+    if (!xs || xs.length < 3) continue
+    const m = Math.max(1, med(xs))
+    const d = (now - new Date(r.started_at).getTime()) / DAY
+    if (d > m * t.slow_stage_factor && d > 7) out.push({ key: `slow_stage:${r.id}`, severity: 'warning', title: `${r.pt} — شمارهٔ ${r.number}: مرحلهٔ «${r.title}» غیرعادی طولانی شده`, detail: `${Math.round(d)} روز در این مرحله؛ میانهٔ همین مرحله در سایر شماره‌ها ${Math.round(m)} روز است.`, publication_id: r.pid, link: `/admin/publications/${r.pid}` })
+  }
+  // 11. Irregular publishing gaps (coefficient of variation) — needs >= 3 gaps
+  const pubDates = await db.all<{ pid: string; title: string; d: string }>(
+    `SELECT p.id AS pid, p.title, i.published_at AS d FROM issues i JOIN publications p ON p.id = i.publication_id
+     WHERE i.status IN ('published','archived') AND i.published_at IS NOT NULL AND p.deleted_at IS NULL AND p.status = 'active'${scope.sql} ORDER BY p.id, i.published_at`,
+    scope.params
+  )
+  const datesBy = new Map<string, { title: string; ds: number[] }>()
+  for (const r of pubDates) { const e = datesBy.get(r.pid) || { title: r.title, ds: [] }; e.ds.push(new Date(r.d).getTime()); datesBy.set(r.pid, e) }
+  for (const [pid, e] of datesBy) {
+    const gaps = e.ds.slice(1).map((x, k) => (x - e.ds[k]) / DAY)
+    if (gaps.length < 3) continue
+    const m = gaps.reduce((a, b) => a + b, 0) / gaps.length
+    const cv = m ? Math.sqrt(gaps.reduce((a, b) => a + (b - m) ** 2, 0) / gaps.length) / m : 0
+    if (cv > t.irregular_cv) out.push({ key: `irregular:${pid}`, severity: 'info', title: `${e.title}: فاصلهٔ انتشار نامنظم`, detail: `ضریب تغییرات فاصلهٔ شماره‌ها ${cv.toFixed(2)} است (فاصله‌ها بین ${Math.round(Math.min(...gaps))} تا ${Math.round(Math.max(...gaps))} روز).`, publication_id: pid, link: '/admin/analytics?tab=gaps' })
+  }
+  // 12. Managing-director change effect: director changed recently and nothing has been published since
+  const dirChanges = await db.all<any>(
+    `SELECT r.publication_id AS pid, p.title, r.started_at,
+       (SELECT COUNT(*) FROM issues i WHERE i.publication_id = r.publication_id AND i.status IN ('published','archived') AND i.published_at > r.started_at) AS after
+     FROM publication_roles r JOIN publications p ON p.id = r.publication_id
+     WHERE r.role = 'managing_director' AND r.ended_at IS NULL AND r.started_at > ? AND p.deleted_at IS NULL${scope.sql}
+       AND EXISTS (SELECT 1 FROM publication_roles r2 WHERE r2.publication_id = r.publication_id AND r2.role = 'managing_director' AND r2.ended_at IS NOT NULL)`,
+    [new Date(now - t.director_effect_days * DAY).toISOString(), ...scope.params]
+  )
+  for (const r of dirChanges) {
+    const d = Math.round((now - new Date(r.started_at).getTime()) / DAY)
+    out.push({ key: `director_change:${r.pid}:${String(r.started_at).slice(0, 10)}`, severity: r.after ? 'info' : 'warning', title: `${r.title}: تغییر مدیرمسئول ${d} روز پیش`, detail: r.after ? `از زمان تغییر ${r.after} شماره منتشر شده است.` : 'از زمان تغییر مدیرمسئول هنوز شماره‌ای منتشر نشده؛ دورهٔ گذار را پیگیری کنید.', publication_id: r.pid, link: `/admin/publications/${r.pid}` })
+  }
+  // 13. Team shrinking: >= N members left in the last 60 days
+  const shrink = await db.all<any>(
+    `SELECT p.id, p.title, SUM(CASE WHEN tm.left_at > ? THEN 1 ELSE 0 END) AS left_n, SUM(CASE WHEN tm.is_active = 1 AND tm.left_at IS NULL THEN 1 ELSE 0 END) AS active_n
+     FROM team_members tm JOIN publications p ON p.id = tm.publication_id WHERE p.deleted_at IS NULL${scope.sql} GROUP BY p.id HAVING left_n >= ?`,
+    [new Date(now - 60 * DAY).toISOString(), ...scope.params, t.team_shrink]
+  )
+  for (const r of shrink) out.push({ key: `team_shrink:${r.id}:${today.slice(0, 7)}`, severity: 'warning', title: `${r.title}: کوچک شدن تیم`, detail: `${r.left_n} عضو در ۶۰ روز اخیر تیم را ترک کرده‌اند؛ ${r.active_n} عضو فعال باقی است.`, publication_id: r.id, link: `/admin/publications/${r.id}` })
+  // 14. Bot-like views: a single viewer with many views on one day (last 7 days)
+  const bots = await db.all<any>(
+    `SELECT p.id, p.title, v.day, v.viewer_hash, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id
+     WHERE v.day >= ? AND v.viewer_hash IS NOT NULL${scope.sql} GROUP BY p.id, v.day, v.viewer_hash HAVING n >= ? ORDER BY n DESC LIMIT 10`,
+    [new Date(now - 7 * DAY).toISOString().slice(0, 10), ...scope.params, t.bot_views]
+  )
+  for (const b of bots) out.push({ key: `bot_views:${b.id}:${b.day}`, severity: 'info', title: `${b.title}: بازدید مشکوک به ربات`, detail: `${b.n} بازدید از یک بازدیدکننده در یک روز (${b.day}). این بازدیدها ممکن است آمار را متورم کنند.`, publication_id: b.id, link: '/admin/analytics?tab=explore' })
+  // 15. Faculties without any active publication (only meaningful for unscoped / officer views)
+  if (!scope.sql) {
+    const empty = await db.all<{ id: string; name: string }>(
+      `SELECT f.id, f.name FROM faculties f WHERE f.is_active = 1 AND NOT EXISTS (SELECT 1 FROM publications p WHERE p.faculty_id = f.id AND p.status = 'active' AND p.deleted_at IS NULL)`
+    )
+    for (const f of empty) out.push({ key: `faculty_empty:${f.id}`, severity: 'info', title: `دانشکدهٔ ${f.name} نشریهٔ فعالی ندارد`, detail: 'فرصتی برای حمایت از راه‌اندازی نشریهٔ جدید در این دانشکده.', link: '/admin/structure' })
+  }
 
   const dismissed = new Set((await db.all<{ insight_key: string }>('SELECT insight_key FROM insight_dismissals')).map((r) => r.insight_key))
   const order = { critical: 0, warning: 1, info: 2, positive: 3 }
