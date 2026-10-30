@@ -8,16 +8,7 @@
     <title>نشریار — نشریات دانشجویی</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <script>
-      // anti-flash: apply the saved theme before first paint (light | dark | system)
-      ;(function () {
-        try {
-          var t = localStorage.getItem('nsh_theme') || 'system'
-          var dark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-          if (dark) document.documentElement.classList.add('dark')
-        } catch (e) {}
-      })()
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>
