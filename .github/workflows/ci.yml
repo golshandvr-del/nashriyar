@@ -43,6 +43,9 @@ jobs:
           du -h dist/_worker.js server-dist/node.mjs >> "$GITHUB_STEP_SUMMARY"
           ls -S -l dist/assets | head -8 >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Unit tests (pure analytics / insight helpers)
+        run: npm run test:unit
+
       - name: E2E (smoke for every role + admin write paths)
         run: npm test
 
