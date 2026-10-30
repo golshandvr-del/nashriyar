@@ -430,6 +430,36 @@ function ExploreStats({ q }: { q: string }) {
             ].map(([l, v]) => <div key={l as string} className="card p-3"><div className="text-xs text-muted">{l}</div><div className="text-xl font-extrabold">{formatNumber(Number(v || 0))}</div></div>)}
             <div className="card p-3"><div className="text-xs text-muted">میانگین زمان بررسی</div><div className="text-xl font-extrabold">{toFaDigits(Math.round(d.moderation?.avg_hours || 0))} ساعت</div></div>
           </div>
+          {d.hourly && (
+            <Card title="نقشهٔ حرارتی بازدید: روز هفته × ساعت (به وقت تهران)">
+              <Chart
+                height={300}
+                csvName="weekday-hour"
+                option={{
+                  grid: { left: 70, bottom: 60 },
+                  tooltip: { position: 'top' },
+                  xAxis: { type: 'category', data: Array.from({ length: 24 }, (_, h) => toFaDigits(h)), splitArea: { show: true } },
+                  yAxis: { type: 'category', data: ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'], splitArea: { show: true } },
+                  visualMap: { min: 0, max: Math.max(1, ...d.hourly.map((r: any) => r.n)), calculable: true, orient: 'horizontal', left: 'center', bottom: 0 },
+                  series: [{ name: 'بازدید', type: 'heatmap', data: d.hourly.map((r: any) => [r.h, r.d, r.n]) }]
+                }}
+              />
+            </Card>
+          )}
+          {d.calendar?.length > 0 && (
+            <Card title="تقویم حرارتی بازدید روزانه">
+              <Chart
+                height={200}
+                csvName="calendar"
+                option={{
+                  tooltip: {},
+                  visualMap: { min: 0, max: Math.max(1, ...d.calendar.map((r: any) => r.n)), orient: 'horizontal', left: 'center', bottom: 0, show: false },
+                  calendar: { range: [d.from, d.to], cellSize: ['auto', 14], top: 30, left: 40, right: 20, dayLabel: { firstDay: 6 } },
+                  series: [{ name: 'بازدید', type: 'heatmap', coordinateSystem: 'calendar', data: d.calendar.map((r: any) => [r.day, r.n]) }]
+                }}
+              />
+            </Card>
+          )}
           {d.funnel && (
             <Card title="قیف اکسپلور ← خواندن ← خرید (بازدیدکنندهٔ یکتا)">
               <ol className="space-y-2">
