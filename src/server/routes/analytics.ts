@@ -536,7 +536,15 @@ analyticsRoutes.get('/production', async (c) => {
      GROUP BY u.id, p.id ORDER BY actions DESC LIMIT 30`,
     [fromTs, toTs, ...s.params]
   )
-  return c.json({ from, to, stages: stagesOut, cycle, approvals, bottlenecks, output, people })
+  // ROADMAP phase 7 production Gantt: issues currently in production, start → planned publish date
+  const timeline = await db.all(
+    `SELECT i.id, i.number, i.status, i.created_at, i.planned_publish_at, p.id AS publication_id, p.title AS publication_title
+     FROM issues i JOIN publications p ON p.id = i.publication_id
+     WHERE i.deleted_at IS NULL AND p.deleted_at IS NULL AND i.status IN ('planning','in_production','changes_requested','awaiting_approval')${s.sql}
+     ORDER BY COALESCE(i.planned_publish_at, '9999') LIMIT 40`,
+    s.params
+  )
+  return c.json({ from, to, stages: stagesOut, cycle, approvals, bottlenecks, output, people, timeline })
 })
 
 /** Publishing gaps: days between consecutive issues vs. declared frequency. */
