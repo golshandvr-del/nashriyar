@@ -328,12 +328,27 @@ function FollowersTab({ pubId }: { pubId: string }) {
       {(d: any) => (
         <div className="space-y-4">
           <p className="text-xs text-muted">این فهرست فقط برای مسئول نشریات قابل مشاهده است و هرگز به تیم نشریه نشان داده نمی‌شود.</p>
+          {d.summary && (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {[
+                ['دنبال‌کنندهٔ فعلی', d.summary.current],
+                ['جدید (۳۰ روز)', d.summary.new_30d],
+                ['لغو (۳۰ روز)', d.summary.unfollowed_30d],
+                ['کل لغوها', d.summary.unfollowed_total]
+              ].map(([l, v]) => (
+                <div key={l as string} className="card p-3">
+                  <div className="text-xs text-muted">{l}</div>
+                  <div className="text-xl font-extrabold">{toFaDigits(Number(v || 0))}</div>
+                </div>
+              ))}
+            </div>
+          )}
           {!!d.monthly.length && (
             <Card title="روند دنبال‌کردن (ماهانه)">
               <Chart
                 height={220}
                 csvName="followers-monthly"
-                option={{ xAxis: { type: 'category', data: d.monthly.map((m: any) => faMonthLabel(m.month)) }, yAxis: { type: 'value', minInterval: 1 }, series: [{ name: 'دنبال‌کنندهٔ جدید', type: 'bar', data: d.monthly.map((m: any) => m.n) }] }}
+                option={{ legend: {}, xAxis: { type: 'category', data: d.monthly.map((m: any) => faMonthLabel(m.month)) }, yAxis: { type: 'value', minInterval: 1 }, series: [...(d.unfollowMonthly ? [{ name: 'لغو', type: 'line', data: d.monthly.map((m: any) => d.unfollowMonthly.find((u: any) => u.month === m.month)?.n ?? 0) }] : []), { name: 'دنبال‌کنندهٔ جدید', type: 'bar', data: d.monthly.map((m: any) => m.n) }] }}
               />
             </Card>
           )}
