@@ -84,7 +84,8 @@
   - [x] قیف و سال‌به‌سال: /api/analytics/explore → funnel (post→issue→issue_read→purchase، viewer_hash یکتا) + کارت در ExploreStats؛ /api/analytics/trends → yoy {published, views} (کلید ماه +۱ سال) + نمودار در Trends
   - [x] راهنمای کاربری: Guide در public/Static.tsx (سه نقش: دانشجو، تیم، مسئول) + مسیر /guide + فوتر دسکتاپ در public/Layout.tsx (راهنما، قوانین، حریم خصوصی، استعلام گواهی)
   - [x] tests/load.mjs (+ npm run test:load؛ VUS/READERS/DURATION/P95_MS) ؛ build پاس، smoke پاس؛ تست زندهٔ قابلیت‌های جدید پاس (/tmp/new2.mjs: trace→40012345، کد غلط match=null، کد بد 400، دانشجو 403؛ max_sessions=2 قدیمی‌ترین نشست را 401 کرد؛ funnel 387/376/263/50؛ assoc 200/404)
-  - صف شکاف‌ها: تیک ROADMAP ← build/test ← tag/Release/بستن Milestone
+  - [x] آزمون بار اجرا شد (Node، سندباکس، ۲۰ ثانیه): ۵۰۰ بازدیدکننده + ۵۰ خواننده → ۱۰۳۲۵ درخواست، ۰٪ خطا، p95=472ms، ~۴۶۰ req/s — PASS
+  - صف باقی‌مانده: تیک‌زدن صادقانهٔ ROADMAP (فاز به فاز) ← README/CHANGELOG 1.1 ← build/test نهایی ← لینک موقت عمومی (GetServiceUrl) برای کاربر ← tag v1.0.0 + GitHub Release + بستن Milestoneها
 - **گفتگوی ۱۶:** شروع از commit 274 (f30ff6f). صف: تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
 - `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
