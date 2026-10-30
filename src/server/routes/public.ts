@@ -51,11 +51,30 @@ publicRoutes.get('/sitemap.xml', async (c) => {
 publicRoutes.get('/home', async (c) => {
   const db = c.get('db')
   const latest = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED} ORDER BY i.published_at DESC LIMIT 18`)
-  const shelvesRaw = await db.all<{ id: string; title: string; issue_ids_json: string }>(
-    'SELECT id, title, issue_ids_json FROM featured_shelves WHERE is_active = 1 ORDER BY sort_order LIMIT 6'
+  const shelvesRaw = await db.all<{ id: string; title: string; issue_ids_json: string; rule: string | null }>(
+    'SELECT id, title, issue_ids_json, rule FROM featured_shelves WHERE is_active = 1 ORDER BY sort_order LIMIT 6'
   )
   const shelves = []
   for (const s of shelvesRaw) {
+    // rule-based shelf (migration 0003): filled automatically, newest first
+    if (s.rule) {
+      const [kind, arg] = s.rule.split(':')
+      const FROM = `SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED}`
+      let sql = ''
+      let params: unknown[] = []
+      if (kind === 'latest') sql = `${FROM} ORDER BY i.published_at DESC LIMIT 12`
+      else if (kind === 'free') sql = `${FROM} AND i.pricing = 'free' ORDER BY i.published_at DESC LIMIT 12`
+      else if (kind === 'popular')
+        (sql = `${FROM} ORDER BY (SELECT COUNT(*) FROM view_events v WHERE v.entity_id = i.id AND v.entity_type IN ('issue','issue_read') AND v.day >= ?) DESC, i.published_at DESC LIMIT 12`),
+          (params = [new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10)])
+      else if (kind === 'faculty') (sql = `${FROM} AND p.faculty_id = ? ORDER BY i.published_at DESC LIMIT 12`), (params = [arg])
+      else if (kind === 'category')
+        (sql = `${FROM} AND (i.id IN (SELECT issue_id FROM issue_categories WHERE category_id = ?) OR p.id IN (SELECT publication_id FROM publication_categories WHERE category_id = ?)) ORDER BY i.published_at DESC LIMIT 12`),
+          (params = [arg, arg])
+      const items = sql ? await db.all(sql, params) : []
+      if (items.length) shelves.push({ id: s.id, title: s.title, items })
+      continue
+    }
     const ids = parseJson<string[]>(s.issue_ids_json, [])
     if (!ids.length) continue
     const items = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED} AND i.id IN (${inList(ids)})`, ids)
