@@ -111,6 +111,19 @@ export default function Reader() {
     }
   }, [id])
 
+  // Image errors usually mean an expired signature (→ refresh the manifest) but can also be the page-rate
+  // pause (429). Throttle refreshes so a paused reader never hammers the API in a loop.
+  const lastRetry = useRef(0)
+  const onPageError = useCallback(() => {
+    const now = Date.now()
+    if (now - lastRetry.current < 15_000) {
+      setError('بارگذاری صفحه ممکن نشد؛ اگر صفحات را خیلی سریع ورق زده‌اید، چند دقیقه صبر کنید.')
+      return
+    }
+    lastRetry.current = now
+    load()
+  }, [load])
+
   // initial load + start page (query ?page= or saved progress)
   useEffect(() => {
     load().then((r) => {
@@ -233,14 +246,14 @@ export default function Reader() {
           // RTL: the first page of the spread sits on the right, like a printed magazine.
           <div className="mx-auto flex gap-1" style={{ width: `${zoom}%`, maxWidth: zoom > 100 ? 'none' : 1600 }}>
             <div className="flex-1">
-              <PageCanvas key={p.url} url={p.url} watermark={m.watermark} zoom={100} onError={load} />
+              <PageCanvas key={p.url} url={p.url} watermark={m.watermark} zoom={100} onError={onPageError} />
             </div>
             <div className="flex-1">
-              <PageCanvas key={p2.url} url={p2.url} watermark={m.watermark} zoom={100} onError={load} />
+              <PageCanvas key={p2.url} url={p2.url} watermark={m.watermark} zoom={100} onError={onPageError} />
             </div>
           </div>
         ) : p ? (
-          <PageCanvas key={p.url} url={p.url} watermark={m.watermark} zoom={zoom} onError={load} />
+          <PageCanvas key={p.url} url={p.url} watermark={m.watermark} zoom={zoom} onError={onPageError} />
         ) : (
           <Locked m={m} />
         )}
