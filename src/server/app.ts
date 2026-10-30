@@ -63,7 +63,16 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
   app.use('/api/*', csrfGuard)
   app.use('/api/*', loadSession)
 
-  app.get('/api/health', (c) => c.json({ ok: true, time: new Date().toISOString() }))
+  // Liveness + readiness: also probes the database so load balancers / Docker healthchecks catch a broken DB.
+  app.get('/api/health', async (c) => {
+    const started = Date.now()
+    try {
+      await c.get('db').first('SELECT 1 AS ok')
+      return c.json({ ok: true, db: 'ok', latency_ms: Date.now() - started, time: new Date().toISOString() })
+    } catch {
+      return c.json({ ok: false, db: 'error', time: new Date().toISOString() }, 503)
+    }
+  })
   app.route('/api/auth', authRoutes)
   app.route('/api/public', publicRoutes)
   app.route('/api/me', meRoutes)
