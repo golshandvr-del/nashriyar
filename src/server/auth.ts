@@ -2,7 +2,7 @@ import type { Context, MiddlewareHandler } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import type { AppEnv, PubRole, SessionUser, SystemRole } from './context'
 import { randomId, sha256 } from './lib/crypto'
-import { HttpError, nowIso } from './lib/util'
+import { getSetting, HttpError, nowIso } from './lib/util'
 
 export const SESSION_COOKIE = 'nsh_sid'
 const SESSION_DAYS = 14
@@ -23,6 +23,13 @@ export async function createSession(c: Context<AppEnv>, userId: string): Promise
     (c.req.header('user-agent') || '').slice(0, 200)
   ])
   await db.run('UPDATE users SET last_login_at = ? WHERE id = ?', [nowIso(), userId])
+  // Concurrent-session cap (ROADMAP phase 5, account sharing): keep only the newest N active sessions.
+  const max = Math.max(1, Math.min(20, Math.floor(Number(await getSetting(c.get('db'), 'max_sessions', 5)) || 5)))
+  await db.run(
+    `UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL AND id NOT IN (
+       SELECT id FROM sessions WHERE user_id = ? AND revoked_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT ?)`,
+    [nowIso(), userId, userId, nowIso(), max]
+  )
   const secure = new URL(c.req.url).protocol === 'https:'
   setCookie(c, SESSION_COOKIE, token, { httpOnly: true, secure, sameSite: 'Lax', path: '/', maxAge: SESSION_DAYS * 86400 })
 }
