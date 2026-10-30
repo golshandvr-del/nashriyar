@@ -360,7 +360,7 @@ function Ranking({ q }: { q: string }) {
             )}
             <p className="text-xs text-muted">
               امتیاز سلامت (۰ تا ۱۰۰) = {Object.entries(HEALTH_PARTS).map(([k, l]) => `${l} (وزن ${toFaDigits((d.weights || DEFAULT_HEALTH_WEIGHTS)[k] ?? 0)})`).join(' + ')}، تقسیم بر مجموع وزن‌ها. برای دیدن اجزا نشانگر را روی عدد نگه دارید.
-              {role === 'officer' || role === 'superadmin' ? <> وزن‌ها در <Link to="/admin/settings" className="text-brand">تنظیمات</Link> قابل تغییرند.</> : null}
+              {role === 'pub_officer' || role === 'super_admin' ? <> وزن‌ها در <Link to="/admin/settings" className="text-brand">تنظیمات</Link> قابل تغییرند.</> : null}
             </p>
           </div>
         )
