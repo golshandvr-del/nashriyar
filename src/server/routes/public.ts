@@ -127,7 +127,7 @@ publicRoutes.get('/publications/:slug', async (c) => {
   const db = c.get('db')
   const p = await db.first<any>(
     `SELECT p.id, p.slug, p.title, p.tagline, p.description, p.logo_key, p.theme_color, p.frequency, p.license_number, p.keywords,
-       p.contacts_json, p.founded_at, a.name AS association_name, a.kind AS association_kind, f.name AS faculty_name, f.id AS faculty_id
+       p.contacts_json, p.founded_at, a.id AS association_id, a.name AS association_name, a.kind AS association_kind, f.name AS faculty_name, f.id AS faculty_id
      FROM publications p JOIN associations a ON a.id = p.association_id LEFT JOIN faculties f ON f.id = p.faculty_id
      WHERE p.slug = ? AND p.status = 'active' AND p.deleted_at IS NULL`,
     [c.req.param('slug')]
