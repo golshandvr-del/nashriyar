@@ -12,6 +12,7 @@ interface PostData {
     id: string
     caption: string | null
     images: string[]
+    alts?: string[]
     published_at: string
     publication_slug: string
     publication_title: string
@@ -93,7 +94,7 @@ export default function Post() {
 
             {imgs.length > 0 && (
               <div className="relative overflow-hidden rounded-2xl border border-line bg-surface-2">
-                <img src={mediaUrl(imgs[idx])} alt="" className="aspect-square w-full object-cover" />
+                <img src={mediaUrl(imgs[idx])} alt={p.alts?.[idx] || ''} className="aspect-square w-full object-cover" />
                 {imgs.length > 1 && (
                   <>
                     <button className="absolute start-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white disabled:opacity-30" disabled={idx === 0} onClick={() => setIdx(idx - 1)} aria-label="قبلی">
