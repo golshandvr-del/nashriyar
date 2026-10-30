@@ -5,6 +5,9 @@ import { Badge, Card, Input, Progress, Select, useAction } from '../../component
 import type { RoomProps } from './TocTab'
 
 const STAGE_OPTS = Object.entries(STAGE_STATUS).map(([value, label]) => ({ value, label }))
+/** Stage-specific wording for "in progress" (e.g. «در حال طراحی» starts the graphics stage). */
+const IN_PROGRESS_FA: Record<string, string> = { writing: 'در حال نگارش', editing: 'در حال ویرایش', graphics: 'در حال طراحی', layout: 'در حال صفحه‌آرایی', review: 'در حال بازبینی' }
+const stageOpts = (key: string) => STAGE_OPTS.map((o) => (o.value === 'in_progress' && IN_PROGRESS_FA[key] ? { ...o, label: IN_PROGRESS_FA[key] } : o))
 const ICON: Record<string, any> = { pending: Circle, in_progress: CircleDot, done: CheckCircle2, skipped: SkipForward }
 
 function Kanban({ toc }: { toc: any[] }) {
@@ -69,7 +72,7 @@ export default function ProgressTab({ d, reload, pubId }: RoomProps) {
                   {s.key === 'publish' ? (
                     <Badge tone={s.status === 'done' ? 'ok' : 'muted'}>{s.status === 'done' ? 'منتشر شد' : 'پس از تأیید مسئول نشریات'}</Badge>
                   ) : (
-                    <Select className="w-32" value={s.status} disabled={busy || locked} onChange={(e) => setStage(s, e.target.value)} options={STAGE_OPTS} aria-label="وضعیت مرحله" />
+                    <Select className="w-32" value={s.status} disabled={busy || locked} onChange={(e) => setStage(s, e.target.value)} options={stageOpts(s.key)} aria-label="وضعیت مرحله" />
                   )}
                   <Input type="date" dir="ltr" className="w-40" defaultValue={(s.due_at || '').slice(0, 10)} disabled={locked} onBlur={(e) => e.target.value !== (s.due_at || '').slice(0, 10) && setDue(s, e.target.value)} aria-label="موعد" />
                 </div>
