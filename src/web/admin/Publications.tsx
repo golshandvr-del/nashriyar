@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Download, Plus, Search } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { api, mediaUrl } from '../lib/api'
 import { ASSOC_KIND, FREQUENCY, PUB_STATUS, faDate, normalizeFa, relativeFa, toFaDigits } from '../lib/format'
 import { Async, Avatar, Badge, Empty, Input, PageHeader, useAsync } from '../components/ui'
-import { downloadCsv } from '../components/Chart'
+import { ExportButtons } from '../components/Chart'
 import { useAdminRole } from './Layout'
 
 const DAY = 86400000
@@ -34,13 +34,13 @@ export default function AdminPublications() {
           const rows = d.publications.filter(
             (p: any) => (!status || p.status === status) && (!nq || normalizeFa([p.title, p.association_name, p.faculty_name, p.license_number].join(' ')).includes(nq))
           )
-          const exportCsv = () => {
+          const pubsCsv = () => {
             const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
             const head = ['نشریه', 'وضعیت', 'دانشکده', 'صاحب امتیاز', 'دوره', 'شمارهٔ مجوز', 'انقضای مجوز', 'منتشرشده', 'در جریان', 'آخرین انتشار', 'اعضا', 'دنبال‌کننده']
             const body = rows.map((p: any) =>
               [p.title, PUB_STATUS[p.status], p.faculty_name, p.association_name, FREQUENCY[p.frequency], p.license_number, faDate(p.license_expires_at), p.published_count, p.in_progress_count, faDate(p.last_published_at), p.member_count, p.follower_count].map(esc).join(',')
             )
-            downloadCsv('publications', [head.join(','), ...body].join('\n'))
+            return [head.join(','), ...body].join('\n')
           }
           return (
             <>
@@ -57,9 +57,7 @@ export default function AdminPublications() {
                     </option>
                   ))}
                 </select>
-                <button className="btn-ghost" onClick={exportCsv}>
-                  <Download className="size-4" /> CSV
-                </button>
+                <ExportButtons name="publications" csv={pubsCsv} />
               </div>
               {!rows.length ? (
                 <Empty title="نشریه‌ای یافت نشد" />
