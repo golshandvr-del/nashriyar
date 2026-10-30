@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, qs, mediaUrl } from '../lib/api'
-import { PostGrid } from '../components/cards'
+import { PostMasonry } from '../components/cards'
 import type { PostLite } from '../components/cards'
 import { Avatar, Empty, ErrorBox, Spinner } from '../components/ui'
 import { cx } from '../lib/format'
@@ -95,7 +95,7 @@ export default function Explore() {
 
       {error && <ErrorBox error={error} onRetry={() => load(!posts.length)} />}
       {!loading && !posts.length && !error && <Empty title="پستی یافت نشد" />}
-      <PostGrid posts={posts} />
+      <PostMasonry posts={posts} />
       <div ref={sentinel} className="flex justify-center py-6">
         {loading && <Spinner />}
       </div>
