@@ -1,5 +1,45 @@
+import { Component } from 'react'
+import type { ErrorInfo, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Compass } from 'lucide-react'
+import { Compass, RefreshCw, TriangleAlert } from 'lucide-react'
+
+/**
+ * Friendly "something went wrong" page (ROADMAP phase 9). Catches render errors and failed lazy-chunk loads
+ * (typical right after a new version is deployed: old chunk names no longer exist → one automatic reload).
+ */
+export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null }
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    const chunk = /Loading chunk|dynamically imported module|Importing a module script failed/i.test(error?.message || '')
+    if (chunk && !sessionStorage.getItem('nsh-chunk-reload')) {
+      sessionStorage.setItem('nsh-chunk-reload', '1')
+      location.reload()
+      return
+    }
+    console.error(error, info.componentStack)
+  }
+  render() {
+    if (!this.state.error) return this.props.children
+    return (
+      <div className="mx-auto max-w-md px-4 py-20 text-center">
+        <TriangleAlert className="mx-auto size-12 text-amber-500" />
+        <h1 className="mt-3 text-2xl font-extrabold">مشکلی پیش آمد</h1>
+        <p className="mt-2 text-sm text-muted">خطای غیرمنتظره‌ای رخ داد. صفحه را دوباره بارگذاری کنید؛ اگر مشکل ادامه داشت با مسئول سامانه تماس بگیرید.</p>
+        <div className="mt-6 flex justify-center gap-2">
+          <button className="btn-primary inline-flex items-center gap-2" onClick={() => location.reload()}>
+            <RefreshCw className="size-4" /> بارگذاری دوباره
+          </button>
+          <a href="/" className="btn border border-line">
+            خانه
+          </a>
+        </div>
+      </div>
+    )
+  }
+}
 
 export function NotFound() {
   return (
