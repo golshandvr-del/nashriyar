@@ -114,9 +114,36 @@ adminRoutes.get('/publications/:id', async (c) => {
      LEFT JOIN issues i ON i.id = a.issue_id WHERE a.publication_id = ? AND a.type NOT IN ('follow','unfollow','comment.created','library.add_free','code.redeemed') ORDER BY a.created_at DESC LIMIT 60`,
     [p.id]
   )
+  // Dossier completion (ROADMAP phase 7): sales, explore and audit trail for this publication
+  const sales = await db.first<any>(
+    `SELECT COUNT(*) AS codes_created, SUM(CASE WHEN redeemed_at IS NOT NULL THEN 1 ELSE 0 END) AS codes_redeemed,
+       COALESCE(SUM(CASE WHEN redeemed_at IS NOT NULL THEN price_paid END),0) AS revenue_digital,
+       (SELECT COALESCE(SUM(quantity),0) FROM physical_sales WHERE publication_id = ?) AS print_sold,
+       (SELECT COALESCE(SUM(quantity * COALESCE(unit_price,0)),0) FROM physical_sales WHERE publication_id = ?) AS revenue_print
+     FROM access_codes WHERE publication_id = ?`,
+    [p.id, p.id, p.id]
+  )
+  const d90 = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10)
+  const explore = await db.first<any>(
+    `SELECT (SELECT COUNT(*) FROM posts WHERE publication_id = ? AND status = 'published') AS posts,
+       (SELECT COUNT(*) FROM view_events WHERE publication_id = ? AND entity_type = 'post' AND day > ?) AS post_views_90d,
+       (SELECT COUNT(*) FROM view_events WHERE publication_id = ? AND entity_type = 'post_read_full' AND day > ?) AS read_full_90d,
+       (SELECT COUNT(*) FROM saved_posts sp JOIN posts po ON po.id = sp.post_id WHERE po.publication_id = ?) AS saves,
+       (SELECT COUNT(*) FROM comments cm JOIN posts po ON po.id = cm.post_id WHERE po.publication_id = ? AND cm.status = 'approved') AS comments`,
+    [p.id, p.id, d90, p.id, d90, p.id, p.id]
+  )
+  const audit = await db.all(
+    `SELECT a.action, a.entity_type, a.entity_id, a.created_at, u.display_name AS actor_name FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_user_id
+     WHERE (a.entity_type = 'publication' AND a.entity_id = ?)
+        OR (a.entity_type = 'issue' AND a.entity_id IN (SELECT id FROM issues WHERE publication_id = ?))
+        OR (a.entity_type = 'post' AND a.entity_id IN (SELECT id FROM posts WHERE publication_id = ?))
+     ORDER BY a.created_at DESC LIMIT 50`,
+    [p.id, p.id, p.id]
+  )
   return c.json({
     publication: { ...p, contacts: parseJson(p.contacts_json, []) },
-    roles, issues, stages, members, categories: categories.map((x: any) => x.category_id), followers, activity: activityRows
+    roles, issues, stages, members, categories: categories.map((x: any) => x.category_id), followers, activity: activityRows,
+    sales, explore, audit
   })
 })
 
