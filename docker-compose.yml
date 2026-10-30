@@ -1,0 +1,48 @@
+# Nashriyar — production stack for a university server / VPS.
+#   docker compose up -d --build        build and start
+#   docker compose logs -f app          follow app logs
+# See docs/OPERATIONS.md for first-time TLS issuance, backups and upgrades.
+
+services:
+  app:
+    build: .
+    image: nashriyar:latest
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      DATA_DIR: /data
+      PORT: "3000"
+      HOST: 0.0.0.0
+    volumes:
+      - nashriyar-data:/data
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+
+  # Renews Let's Encrypt certificates twice a day (issue the first one manually — see OPERATIONS.md).
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
+
+volumes:
+  nashriyar-data:
+  certbot-etc:
+  certbot-www:
