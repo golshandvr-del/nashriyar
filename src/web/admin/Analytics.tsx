@@ -94,6 +94,25 @@ function Trends({ q }: { q: string }) {
             <Card title="انتشار به تفکیک موضوع">
               {!d.byCategory.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="by-category" option={{ grid: { left: 110 }, xAxis: { type: 'value', minInterval: 1 }, yAxis: { type: 'category', inverse: true, data: d.byCategory.map((x: any) => x.name) }, series: [{ name: 'شماره', type: 'bar', data: d.byCategory.map((x: any) => x.n) }] }} />}
             </Card>
+            {d.yoy && (
+              <Card title="مقایسهٔ سال‌به‌سال (همین بازه در سال قبل)" className="lg:col-span-2">
+                <Chart
+                  height={240}
+                  csvName="yoy"
+                  option={{
+                    legend: {},
+                    xAxis: { type: 'category', data: labels },
+                    yAxis: [{ type: 'value', minInterval: 1 }, { type: 'value' }],
+                    series: [
+                      { name: 'شماره — امسال', type: 'bar', data: pick(d.published, 'n') },
+                      { name: 'شماره — سال قبل', type: 'bar', data: pick(d.yoy.published, 'n'), itemStyle: { opacity: 0.45 } },
+                      { name: 'بازدید — امسال', type: 'line', yAxisIndex: 1, smooth: true, data: pick(d.views, 'n') },
+                      { name: 'بازدید — سال قبل', type: 'line', yAxisIndex: 1, smooth: true, lineStyle: { type: 'dashed' }, data: pick(d.yoy.views, 'n') }
+                    ]
+                  }}
+                />
+              </Card>
+            )}
             <Card title="بازدید بر حسب روز هفته" className="lg:col-span-2">
               <Chart height={220} csvName="weekday" option={{ xAxis: { type: 'category', data: [6, 0, 1, 2, 3, 4, 5].map((i) => WEEKDAYS[i]) }, yAxis: { type: 'value' }, series: [{ name: 'بازدید', type: 'bar', data: [6, 0, 1, 2, 3, 4, 5].map((i) => d.weekday.find((w: any) => w.d === i)?.n ?? 0) }] }} />
             </Card>
