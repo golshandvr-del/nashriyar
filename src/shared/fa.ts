@@ -180,12 +180,17 @@ export function jalaliPresets(now = new Date()) {
   // term: Mehr-Bahman (fall) or Bahman-Tir (spring)
   const termStart = j.jm >= 7 && j.jm <= 10 ? jalaliToIso(j.jy, 7, 1) : j.jm >= 11 ? jalaliToIso(j.jy, 11, 1) : j.jm <= 4 ? jalaliToIso(j.jy - 1, 11, 1) : jalaliToIso(j.jy, 4, 1)
   const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000).toISOString().slice(0, 10)
+  // Persian week starts on Saturday (getUTCDay: 6 = Saturday)
+  const weekStart = daysAgo((now.getUTCDay() + 1) % 7)
+  const sem = termBounds(now)
   return [
+    { key: 'week', label: 'هفتهٔ جاری', from: weekStart, to: today },
     { key: '7d', label: '۷ روز اخیر', from: daysAgo(6), to: today },
     { key: '30d', label: '۳۰ روز اخیر', from: daysAgo(29), to: today },
     { key: 'month', label: 'ماه جاری', from: monthStart, to: today },
     { key: 'prevMonth', label: 'ماه گذشته', from: jalaliToIso(prevM.y, prevM.m, 1), to: jalaliToIso(prevM.y, prevM.m, jalaliMonthLength(prevM.y, prevM.m)) },
     { key: 'term', label: 'ترم جاری', from: termStart, to: today },
+    { key: 'semester', label: sem.label, from: sem.start, to: sem.end < today ? sem.end : today },
     { key: 'acad', label: 'سال تحصیلی', from: acadStart, to: today },
     { key: 'year', label: 'سال شمسی جاری', from: yearStart, to: today },
     { key: 'prevYear', label: 'سال گذشته', from: jalaliToIso(j.jy - 1, 1, 1), to: jalaliToIso(j.jy - 1, 12, jalaliMonthLength(j.jy - 1, 12)) },
