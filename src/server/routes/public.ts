@@ -334,6 +334,12 @@ publicRoutes.get('/explore', async (c) => {
     catWhere = ' AND po.publication_id IN (SELECT publication_id FROM publication_categories WHERE category_id = ?)'
     params.push(cat)
   }
+  // faculty filter (ROADMAP phase 6)
+  const fac = c.req.query('faculty')
+  if (fac) {
+    catWhere += ' AND p.faculty_id = ?'
+    params.push(fac)
+  }
   const posts = await db.all<any>(
     `SELECT po.id, po.caption, po.images_json, po.published_at, p.slug AS publication_slug, p.title AS publication_title, p.logo_key, p.theme_color
      FROM posts po JOIN publications p ON p.id = po.publication_id
