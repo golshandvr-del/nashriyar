@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BookOpen, KeyRound, Library, Music, Paperclip, Video } from 'lucide-react'
 import { api, mediaUrl } from '../lib/api'
+import { absUrl, useMeta } from '../lib/meta'
 import { useAuth } from '../lib/auth'
 import { faDate, formatToman, toFaDigits } from '../lib/format'
 import { Async, Avatar, Badge, Button, Card, useAction, useAsync } from '../components/ui'
@@ -36,6 +37,35 @@ export default function Issue() {
   const { user } = useAuth()
   const nav = useNavigate()
   const act = useAction()
+  const im = st.data?.issue
+  useMeta(
+    im
+      ? {
+          title: `${im.title} — ${im.publication_title || ''}`.replace(/ — $/, ''),
+          description: im.summary || `شمارهٔ ${toFaDigits(im.number)} نشریهٔ ${im.publication_title || ''}`,
+          image: mediaUrl(im.cover_key),
+          type: 'article',
+          jsonLd: {
+            '@context': 'https://schema.org',
+            '@type': 'PublicationIssue',
+            name: im.title,
+            issueNumber: String(im.number),
+            datePublished: im.published_at ? im.published_at.slice(0, 10) : undefined,
+            numberOfPages: im.page_count || undefined,
+            description: im.summary || undefined,
+            keywords: im.keywords || undefined,
+            image: absUrl(mediaUrl(im.cover_key)) || undefined,
+            url: location.origin + `/issue/${im.id}`,
+            inLanguage: 'fa',
+            isPartOf: {
+              '@type': 'Periodical',
+              name: im.publication_title,
+              url: im.publication_slug ? location.origin + `/p/${im.publication_slug}` : undefined
+            }
+          }
+        }
+      : null
+  )
 
   return (
     <Async state={st}>
