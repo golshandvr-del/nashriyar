@@ -81,7 +81,8 @@
   - [x] صفحهٔ انجمن/کانون: GET /api/public/associations/:id + مسیر /association/:id (Category kind=association) + لینک از صفحهٔ نشریه (association_id در payload)
   - [x] واترمارک نامرئی (گفتگوی ۱۷): reader.ts traceCode=HMAC(mark|user|issue)[:8] در manifest.mark؛ Reader.tsx embedMark (هدر 0xA5 + ۳۲ بیت در LSB کانال آبی، تکرار سراسری + متن شفاف ۲.۵٪)؛ POST /api/team/:pubId/issues/:issueId/trace؛ کارت TraceCard در PublishTab
   - [x] سقف نشست هم‌زمان: auth.ts createSession نشست‌های قدیمی‌تر از N تای آخر را revoke می‌کند؛ تنظیم max_sessions (۱..۲۰، پیش‌فرض ۵) در OFFICER_SETTINGS + فیلد در admin/Settings.tsx ؛ رمزگشای LSB مستند در SECURITY.md با پایتون تأیید شد
-  - صف شکاف‌ها: قیف/سال‌به‌سال ← /guide ← اسکریپت آزمون بار ← تیک ROADMAP ← build/test ← tag/Release/بستن Milestone
+  - [x] قیف و سال‌به‌سال: /api/analytics/explore → funnel (post→issue→issue_read→purchase، viewer_hash یکتا) + کارت در ExploreStats؛ /api/analytics/trends → yoy {published, views} (کلید ماه +۱ سال) + نمودار در Trends
+  - صف شکاف‌ها: /guide ← اسکریپت آزمون بار ← تیک ROADMAP ← build/test ← tag/Release/بستن Milestone
 - **گفتگوی ۱۶:** شروع از commit 274 (f30ff6f). صف: تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
 - `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
