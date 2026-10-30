@@ -19,7 +19,7 @@ export default function Category({ kind = 'category' }: { kind?: 'category' | 'f
     if (kind === 'association') {
       const r = await api.get(`/api/public/associations/${id}`)
       const a = r.association
-      const sub = [a.kind === 'club' ? 'کانون فرهنگی' : 'انجمن علمی', a.faculty_name ? `دانشکدهٔ ${a.faculty_name}` : null].filter(Boolean).join(' · ')
+      const sub = [({ cultural_club: 'کانون فرهنگی', islamic_association: 'انجمن اسلامی', other: 'تشکل دانشجویی' } as Record<string, string>)[a.kind] || 'انجمن علمی', a.faculty_name ? `دانشکدهٔ ${a.faculty_name}` : null].filter(Boolean).join(' · ')
       return { title: a.name, subtitle: sub, issues: r.issues, publications: r.publications }
     }
     if (kind === 'faculty') {
