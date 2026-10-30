@@ -8,6 +8,15 @@ import { trackView } from './public'
 export const readerRoutes = new Hono<AppEnv>()
 
 const URL_TTL_SEC = 300 // signed page URLs expire after 5 minutes
+
+/**
+ * Invisible watermark code (ROADMAP phase 5): 8 hex chars = HMAC(secret, user|issue). Stateless —
+ * staff resolve a code found in a leaked image by recomputing it for the issue's readers
+ * (POST /api/team/:pubId/issues/:issueId/trace). Never contains the student number itself.
+ */
+export async function traceCode(secret: string, userId: string, issueId: string): Promise<string> {
+  return (await hmac(secret, `mark|${userId}|${issueId}`)).slice(0, 8)
+}
 const PAGE_RATE_WINDOW_SEC = 60
 const PAGE_RATE_MAX = 90 // page images per viewer per minute; normal reading is far below this
 const PAGE_RATE_LOCK_MIN = 5
@@ -102,7 +111,9 @@ readerRoutes.get('/:issueId/manifest', async (c) => {
     progress,
     bookmarks,
     // visible traceable watermark — student number + date (see docs/SECURITY.md §4)
-    watermark: user ? `${user.student_number || user.username} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}` : issue.pricing === 'free' ? '' : 'پیش‌نمایش'
+    watermark: user ? `${user.student_number || user.username} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}` : issue.pricing === 'free' ? '' : 'پیش‌نمایش',
+    // invisible watermark payload (embedded in pixel LSBs + near-transparent text by the reader)
+    mark: user && issue.pricing !== 'free' ? await traceCode(c.get('deps').secret, user.id, issue.id) : ''
   })
 })
 
