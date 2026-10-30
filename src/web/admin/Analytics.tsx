@@ -586,7 +586,7 @@ function Directors({ q }: { q: string }) {
               <div className="card overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-surface-2 text-xs text-muted">
-                    <tr><th className="p-2 text-right">مدیرمسئول</th><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">دوره (ماه)</th><th className="p-2 text-center">شماره</th><th className="p-2 text-center">در ماه</th><th className="p-2 text-center">چرخهٔ میانگین</th><th className="p-2 text-center">بازدید</th><th className="p-2 text-center">فروش</th><th className="p-2 text-center">دنبال‌کنندهٔ جدید</th><th className="p-2 text-center">تأخیر</th><th className="p-2 text-center">تحقق دوره</th></tr>
+                    <tr><th className="p-2 text-right">مدیرمسئول</th><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">دوره (ماه)</th><th className="p-2 text-center">شماره</th><th className="p-2 text-center">در ماه</th><th className="p-2 text-center">صفحه در ماه</th><th className="p-2 text-center">چرخهٔ میانگین</th><th className="p-2 text-center">بازدید</th><th className="p-2 text-center">فروش</th><th className="p-2 text-center">دنبال‌کنندهٔ جدید</th><th className="p-2 text-center">تأخیر</th><th className="p-2 text-center">تحقق دوره</th></tr>
                   </thead>
                   <tbody>
                     {rows.map((r: any, i: number) => (
@@ -596,6 +596,7 @@ function Directors({ q }: { q: string }) {
                         <td className="p-2 text-center">{toFaDigits(r.months)}</td>
                         <td className="p-2 text-center">{toFaDigits(r.published)}</td>
                         <td className="p-2 text-center">{toFaDigits(Math.round((r.per_month || 0) * 100) / 100)}</td>
+                        <td className="p-2 text-center">{toFaDigits(Math.round((Number(r.pages || 0) / Math.max(1, Number(r.months || 1))) * 10) / 10)}</td>
                         <td className="p-2 text-center">{r.avg_cycle_days != null ? `${toFaDigits(Math.round(r.avg_cycle_days))} روز` : '—'}</td>
                         <td className="p-2 text-center">{formatNumber(r.views)}</td>
                         <td className="p-2 text-center">{formatNumber(r.digital_sold)}</td>
