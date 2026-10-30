@@ -6,6 +6,7 @@ import type { PubRole } from '../lib/auth'
 import { cx } from '../lib/format'
 import { usePublicSettings } from '../lib/features'
 import { CommandPalette, PaletteButton } from '../components/CommandPalette'
+import { NotificationBell } from '../components/NotificationBell'
 import type { PaletteItem } from '../components/CommandPalette'
 import { Empty, PageLoader } from '../components/ui'
 
@@ -110,9 +111,12 @@ export default function TeamLayout() {
               )}
               {pub && <div className="text-[11px] text-muted">{PUB_ROLE_LABEL[pub.role] || pub.role}</div>}
             </div>
-            <Link to="/" className="rounded-lg p-2 hover:bg-surface-2" aria-label="سایت">
-              <House className="size-5" />
-            </Link>
+            <div className="flex items-center">
+              <NotificationBell />
+              <Link to="/" className="rounded-lg p-2 hover:bg-surface-2" aria-label="سایت">
+                <House className="size-5" />
+              </Link>
+            </div>
           </div>
           <div className="hidden px-2 pt-2 md:block">
             <PaletteButton />
