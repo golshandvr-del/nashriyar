@@ -50,7 +50,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   if (algo !== 'pbkdf2') return false
   const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits'])
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: fromHex(saltHex), iterations: Number(iterStr) },
+    { name: 'PBKDF2', hash: 'SHA-256', salt: fromHex(saltHex) as BufferSource, iterations: Number(iterStr) },
     key,
     256
   )
