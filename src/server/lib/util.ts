@@ -3,9 +3,10 @@ import type { Db } from '../adapters/db'
 import { newId } from './crypto'
 import { deliverOutbound } from './notifier'
 import { normalizeFa } from '../../shared/fa'
+import { getClock } from '../adapters/clock'
 
-export const nowIso = () => new Date().toISOString()
-export const today = () => new Date().toISOString().slice(0, 10)
+export const nowIso = () => new Date(getClock().now()).toISOString()
+export const today = () => nowIso().slice(0, 10)
 export const addHours = (h: number, from = Date.now()) => new Date(from + h * 3600_000).toISOString()
 
 export class HttpError extends Error {
