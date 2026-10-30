@@ -4,6 +4,7 @@ import type { AppEnv } from '../context'
 import { requirePubAccess } from '../auth'
 import { newId } from '../lib/crypto'
 import { activity, bad, forbidden, HttpError, int, notFound, nowIso, str } from '../lib/util'
+import { verifyMediaSig } from '../lib/media-sign'
 
 // Media pipeline (Phase 3). Files go to Storage (R2 / disk); metadata lives in media_assets.
 // URL shape for stored objects: /api/media/k/<storage_key>
@@ -228,8 +229,10 @@ mediaRoutes.get('/k/*', async (c) => {
     else if (['podcast', 'clip', 'gallery', 'attachment'].includes(m.role)) {
       if (published && m.access === 'free') publicOk = true
       else if (published && m.access === 'paid') {
+        // paid audio/video: entitlement AND a short-lived signature bound to this session (lib/media-sign.ts)
         const u = c.get('user')
-        if (u && (await db.first('SELECT 1 FROM entitlements WHERE user_id = ? AND issue_id = ? AND revoked_at IS NULL', [u.id, m.issue_id]))) publicOk = true
+        const signed = await verifyMediaSig(c.get('deps').secret, key, c.get('sessionId'), c.req.query('exp'), c.req.query('sig'))
+        if (u && signed && (await db.first('SELECT 1 FROM entitlements WHERE user_id = ? AND issue_id = ? AND revoked_at IS NULL', [u.id, m.issue_id]))) publicOk = true
       }
     }
   } else {
