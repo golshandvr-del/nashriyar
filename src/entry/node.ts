@@ -3,7 +3,7 @@
 //   node server-dist/node.mjs              start the server (PORT, HOST, DATA_DIR, APP_SECRET, STATIC_DIR)
 //   node server-dist/node.mjs --seed       reset the database and load demo data, then exit
 //   node server-dist/node.mjs --migrate    apply migrations, then exit
-//   node server-dist/node.mjs --create-admin [username]   create (or reset) a super admin with a random one-time password
+//   node server-dist/node.mjs --create-admin [username]   create (or reset, incl. 2FA) a super admin with a random one-time password
 //   node server-dist/node.mjs --backup     consistent DB snapshot to DATA_DIR/backups (VACUUM INTO), prune > BACKUP_KEEP_DAYS (30)
 import fs from 'node:fs'
 import path from 'node:path'
@@ -61,7 +61,11 @@ async function main() {
       return
     }
     if (existing) {
-      await db.run("UPDATE users SET password_hash = ?, must_change_password = 1, status = 'active' WHERE id = ?", [hash, existing.id])
+      // Also clears 2FA: this is the recovery path for a super admin who lost their authenticator.
+      await db.run(
+        "UPDATE users SET password_hash = ?, must_change_password = 1, status = 'active', totp_enabled = 0, totp_secret = NULL, totp_last_step = NULL WHERE id = ?",
+        [hash, existing.id]
+      )
       await db.run('DELETE FROM sessions WHERE user_id = ?', [existing.id])
     } else {
       await db.run(
