@@ -23,7 +23,8 @@ const FILTER_KEYS = ['faculty', 'owner_kind', 'association', 'publication', 'cat
 type FilterKey = (typeof FILTER_KEYS)[number]
 const OWNER_KINDS: Record<string, string> = { scientific_association: 'انجمن علمی', cultural_club: 'کانون فرهنگی', islamic_association: 'انجمن اسلامی', other: 'سایر' }
 const WEEKDAYS = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه']
-const HEALTH_PARTS: Record<string, string> = { regularity: 'نظم انتشار (۳۵)', activity: 'فعالیت تولید (۲۵)', audience: 'مخاطب (۲۰)', explore: 'اکسپلور (۱۰)', hygiene: 'رسیدگی به نظرها (۱۰)' }
+const HEALTH_PARTS: Record<string, string> = { regularity: 'نظم انتشار', activity: 'فعالیت تولید', audience: 'مخاطب', explore: 'اکسپلور', hygiene: 'رسیدگی به نظرها' }
+const DEFAULT_HEALTH_WEIGHTS: Record<string, number> = { regularity: 35, activity: 25, audience: 20, explore: 10, hygiene: 10 }
 
 const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
 const csvOf = (head: string[], rows: unknown[][]) => [head.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n')
@@ -356,7 +357,10 @@ function Ranking({ q }: { q: string }) {
                 </table>
               </div>
             )}
-            <p className="text-xs text-muted">امتیاز سلامت (۰ تا ۱۰۰) = {Object.values(HEALTH_PARTS).join(' + ')}. برای دیدن اجزا نشانگر را روی عدد نگه دارید.</p>
+            <p className="text-xs text-muted">
+              امتیاز سلامت (۰ تا ۱۰۰) = {Object.entries(HEALTH_PARTS).map(([k, l]) => `${l} (وزن ${toFaDigits((d.weights || DEFAULT_HEALTH_WEIGHTS)[k] ?? 0)})`).join(' + ')}، تقسیم بر مجموع وزن‌ها. برای دیدن اجزا نشانگر را روی عدد نگه دارید.
+              {role === 'officer' || role === 'superadmin' ? <> وزن‌ها در <Link to="/admin/settings" className="text-brand">تنظیمات</Link> قابل تغییرند.</> : null}
+            </p>
           </div>
         )
       }}
