@@ -43,11 +43,14 @@
   - مسیرهای SPA: / ، /explore ، /post/:id ، /categories ، /c/:slug ، /faculty/:id ، /search ، /p/:slug ، /issue/:id ، /read/:id ، /library ، /redeem ، /following ، /notifications ، /login ، /register ، /settings ، /verify/:code ، /recruitment ، /team/* ، /admin/*
   - [x] src/web/main.tsx (Router + lazy؛ /read/:id خارج از Layout) — مسیرهای team/admin هنوز اضافه نشده‌اند
   - [x] src/web/public/*: Layout Home Explore Post Categories Category(+faculty) Search Publication Issue Reader Library Redeem Following Notifications Login Register Settings Verify Recruitment Static(NotFound, Terms)
-  - [ ] src/web/team/*: Layout Select Dashboard Members Issues IssueNew IssueRoom(تب‌ها: کلی/فهرست/پیشرفت/رسانه و انتشار/تأیید) Posts Comments Sales Stats Profile Recruit
+  - [x] src/web/team/*: Layout(+TeamSelect) Dashboard Members Issues IssueNew IssueRoom(+room/TocTab ProgressTab MediaTab PublishTab) Posts(+highlights) Comments Sales(codes+print) Stats(+RangePicker/defaultRange صادرشده) Profile Recruit — مسیرها در main.tsx وصل شد (commit 124)
+  - [x] src/web/lib/pdf.ts (pdf.js→WebP) ؛ lib/image.ts (برش/فشرده‌سازی/حذف EXIF) ؛ components/Chart.tsx (ECharts tree-shaken، تم، CSV؛ downloadCsv صادرشده)
   - [ ] src/web/admin/*: Layout Overview Live Approvals Publications PublicationNew PublicationDetail People Structure Categories Analytics(Charts با echarts) Insights Moderation Storefront Announcements Users Audit Settings
 - [ ] ecosystem.config.cjs ؛ Dockerfile ؛ deploy/ ؛ .github/workflows/ci.yml ؛ tests/
 
 ## نکات کشف‌شده (برای جلوگیری از تکرار)
+- pdfjs-dist v6: `destroy()` روی loadingTask است نه PDFDocumentProxy.
+- گام بعدی: پنل admin (src/web/admin/*) → سپس PWA/Docker/CI/OPERATIONS.
 - Tailwind 4: نمی‌توان کلاس سفارشی (مثل btn) را @apply کرد؛ یوتیلیتی‌ها را مستقیم بنویس.
 - `npx vite build` (~۱ ثانیه) و `npx tsc --noEmit` هر دو پاس (۱۴۰۵/۰۸/۰۸، commit 103).
 - برای db.first روی `c: any` آرگومان نوع (<any>) نگذار (TS2347).
