@@ -8,6 +8,7 @@ import {
 } from '../lib/util'
 import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { requireFeature } from '../lib/features'
+import { ensureReminders } from '../lib/reminders'
 import { suggestKeywords } from '../ai'
 import { traceCode } from './reader'
 
@@ -62,6 +63,7 @@ async function refreshIssueSearch(c: Context<AppEnv>, issueId: string) {
 teamRoutes.get('/:pubId/dashboard', async (c) => {
   const { pub: p, role } = await pub(c)
   const db = c.get('db')
+  await ensureReminders(db).catch(() => false) // lazy, at most once per day
   const issues = await db.all<any>(
     `SELECT i.id, i.number, i.title, i.status, i.planned_publish_at, i.published_at, i.cover_key, i.progress_view,
        (SELECT COUNT(*) FROM issue_toc_items t WHERE t.issue_id = i.id) AS toc_total,

@@ -11,6 +11,7 @@ import {
 import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { getFeatures, sanitizeFeatures } from '../lib/features'
 import { getAiStatus } from '../ai'
+import { ensureReminders } from '../lib/reminders'
 import { DEFAULT_THRESHOLDS, DEFAULT_WEIGHTS, getThresholds, getWeights, sanitizeThresholds, sanitizeWeights } from '../insights'
 
 export const adminRoutes = new Hono<AppEnv>()
@@ -40,6 +41,7 @@ async function scopedPub(c: Context<AppEnv>, id: string) {
 adminRoutes.get('/overview', async (c) => {
   monitor(c)
   const db = c.get('db')
+  await ensureReminders(db).catch(() => false) // lazy, at most once per day
   const s = scope(c)
   const counts = await db.first<any>(
     `SELECT COUNT(*) AS publications, SUM(CASE WHEN p.status = 'active' THEN 1 ELSE 0 END) AS active,
