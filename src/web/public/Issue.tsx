@@ -3,6 +3,7 @@ import { BookOpen, KeyRound, Library, Music, Paperclip, Video } from 'lucide-rea
 import { api, mediaUrl } from '../lib/api'
 import { absUrl, useMeta } from '../lib/meta'
 import { useAuth } from '../lib/auth'
+import { useFeature } from '../lib/features'
 import { faDate, formatToman, toFaDigits } from '../lib/format'
 import { Async, Avatar, Badge, Button, Card, useAction, useAsync } from '../components/ui'
 import { Cover, PriceBadge, Shelf } from '../components/cards'
@@ -35,6 +36,7 @@ export default function Issue() {
   const { id } = useParams()
   const st = useAsync(() => api.get<IssueData>(`/api/public/issues/${id}`), [id])
   const { user } = useAuth()
+  const paidOn = useFeature('paid_content')
   const nav = useNavigate()
   const act = useAction()
   const im = st.data?.issue
@@ -118,9 +120,11 @@ export default function Issue() {
                     </Button>
                   ) : (
                     <>
-                      <Button icon={<KeyRound className="size-4" />} onClick={() => nav(user ? `/redeem?issue=${i.id}` : `/login?next=/redeem`)}>
-                        ثبت کد خرید
-                      </Button>
+                      {paidOn && (
+                        <Button icon={<KeyRound className="size-4" />} onClick={() => nav(user ? `/redeem?issue=${i.id}` : `/login?next=/redeem`)}>
+                          ثبت کد خرید
+                        </Button>
+                      )}
                       {(i.free_preview_pages ?? 0) > 0 && (
                         <Button variant="ghost" icon={<BookOpen className="size-4" />} onClick={() => nav(`/read/${i.id}`)}>
                           پیش‌نمایش {toFaDigits(i.free_preview_pages!)} صفحه
