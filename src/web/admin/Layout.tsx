@@ -7,6 +7,9 @@ import { ROLE_LABEL, isAdmin, isMonitor, useAuth } from '../lib/auth'
 import type { SystemRole } from '../lib/auth'
 import { cx } from '../lib/format'
 import { PageLoader } from '../components/ui'
+import { CommandPalette, PaletteButton } from '../components/CommandPalette'
+import type { PaletteItem } from '../components/CommandPalette'
+import { api } from '../lib/api'
 
 type Access = 'monitor' | 'admin' | 'approver' | 'super'
 interface NavItem { to: string; label: string; icon: LucideIcon; access: Access; end?: boolean }
@@ -63,12 +66,28 @@ export function useAdminRole() {
   return { role: user?.system_role, admin: isAdmin(user), isSuper: user?.system_role === 'super_admin', user }
 }
 
+/** Live palette results: publications matching the query (scoped by the API to what the user may see). */
+const searchPublications = async (q: string): Promise<PaletteItem[]> => {
+  const r = await api.get<{ publications: { id: string; title: string; status: string }[] }>(`/api/admin/publications?q=${encodeURIComponent(q)}`)
+  return r.publications.slice(0, 8).map((p) => ({ id: `pub-${p.id}`, label: p.title, hint: 'نشریه', icon: <BookCopy className="size-4" />, to: `/admin/publications/${p.id}` }))
+}
+
 export default function AdminLayout() {
   const { user, loading } = useAuth()
   if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login?next=/admin" replace />
   if (!isMonitor(user)) return <Navigate to="/" replace />
   const role = user.system_role
+  const paletteItems: PaletteItem[] = [
+    ...NAV.flatMap((g) =>
+      g.items
+        .filter((n) => canAccess(role, n.access))
+        .map((n) => ({ id: `nav-${n.to || 'home'}`, label: n.label, hint: g.group, icon: <n.icon className="size-4" />, to: n.to ? `/admin/${n.to}` : '/admin' }))
+    ),
+    ...(canAccess(role, 'admin') ? [{ id: 'act-new-pub', label: 'ثبت نشریهٔ جدید', hint: 'اقدام', icon: <BookCopy className="size-4" />, to: '/admin/publications/new', keywords: 'new publication' }] : []),
+    { id: 'act-settings', label: 'تنظیمات حساب من', hint: 'اقدام', icon: <Settings className="size-4" />, to: '/settings', keywords: 'password totp رمز' },
+    { id: 'act-site', label: 'رفتن به سایت', hint: 'اقدام', icon: <House className="size-4" />, to: '/' }
+  ]
 
   return (
     <div className="min-h-dvh md:flex">
@@ -82,6 +101,9 @@ export default function AdminLayout() {
           <Link to="/" className="rounded-lg p-2 hover:bg-surface-2" aria-label="سایت">
             <House className="size-5" />
           </Link>
+        </div>
+        <div className="hidden px-2 pt-2 md:block">
+          <PaletteButton />
         </div>
         <nav className="no-scrollbar flex gap-1 overflow-x-auto p-2 md:flex-col md:overflow-visible" aria-label="منوی مدیریت">
           {NAV.map((g) => {
@@ -114,6 +136,7 @@ export default function AdminLayout() {
         )}
         <Outlet />
       </main>
+      <CommandPalette items={paletteItems} source={searchPublications} />
     </div>
   )
 }
