@@ -32,7 +32,7 @@ export default function Explore() {
     setError(null)
     try {
       // oldest timestamp so far (the server interleaves publications, so the last tile is not always the oldest)
-      const before = reset || !posts.length ? undefined : posts.reduce((m, x) => (x.published_at < m ? x.published_at : m), posts[0].published_at)
+      const before = reset || !posts.length ? undefined : posts.reduce((m, x) => ((x.published_at ?? '') < m ? x.published_at ?? '' : m), posts[0].published_at ?? '')
       const r = await api.get<{ posts: PostLite[] }>(`/api/public/explore${qs({ before, category: cat })}`)
       setPosts((p) => (reset ? r.posts : [...p, ...r.posts]))
       setDone(r.posts.length < 30)
