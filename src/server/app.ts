@@ -52,6 +52,27 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     if (!c.res.headers.has('Content-Security-Policy')) c.header('Content-Security-Policy', CSP)
   })
 
+  // robots.txt is dynamic so the Sitemap line carries the real (absolute) origin on any domain.
+  app.get('/robots.txt', (c) => {
+    const origin = new URL(c.req.url).origin
+    const body = [
+      'User-agent: *',
+      'Allow: /api/public/sitemap.xml',
+      'Disallow: /api/',
+      'Disallow: /admin',
+      'Disallow: /team',
+      'Disallow: /read/',
+      'Disallow: /library',
+      'Disallow: /settings',
+      'Disallow: /notifications',
+      'Disallow: /redeem',
+      '',
+      `Sitemap: ${origin}/api/public/sitemap.xml`,
+      ''
+    ].join('\n')
+    return c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=86400' })
+  })
+
   app.use('/api/*', async (c, next) => {
     const deps = await getDeps(c)
     c.set('deps', deps)
