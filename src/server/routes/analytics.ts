@@ -7,12 +7,40 @@ import { body, dateRange, nowIso, parseJson } from '../lib/util'
 import { computeInsights, healthScores } from '../insights'
 import { linearFit, termBounds } from '../../shared/fa'
 import { aiNarrative, aiAsk } from '../ai'
+import { cacheGet, cachePut, ensureRollup } from '../lib/rollup'
 
 export const analyticsRoutes = new Hono<AppEnv>()
 
 analyticsRoutes.use('*', async (c, next) => {
   requireRole(c, MONITOR_ROLES)
   await next()
+})
+
+// ROADMAP phase 7 infrastructure: lazy daily rollup (no cron) + 5-minute result cache for read-only reports.
+// Cache key includes the viewer's role and faculty scope, so a faculty supervisor never sees another scope's numbers.
+const NO_CACHE = ['/live', '/insights', '/ai/']
+analyticsRoutes.use('*', async (c, next) => {
+  if (c.req.method !== 'GET') return next()
+  const db = c.get('db')
+  try {
+    await ensureRollup(db)
+  } catch {
+    /* rollup is an optimisation; never block a report */
+  }
+  const url = new URL(c.req.url)
+  if (NO_CACHE.some((p) => url.pathname.includes(p)) || url.searchParams.has('fresh')) return next()
+  const u = c.get('user')!
+  const key = `${u.system_role}:${u.scope_faculty_id || ''}:${url.pathname}?${[...url.searchParams].sort().map(([k, v]) => `${k}=${v}`).join('&')}`
+  const hit = await cacheGet(db, key).catch(() => null)
+  if (hit) {
+    const isCsv = url.pathname.endsWith('.csv')
+    return c.body(hit, 200, { 'Content-Type': isCsv ? 'text/csv; charset=utf-8' : 'application/json; charset=utf-8', 'X-Cache': 'hit' })
+  }
+  await next()
+  if (c.res.status === 200) {
+    const text = await c.res.clone().text()
+    await cachePut(db, key, text, 300).catch(() => {})
+  }
 })
 
 /** Faculty supervisors are restricted to their own faculty. */
