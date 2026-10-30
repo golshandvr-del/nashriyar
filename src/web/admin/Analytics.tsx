@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Download } from 'lucide-react'
 import { api, qs } from '../lib/api'
@@ -347,7 +347,7 @@ function Sales({ q }: { q: string }) {
   return (
     <Async state={st}>
       {(d: any) => {
-        const totals = useMemoTotals(d.byIssue)
+        const totals = sumSales(d.byIssue)
         return (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -388,12 +388,10 @@ function Sales({ q }: { q: string }) {
   )
 }
 
-// plain helper (not a hook despite the name pattern — no React state involved)
-function useMemoTotals(rows: any[]) {
+function sumSales(rows: any[]) {
   return rows.reduce(
     (a, r) => ({ created: a.created + Number(r.codes_created || 0), redeemed: a.redeemed + Number(r.codes_redeemed || 0), revenue: a.revenue + Number(r.revenue_digital || 0), print: a.print + Number(r.print_sold || 0) }),
     { created: 0, redeemed: 0, revenue: 0, print: 0 }
   )
 }
 
-export const _unused = useMemo
