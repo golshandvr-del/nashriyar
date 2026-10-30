@@ -294,7 +294,18 @@ publicRoutes.get('/explore', async (c) => {
      ORDER BY po.published_at DESC LIMIT 30`,
     params
   )
-  return c.json({ posts: posts.map((x) => ({ ...x, images: parseJson(x.images_json, []), images_json: undefined })) })
+  // Mixed ordering (ROADMAP phase 6): recency first, but never two posts of the same publication in a row when
+  // another candidate exists (diversity over popularity). Paging uses `next` (oldest timestamp of this page).
+  const pool = posts.map((x) => ({ ...x, publication_id: x.publication_slug }))
+  const mixed: typeof pool = []
+  while (pool.length) {
+    const prev = mixed[mixed.length - 1]?.publication_slug
+    let k = pool.findIndex((x) => x.publication_slug !== prev)
+    if (k < 0) k = 0
+    mixed.push(pool.splice(k, 1)[0])
+  }
+  const next = posts.length ? posts[posts.length - 1].published_at : null
+  return c.json({ next, posts: mixed.map((x) => ({ ...x, publication_id: undefined, images: parseJson(x.images_json, []), images_json: undefined })) })
 })
 
 publicRoutes.get('/stories', async (c) => {
