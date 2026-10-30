@@ -4,7 +4,7 @@ import { Download } from 'lucide-react'
 import { api, qs } from '../lib/api'
 import { FREQUENCY, faDate, faMonthLabel, formatNumber, formatToman, toFaDigits, CHANNEL } from '../lib/format'
 import { Async, Badge, Card, Empty, PageHeader, Tabs, useAsync } from '../components/ui'
-import { Chart, downloadCsv } from '../components/Chart'
+import { Chart, ExportButtons, downloadCsv } from '../components/Chart'
 import { RangePicker, defaultRange } from '../team/Stats'
 import { useAdminRole } from './Layout'
 
@@ -265,7 +265,7 @@ function Ranking({ q }: { q: string }) {
       {(d: any) => {
         const val = (r: any, k: string) => (k === 'health' ? r.health?.score ?? 0 : Number(r[k] || 0))
         const rows = [...d.rows].sort((a, b) => val(b, sort) - val(a, sort))
-        const exportCsv = () => downloadCsv(`ranking-${d.from}-${d.to}`, csvOf(['نشریه', 'دانشکده', ...RANK_COLS.map((c) => c.label), 'آخرین انتشار'], rows.map((r) => [r.title, r.faculty_name, ...RANK_COLS.map((c) => val(r, c.key)), faDate(r.last_published_at)])))
+        const rankingCsv = () => (csvOf(['نشریه', 'دانشکده', ...RANK_COLS.map((c) => c.label), 'آخرین انتشار'], rows.map((r) => [r.title, r.faculty_name, ...RANK_COLS.map((c) => val(r, c.key)), faDate(r.last_published_at)])))
         const org = d.org
         const kindLabel = (k: string) => OWNER_KINDS[k] || 'بدون صاحب امتیاز'
         return (
@@ -306,7 +306,7 @@ function Ranking({ q }: { q: string }) {
             )}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-muted">این رتبه‌بندی فقط برای مسئولان قابل مشاهده است و هرگز به تیم‌ها نشان داده نمی‌شود. روی عنوان ستون بزنید تا مرتب شود.</p>
-              <button className="btn-ghost" onClick={exportCsv}><Download className="size-4" /> CSV</button>
+              <ExportButtons name={`ranking-${d.from}-${d.to}`} csv={rankingCsv} />
             </div>
             {!rows.length ? (
               <Empty title="داده‌ای نیست" />
