@@ -725,8 +725,11 @@ adminRoutes.post('/shelves', async (c) => {
   const b = await body<any>(c)
   const db = c.get('db')
   const ids = (Array.isArray(b.issue_ids) ? b.issue_ids : []).slice(0, 40)
-  if (b.id) await db.run('UPDATE featured_shelves SET title = ?, issue_ids_json = ?, is_active = ?, sort_order = ? WHERE id = ?', [str(b.title, 'عنوان قفسه', { max: 80 }), JSON.stringify(ids), b.is_active === false ? 0 : 1, int(b.sort_order ?? 0, 'ترتیب', {}), b.id])
-  else await db.run('INSERT INTO featured_shelves (id, title, issue_ids_json, sort_order, is_active, created_at) VALUES (?,?,?,?,1,?)', [newId(), str(b.title, 'عنوان قفسه', { max: 80 }), JSON.stringify(ids), int(b.sort_order ?? 0, 'ترتیب', {}), nowIso()])
+  // rule-based shelves (migration 0003): manual | latest | free | popular | category:<id> | faculty:<id>
+  const rule = typeof b.rule === 'string' && b.rule !== 'manual' ? b.rule : null
+  if (rule && !/^(latest|free|popular|category:[\w-]{1,40}|faculty:[\w-]{1,40})$/.test(rule)) throw bad('قاعدهٔ قفسه نامعتبر است')
+  if (b.id) await db.run('UPDATE featured_shelves SET title = ?, issue_ids_json = ?, is_active = ?, sort_order = ?, rule = ? WHERE id = ?', [str(b.title, 'عنوان قفسه', { max: 80 }), JSON.stringify(ids), b.is_active === false ? 0 : 1, int(b.sort_order ?? 0, 'ترتیب', {}), rule, b.id])
+  else await db.run('INSERT INTO featured_shelves (id, title, issue_ids_json, sort_order, is_active, rule, created_at) VALUES (?,?,?,?,1,?,?)', [newId(), str(b.title, 'عنوان قفسه', { max: 80 }), JSON.stringify(ids), int(b.sort_order ?? 0, 'ترتیب', {}), rule, nowIso()])
   await audit(db, u.id, 'shelf.save', 'featured_shelf', b.id || null, null, { title: b.title, count: ids.length })
   return c.json({ ok: true })
 })
