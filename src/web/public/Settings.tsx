@@ -153,6 +153,51 @@ function PasswordCard() {
   )
 }
 
+/** One-time recovery code (ROADMAP phase 5): shown once; only its hash is stored. Used on /recover. */
+function RecoveryCard() {
+  const [has, setHas] = useState<boolean | null>(null)
+  const [pw, setPw] = useState('')
+  const [code, setCode] = useState<string | null>(null)
+  const { busy, run } = useAction()
+  useEffect(() => {
+    api.get<{ has_code: boolean }>('/api/auth/recovery-code').then((r) => setHas(r.has_code)).catch(() => setHas(false))
+  }, [])
+  const make = async () => {
+    const r = await run(() => api.post<{ code: string }>('/api/auth/recovery-code', { password: pw }), 'کد بازیابی ساخته شد')
+    if (r) {
+      setCode(r.code)
+      setHas(true)
+      setPw('')
+    }
+  }
+  return (
+    <Card title="کد بازیابی رمز">
+      <p className="mb-3 text-sm leading-6 text-muted">
+        اگر رمزتان را فراموش کنید، با این کد از صفحهٔ «بازیابی رمز» رمز تازه تعیین می‌کنید. کد فقط یک بار نمایش داده می‌شود؛ آن را جایی امن یادداشت کنید.
+        {has ? ' شما یک کد فعال دارید؛ ساخت کد تازه، کد قبلی را باطل می‌کند.' : has === false ? ' هنوز کدی نساخته‌اید.' : ''}
+      </p>
+      {code && (
+        <div className="mb-3 rounded-xl border border-brand bg-brand-soft p-3 text-center">
+          <div dir="ltr" className="select-all font-mono text-lg font-bold tracking-wider">
+            {code}
+          </div>
+          <button className="mt-1 text-xs text-brand underline" onClick={() => navigator.clipboard?.writeText(code)}>
+            کپی
+          </button>
+        </div>
+      )}
+      <div className="flex items-end gap-2">
+        <Field label="رمز فعلی" className="flex-1">
+          <Input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        </Field>
+        <Button loading={busy} onClick={make} disabled={!pw}>
+          {has ? 'ساخت کد تازه' : 'ساخت کد'}
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
 /** Two-factor authentication (TOTP) for staff accounts — setup → confirm code → enabled; disable needs password + code. */
 function TotpCard() {
   const st = useAsync(() => api.get<{ enabled: boolean; available: boolean; recommended: boolean }>('/api/auth/totp'), [])
@@ -356,6 +401,7 @@ export default function Settings() {
       <ProfileCard />
       <ThemeCard />
       {!user.must_change_password && <PasswordCard />}
+      <RecoveryCard />
       {user.system_role !== 'student' && <TotpCard />}
       <SessionsCard />
       {user.system_role === 'student' && <MyComments />}
