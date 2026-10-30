@@ -68,7 +68,8 @@
   11. [x] (تصمیم) FTS5 ← ADR-012 در docs/DECISIONS.md ثبت شد (LIKE روی search_text نرمال‌شده؛ مسیر ارتقا: FTS5 trigram)
 - بعد از شکاف‌ها: README/CHANGELOG ← تیک‌زدن ROADMAP ← بستن Milestoneها و Release v1.0.0.
 - **گفتگوی ۱۵ (ادامه):** انجام‌شده: ai_timeout_sec در تنظیمات سوپرادمین + فیلد UI؛ .editorconfig؛ POST /api/team/:pubId/keywords/suggest + دکمهٔ «پیشنهاد کلیدواژه» در IssueNew؛ public/maintenance.html + error_page 502/503/504 در deploy/nginx.conf + mount در docker-compose + OPERATIONS؛ مسیر /privacy (همان Terms).
-  - صف بعدی (به‌ترتیب): وزن‌های امتیاز سلامت و آستانه‌های قواعد قابل تنظیم (settings: health_weights, insight_thresholds) ← حالت دوصفحه‌ای کتاب‌خوان ← تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
+  - [x] آستانه‌ها/وزن‌ها: insights.ts (DEFAULT_THRESHOLDS/DEFAULT_WEIGHTS، getThresholds/getWeights، امتیاز نرمال ۰–۱۰۰) + GET/POST /api/admin/settings (insight_thresholds, health_weights؛ مسئول و سوپرادمین) + کارت در admin/Settings — تست شد (آستانهٔ پایین ۳۹ بینش، پیش‌فرض ۱۷، بالا ۵؛ دانشجو 403). پاسخ /api/analytics/insights کلید `items` دارد.
+  - صف بعدی (به‌ترتیب): حالت دوصفحه‌ای کتاب‌خوان ← تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
 - `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
 - مسیر شمارهٔ admin: `issues/:id` (IssueDetail از `useParams().id` می‌خواند).
