@@ -94,6 +94,9 @@ teamRoutes.get('/:pubId/dashboard', async (c) => {
      ORDER BY a.pinned DESC, a.created_at DESC LIMIT 5`,
     [p.id, p.faculty_id]
   )
+  // ROADMAP phase 9: read receipts — announcements shown on the dashboard count as read by this user
+  const viewer = c.get('user')
+  if (viewer) for (const a of announcements as any[]) await db.run('INSERT OR IGNORE INTO announcement_reads (announcement_id, user_id, read_at) VALUES (?,?,?)', [a.id, viewer.id, now])
   return c.json({ publication: p, role, issues, overdue, overdueStages, pendingComments, members, deadlines, announcements })
 })
 
