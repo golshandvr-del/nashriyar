@@ -53,7 +53,20 @@
 - انجام‌شده (گفتگوی ۱۰): theme-init.js خارجی، sw.js، offline.html، ثبت SW، public/_headers (CSP)، pdf.js isEvalSupported=false، CSP در app.ts (export const CSP).
 - انجام‌شده (گفتگوی ۱۱، commits 162–176): /api/health با پروب DB (503)، Dockerfile چندمرحله‌ای (runtime بدون node_modules)، .dockerignore، deploy/nginx.conf، docker-compose.yml (app+nginx+certbot)، .env.example، فلگ `--backup` (VACUUM INTO + حذف قدیمی‌تر از BACKUP_KEEP_DAYS) و `npm run backup`، scripts/test-e2e.mjs و `npm test` (seed موقت روی پورت 3999 + هر دو suite) — **پاس**، .github/workflows/ci.yml (typecheck/build/e2e/gitleaks/docker)، قالب‌های Issue و PR.
 - pdfjs v6 گزینهٔ `isEvalSupported` را ندارد (حذف شد؛ v6 اصلاً eval ندارد).
-- گام بعدی: بررسی اجرای CI روی GitHub ← docs/OPERATIONS.md ← README/CHANGELOG ← تیک‌زدن ROADMAP ← بستن Milestoneها و Release v1.0.0.
+- CI روی GitHub سبز است (typecheck/build/e2e + gitleaks + docker). docs/OPERATIONS.md نوشته شد. فلگ `--create-admin [username]` (رمز یک‌بارمصرف تصادفی) اضافه و تست شد.
+- **ممیزی شکاف ROADMAP (گفتگوی ۱۱):** در کد وجود ندارد ⇒ باید به‌ترتیب پیاده شود (هر مورد جدا checkpoint):
+  1. [ ] publication_role_history (مایگریشن 0002 + ثبت هنگام تغییر سه نقش)
+  2. [ ] فیلتر واژه‌های نامناسب کامنت (پیش‌علامت flagged)
+  3. [ ] SEO: /sitemap.xml، /robots.txt، متای OG/JSON-LD Periodical
+  4. [ ] پیش‌بینی خطی تا پایان ترم (analytics/forecast) + نمایش در Analytics
+  5. [ ] کارنامهٔ یک‌صفحه‌ای قابل چاپ هر نشریه + گزارش دوره‌ای قابل چاپ
+  6. [ ] feature_flags در settings (سوپرادمین)
+  7. [ ] حالت‌های ثبت‌نام: آزاد / فهرست مجاز CSV / کد فعال‌سازی
+  8. [ ] TOTP برای سوپرادمین و مسئول
+  9. [ ] پالت فرمان Ctrl+K
+  10. [ ] AI: circuit breaker، سقف بودجهٔ ماهانه، ثبت مصرف
+  11. [ ] (تصمیم) FTS5 ← فعلاً LIKE روی search_text نرمال‌شده؛ در DECISIONS ثبت شود
+- بعد از شکاف‌ها: README/CHANGELOG ← تیک‌زدن ROADMAP ← بستن Milestoneها و Release v1.0.0.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
 - `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
 - مسیر شمارهٔ admin: `issues/:id` (IssueDetail از `useParams().id` می‌خواند).
