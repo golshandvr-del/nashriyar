@@ -126,6 +126,18 @@ export default function TocTab({ d, reload, pubId }: RoomProps) {
     const r = await run(() => api.post(`/api/team/${pubId}/issues/${issueId}/toc-order`, { order: a.map((x) => ({ id: x.id, parent_id: x.parent_id })) }))
     if (r) reload()
   }
+  /** Drag-and-drop reorder (HTML5); the up/down buttons remain as the keyboard-accessible alternative. */
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const dropAt = async (to: number) => {
+    const from = dragIdx
+    setDragIdx(null)
+    if (from == null || from === to) return
+    const a = [...toc]
+    const [it] = a.splice(from, 1)
+    a.splice(to, 0, it)
+    const r = await run(() => api.post(`/api/team/${pubId}/issues/${issueId}/toc-order`, { order: a.map((x) => ({ id: x.id, parent_id: x.parent_id })) }))
+    if (r) reload()
+  }
   /** Tree: indent makes the item a child of the nearest top-level item above it; outdent makes it top-level again. */
   const setParent = async (idx: number, indent: boolean) => {
     let parent: string | null = null
@@ -147,7 +159,15 @@ export default function TocTab({ d, reload, pubId }: RoomProps) {
               const as = byItem(t.id)
               const late = t.due_at && t.status !== 'done' && t.due_at < new Date().toISOString()
               return (
-                <li key={t.id} className={cx('py-3', t.parent_id && 'ps-6')}>
+                <li
+                  key={t.id}
+                  className={cx('py-3', t.parent_id && 'ps-6', structural && 'cursor-grab', dragIdx === idx && 'opacity-50')}
+                  draggable={structural}
+                  onDragStart={(e) => { setDragIdx(idx); e.dataTransfer.effectAllowed = 'move' }}
+                  onDragOver={(e) => dragIdx != null && e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); dropAt(idx) }}
+                  onDragEnd={() => setDragIdx(null)}
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="w-6 text-center text-xs text-muted">{formatNumber(idx + 1)}</span>
                     <span className="min-w-0 flex-1 font-medium">{t.title}</span>
