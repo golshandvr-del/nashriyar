@@ -8,6 +8,40 @@ import { trackView } from './public'
 export const readerRoutes = new Hono<AppEnv>()
 
 const URL_TTL_SEC = 300 // signed page URLs expire after 5 minutes
+const PAGE_RATE_WINDOW_SEC = 60
+const PAGE_RATE_MAX = 90 // page images per viewer per minute; normal reading is far below this
+const PAGE_RATE_LOCK_MIN = 5
+
+/**
+ * Page-request rate monitoring (ROADMAP phase 5 — anti-scraping). Reuses the generic login_attempts
+ * counter table (key/count/window_start/locked_until). Exceeding the limit pauses page delivery for a few
+ * minutes and records a `reader.signal` (kind=rate) so the team/officer can see suspicious readers.
+ */
+async function checkPageRate(c: any, issueId: string) {
+  const db = c.get('db')
+  const key = 'pages:' + (await viewerBinding(c))
+  const now = Date.now()
+  const r = await db.first('SELECT count, window_start, locked_until FROM login_attempts WHERE key = ?', [key])
+  if (r?.locked_until && r.locked_until > new Date(now).toISOString()) {
+    throw new HttpError(429, 'درخواست صفحات بیش از حد سریع بود؛ چند دقیقهٔ دیگر ادامه دهید', 'page_rate')
+  }
+  if (!r || new Date(r.window_start).getTime() < now - PAGE_RATE_WINDOW_SEC * 1000) {
+    await db.run(
+      'INSERT INTO login_attempts (key, count, window_start, locked_until) VALUES (?,1,?,NULL) ON CONFLICT(key) DO UPDATE SET count = 1, window_start = excluded.window_start, locked_until = NULL',
+      [key, new Date(now).toISOString()]
+    )
+    return
+  }
+  const count = r.count + 1
+  if (count > PAGE_RATE_MAX) {
+    await db.run('UPDATE login_attempts SET count = ?, locked_until = ? WHERE key = ?', [count, new Date(now + PAGE_RATE_LOCK_MIN * 60_000).toISOString(), key])
+    await db.run('INSERT INTO activity_events (id, actor_user_id, issue_id, type, payload_json, created_at) VALUES (?,?,?,?,?,?)', [
+      newId(), c.get('user')?.id ?? null, issueId, 'reader.signal', JSON.stringify({ kind: 'rate', count }), nowIso()
+    ])
+    throw new HttpError(429, 'درخواست صفحات بیش از حد سریع بود؛ چند دقیقهٔ دیگر ادامه دهید', 'page_rate')
+  }
+  await db.run('UPDATE login_attempts SET count = ? WHERE key = ?', [count, key])
+}
 
 /** Binding for page signatures: the session (logged-in) or a per-day viewer fingerprint (anonymous). */
 async function viewerBinding(c: any): Promise<string> {
@@ -79,6 +113,7 @@ readerRoutes.get('/:issueId/page/:n', async (c) => {
   const sig = String(c.req.query('s') || '')
   if (!Number.isInteger(n) || n < 1 || !exp || exp < Date.now() / 1000) throw new HttpError(403, 'پیوند صفحه منقضی شده است', 'expired')
   if (!timingSafeEqual(sig, await signPage(c, issueId, n, exp))) throw new HttpError(403, 'امضای پیوند نامعتبر است', 'bad_sig')
+  await checkPageRate(c, issueId)
   const { allowed } = await accessFor(c, issueId)
   if (n > allowed) throw new HttpError(403, 'برای خواندن این صفحه باید شماره را تهیه کنید', 'locked')
   const page = await c.get('db').first<{ image_key: string }>('SELECT image_key FROM issue_pages WHERE issue_id = ? AND page_number = ?', [issueId, n])
