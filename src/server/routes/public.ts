@@ -190,7 +190,7 @@ publicRoutes.get('/issues/:id', async (c) => {
   )
   const tocOut = toc.map((t) => ({ ...t, bylines: assigns.filter((a) => a.toc_item_id === t.id).map((a) => ({ role: a.role, name: a.full_name })) }))
   const media = await db.all(
-    "SELECT id, kind, role, title, mime, access, toc_item_id FROM media_assets WHERE issue_id = ? AND role IN ('podcast','clip','gallery','attachment') ORDER BY sort_order",
+    "SELECT id, kind, role, title, mime, access, toc_item_id, storage_key FROM media_assets WHERE issue_id = ? AND role IN ('podcast','clip','gallery','attachment') ORDER BY sort_order",
     [i.id]
   )
   const credits = await db.all(
