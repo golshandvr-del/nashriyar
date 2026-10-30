@@ -103,6 +103,43 @@ function Info({ label, value, danger }: { label: string; value: React.ReactNode;
   )
 }
 
+/** Time-based stage Gantt for one issue: each bar spans started_at → completed_at (or now); a tick marks the deadline. */
+function StageGantt({ stages }: { stages: any[] }) {
+  const now = Date.now()
+  const t = (x: string | null) => (x ? new Date(x).getTime() : NaN)
+  const pts = stages.flatMap((s) => [t(s.started_at), t(s.completed_at), t(s.due_at)]).filter((x) => !Number.isNaN(x))
+  if (!stages.some((s) => s.started_at) || !pts.length) return null
+  const min = Math.min(...pts)
+  const max = Math.max(...pts, stages.some((s) => s.started_at && !s.completed_at) ? now : 0)
+  const span = Math.max(max - min, 86400_000)
+  const pos = (x: number) => `${(((x - min) / span) * 100).toFixed(2)}%`
+  return (
+    <div className="mt-2 space-y-1" role="img" aria-label="گانت مراحل تولید">
+      {stages.map((s) => {
+        const a = t(s.started_at)
+        const b = Number.isNaN(t(s.completed_at)) ? now : t(s.completed_at)
+        const due = t(s.due_at)
+        const late = !Number.isNaN(due) && b > due
+        return (
+          <div key={s.key} className="flex items-center gap-2 text-[10px]">
+            <span className="w-20 shrink-0 truncate text-muted">{s.title}</span>
+            <div className="relative h-2 flex-1 rounded-full bg-surface-2">
+              {!Number.isNaN(a) && (
+                <span
+                  className={`absolute inset-y-0 rounded-full ${late ? 'bg-danger' : s.status === 'done' ? 'bg-ok' : 'bg-brand'}`}
+                  style={{ insetInlineStart: pos(a), width: `max(3px, ${(((b - a) / span) * 100).toFixed(2)}%)` }}
+                  title={`${s.title}: ${faDate(s.started_at)}${s.completed_at ? ' ← ' + faDate(s.completed_at) : ' (در جریان)'}`}
+                />
+              )}
+              {!Number.isNaN(due) && <span className="absolute -inset-y-0.5 w-0.5 bg-ink/60" style={{ insetInlineStart: pos(due) }} title={`مهلت: ${faDate(s.due_at)}`} />}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function IssuesTab({ issues, stages }: { issues: any[]; stages: any[] }) {
   if (!issues.length) return <Empty title="هنوز شماره‌ای تعریف نشده" />
   const byIssue: Record<string, any[]> = {}
@@ -124,6 +161,7 @@ function IssuesTab({ issues, stages }: { issues: any[]; stages: any[] }) {
               </div>
             </div>
             {i.status !== 'published' && i.status !== 'archived' && <Progress value={pct} className="mt-2" />}
+            {!!byIssue[i.id]?.length && i.status !== 'published' && i.status !== 'archived' && <StageGantt stages={byIssue[i.id]} />}
             {!!byIssue[i.id]?.length && (
               <div className="mt-2 flex gap-0.5" title="مراحل تولید">
                 {byIssue[i.id].map((s) => (
