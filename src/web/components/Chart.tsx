@@ -5,8 +5,9 @@ import * as echarts from 'echarts/core'
 import { BarChart, LineChart, PieChart, ScatterChart, HeatmapChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, MarkLineComponent, VisualMapComponent, CalendarComponent } from 'echarts/components'
 import { SVGRenderer } from 'echarts/renderers'
-import { Download } from 'lucide-react'
+import { Download, FileSpreadsheet } from 'lucide-react'
 import { toFaDigits } from '../lib/format'
+import { downloadXlsxFromCsv } from '../lib/xlsx'
 
 echarts.use([BarChart, LineChart, PieChart, ScatterChart, HeatmapChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, MarkLineComponent, VisualMapComponent, CalendarComponent, SVGRenderer])
 
@@ -102,9 +103,14 @@ export function Chart({ option, height = 260, csvName, onClick, className }: { o
   return (
     <div className={className ? `relative ${className}` : 'relative'}>
       {csv && (
-        <button className="no-print absolute top-0 left-0 z-10 rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-ink" title="دریافت CSV" aria-label="دریافت CSV" onClick={() => downloadCsv(csvName!, csv)}>
+        <div className="no-print absolute top-0 left-0 z-10 flex">
+        <button className="rounded-lg p-1.5 rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-ink" title="دریافت CSV" aria-label="دریافت CSV" onClick={() => downloadCsv(csvName!, csv)}>
           <Download className="size-4" />
         </button>
+        <button className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-ink" title="دریافت Excel" aria-label="دریافت Excel" onClick={() => downloadXlsxFromCsv(csvName!, csv)}>
+          <FileSpreadsheet className="size-4" />
+        </button>
+        </div>
       )}
       <div ref={el} style={{ height }} dir="ltr" />
     </div>
