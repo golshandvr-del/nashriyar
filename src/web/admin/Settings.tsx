@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Save, Sparkles } from 'lucide-react'
 import { api } from '../lib/api'
 import { faDate, toFaDigits } from '../../shared/fa'
-import { Async, Button, Card, Input, PageHeader, useAction, useAsync } from '../components/ui'
+import { Async, Button, Card, Input, PageHeader, Select, useAction, useAsync } from '../components/ui'
 
 type S = Record<string, any>
 
@@ -88,6 +88,18 @@ function Form({ initial, isSuper, reload }: { initial: S; isSuper: boolean; relo
             <span className="label">حداکثر نشست هم‌زمان هر کاربر</span>
             <Input dir="ltr" type="number" min={1} max={20} value={s.max_sessions ?? 5} onChange={(e) => set({ max_sessions: Number(e.target.value) || 5 })} />
             <span className="mt-1 block text-xs text-muted">با ورود از دستگاه جدید، قدیمی‌ترین نشست‌های اضافه خارج می‌شوند (مقابله با اشتراک حساب).</span>
+          </label>
+          <label className="block">
+            <span className="label">روش ثبت‌نام دانشجویان</span>
+            <Select
+              value={s.registration_mode || 'open'}
+              onChange={(e) => set({ registration_mode: e.target.value })}
+              options={[
+                { value: 'open', label: 'ثبت‌نام آزاد (هر شماره دانشجویی)' },
+                { value: 'allowlist', label: 'فقط فهرست مجاز (CSV / کد فعال‌سازی)' }
+              ]}
+            />
+            <span className="mt-1 block text-xs text-muted">در حالت فهرست مجاز، فهرست را در کارت «فهرست مجاز ثبت‌نام» پایین همین صفحه بارگذاری کنید.</span>
           </label>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
