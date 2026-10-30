@@ -459,6 +459,35 @@ function Production({ q }: { q: string }) {
             <div className="card p-3"><div className="text-xs text-muted">میانگین زمان تأیید</div><div className="text-xl font-extrabold">{toFaDigits(Math.round((d.approvals?.avg_days || 0) * 10) / 10)} روز</div></div>
             <div className="card p-3"><div className="text-xs text-muted">درخواست اصلاح</div><div className="text-xl font-extrabold">{formatNumber(d.approvals?.changes || 0)}</div></div>
           </div>
+          {!!d.timeline?.length && (() => {
+            // Gantt of issues in production: transparent offset bar + duration bar (start → planned date, or today + 14d if unplanned)
+            const DAY = 86400000
+            const rowsG = d.timeline.map((t: any) => {
+              const start = new Date(t.created_at).getTime()
+              const end = t.planned_publish_at ? new Date(t.planned_publish_at + 'T23:59:59Z').getTime() : Date.now() + 14 * DAY
+              return { label: `${t.publication_title} · ${toFaDigits(t.number ?? '')}`, start, end: Math.max(end, start + DAY), late: !!t.planned_publish_at && end < Date.now(), planned: !!t.planned_publish_at }
+            })
+            const min = Math.min(...rowsG.map((r: any) => r.start))
+            return (
+              <Card title="گانت شماره‌های در دست تولید (شروع ← تاریخ برنامه‌ریزی‌شده)">
+                <Chart
+                  height={Math.max(200, rowsG.length * 26 + 60)}
+                  csvName="production-gantt"
+                  option={{
+                    grid: { left: 170, right: 20 },
+                    tooltip: { trigger: 'item', formatter: (p: any) => (p.seriesIndex === 1 ? `${rowsG[p.dataIndex].label}<br/>${faDate(new Date(rowsG[p.dataIndex].start).toISOString())} ← ${faDate(new Date(rowsG[p.dataIndex].end).toISOString())}${rowsG[p.dataIndex].planned ? '' : ' (بدون تاریخ برنامه)'}` : '') },
+                    xAxis: { type: 'value', min, axisLabel: { formatter: (v: number) => faDate(new Date(v).toISOString()) } },
+                    yAxis: { type: 'category', inverse: true, data: rowsG.map((r: any) => r.label) },
+                    series: [
+                      { name: 'شروع', type: 'bar', stack: 'g', itemStyle: { color: 'transparent' }, data: rowsG.map((r: any) => r.start) },
+                      { name: 'مدت', type: 'bar', stack: 'g', data: rowsG.map((r: any) => ({ value: r.end - r.start, itemStyle: { color: r.late ? '#dc2626' : r.planned ? '#0f766e' : '#94a3b8' } })), markLine: { symbol: 'none', data: [{ xAxis: Date.now(), name: 'امروز' }], label: { formatter: 'امروز' } } }
+                    ]
+                  }}
+                />
+                <p className="mt-1 text-xs text-muted">سبز: در برنامه · قرمز: از تاریخ برنامه گذشته · خاکستری: بدون تاریخ برنامه‌ریزی‌شده</p>
+              </Card>
+            )
+          })()}
           {!!d.people?.length && (
             <Card title="افراد فعال و فعالیتشان" action={<button className="btn-ghost !px-2 !py-1" onClick={() => downloadCsv('active-people', csvOf(['نام', 'نشریه', 'فعالیت', 'آخرین فعالیت'], d.people.map((r: any) => [r.display_name, r.publication_title, r.actions, r.last_at])))}><Download className="size-4" /></button>}>
               <div className="max-h-80 overflow-auto">
