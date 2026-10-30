@@ -754,13 +754,21 @@ teamRoutes.post('/:pubId/posts', async (c) => {
   const id = newId()
   const now = nowIso()
   const status = b.draft ? 'draft' : 'published'
+  // scheduled publishing (ROADMAP phase 6): a future publish_at keeps the post invisible until then (public queries filter published_at <= now)
+  let publishAt = now
+  if (b.publish_at && !isStory) {
+    const t = Date.parse(String(b.publish_at))
+    if (!Number.isFinite(t)) throw bad('زمان انتشار نامعتبر است')
+    if (t > Date.now() + 90 * 86400_000) throw bad('زمان‌بندی حداکثر تا ۹۰ روز آینده ممکن است')
+    if (t > Date.now()) publishAt = new Date(t).toISOString()
+  }
   await db.run(
     'INSERT INTO posts (id, publication_id, kind, caption, images_json, source_issue_id, source_toc_item_id, is_story, expires_at, status, published_at, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
     [id, p.id, images.length > 1 ? 'carousel' : 'image', str(b.caption, 'متن پست', { max: 2200, optional: true }), JSON.stringify(images), src.id, b.source_toc_item_id, isStory,
-      isStory ? addHours(24) : null, status, status === 'published' ? now : null, user.id, now]
+      isStory ? addHours(24) : null, status, status === 'published' ? publishAt : null, user.id, now]
   )
-  await activity(db, user.id, isStory ? 'story.published' : 'post.published', p.id, src.id, { id })
-  return c.json({ ok: true, id })
+  await activity(db, user.id, isStory ? 'story.published' : 'post.published', p.id, src.id, { id, scheduled: publishAt !== now ? publishAt : undefined })
+  return c.json({ ok: true, id, published_at: status === 'published' ? publishAt : null })
 })
 
 teamRoutes.put('/:pubId/posts/:postId', async (c) => {
