@@ -120,6 +120,8 @@ export interface PostLite {
   id: string
   caption?: string | null
   images: string[]
+  /** image alt texts aligned with images (ROADMAP phase 6 accessibility) */
+  alts?: string[]
   published_at?: string | null
   publication_slug?: string
   publication_title?: string
@@ -132,7 +134,7 @@ export function PostTile({ post }: { post: PostLite }) {
   const src = mediaUrl(post.images?.[0])
   return (
     <Link to={`/post/${post.id}`} className="group relative block aspect-square overflow-hidden bg-surface-2" aria-label={post.caption?.slice(0, 60) || 'پست'}>
-      {src ? <img src={src} alt="" loading="lazy" decoding="async" className="size-full object-cover transition-transform group-hover:scale-105" /> : <div className="flex size-full items-center justify-center p-2 text-xs text-muted">{post.caption?.slice(0, 80)}</div>}
+      {src ? <img src={src} alt={post.alts?.[0] || ''} loading="lazy" decoding="async" className="size-full object-cover transition-transform group-hover:scale-105" /> : <div className="flex size-full items-center justify-center p-2 text-xs text-muted">{post.caption?.slice(0, 80)}</div>}
       {post.images?.length > 1 && <Images className="absolute end-2 top-2 size-4 text-white drop-shadow" />}
     </Link>
   )
@@ -165,7 +167,7 @@ export function PostMasonry({ posts }: { posts: PostLite[] }) {
             aria-label={post.caption?.slice(0, 60) || 'پست'}
           >
             {src ? (
-              <img src={src} alt="" loading="lazy" decoding="async" className="block h-auto w-full transition-transform group-hover:scale-105" />
+              <img src={src} alt={post.alts?.[0] || ''} loading="lazy" decoding="async" className="block h-auto w-full transition-transform group-hover:scale-105" />
             ) : (
               <div className="flex aspect-square items-center justify-center p-3 text-center text-xs text-muted">{post.caption?.slice(0, 80)}</div>
             )}
@@ -192,7 +194,7 @@ export function PostCard({ post }: { post: PostLite }) {
         </Link>
         <span className="ms-auto text-xs text-muted">{faDate(post.published_at)}</span>
       </header>
-      <Link to={`/post/${post.id}`}>{src && <img src={src} alt="" loading="lazy" className="aspect-square w-full object-cover" />}</Link>
+      <Link to={`/post/${post.id}`}>{src && <img src={src} alt={post.alts?.[0] || ''} loading="lazy" className="aspect-square w-full object-cover" />}</Link>
       {post.caption && <p className="line-clamp-3 whitespace-pre-line p-3 text-sm">{post.caption}</p>}
     </article>
   )
