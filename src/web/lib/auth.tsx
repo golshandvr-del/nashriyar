@@ -31,7 +31,7 @@ interface AuthState {
   home: string
   loading: boolean
   refresh: () => Promise<void>
-  login: (username: string, password: string) => Promise<string>
+  login: (username: string, password: string, totp?: string) => Promise<string>
   logout: () => Promise<void>
 }
 
@@ -82,8 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   const login = useCallback(
-    async (username: string, password: string) => {
-      const r = await api.post<{ home: string }>('/api/auth/login', { username, password })
+    async (username: string, password: string, totp?: string) => {
+      const r = await api.post<{ home: string }>('/api/auth/login', totp ? { username, password, totp } : { username, password })
       await refresh()
       return r.home || '/'
     },
