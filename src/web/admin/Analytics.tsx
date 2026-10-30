@@ -365,7 +365,13 @@ function Gaps({ q }: { q: string }) {
               <tbody>
                 {rows.map((r: any) => (
                   <tr key={r.id} className={`border-t border-line ${r.overdue ? 'bg-danger/5' : ''}`}>
-                    <td className="p-2"><Link to={`/admin/publications/${r.id}`} className="hover:text-brand">{r.title}</Link> {!!r.overdue && <Badge tone="danger">عقب از دوره</Badge>}</td>
+                    <td className="p-2"><Link to={`/admin/publications/${r.id}`} className="hover:text-brand">{r.title}</Link> {!!r.overdue && <Badge tone="danger">عقب از دوره</Badge>}
+                      {r.gap_window && (
+                        <div className="mt-1 text-xs text-muted">
+                          فاصلهٔ غیرعادی {faDate(r.gap_window[0])} تا {faDate(r.gap_window[1])}: {r.factors?.length ? r.factors.join('، ') : 'عامل هم‌زمانی ثبت نشده'}
+                        </div>
+                      )}
+                    </td>
                     <td className="p-2 text-center text-xs">{FREQUENCY[r.frequency]} ({toFaDigits(r.expected_days)} روز)</td>
                     <td className="p-2 text-center">{toFaDigits(r.issues)}</td>
                     <td className="p-2 text-center">{r.avg_gap != null ? toFaDigits(Math.round(r.avg_gap)) : '—'}</td>
