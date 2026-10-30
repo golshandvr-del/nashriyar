@@ -21,7 +21,11 @@ function formatCode(raw: string) {
 export default function Redeem() {
   const { user, loading } = useAuth()
   const nav = useNavigate()
-  const [code, setCode] = useState('NSH-')
+  // A printed/shared QR opens /redeem#code=… — the fragment never reaches the server or its logs.
+  const [code, setCode] = useState(() => {
+    const m = /(?:^|[#&])code=([A-Za-z0-9-]{4,40})/.exec(window.location.hash)
+    return m ? m[1].toUpperCase() : 'NSH-'
+  })
   const [checked, setChecked] = useState<Checked | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
