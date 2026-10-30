@@ -109,7 +109,7 @@ export default function AdminAnalytics() {
         )}
       </section>
       <Tabs<Tab> value={tab} onChange={(k) => patch({ tab: k })} tabs={TABS} />
-      {tab === 'trends' && <Trends q={q} range={range} />}
+      {tab === 'trends' && <Trends q={q} range={range} onDrill={(k, v) => patch({ [k]: v })} />}
       {tab === 'ranking' && <Ranking q={q} />}
       {tab === 'production' && <Production q={q} />}
       {tab === 'gaps' && <Gaps q={q} />}
@@ -130,7 +130,7 @@ function prevSameLength(r: { from: string; to: string }) {
   return { from, to, key: 'custom' }
 }
 
-function Trends({ q, range }: { q: string; range: { from: string; to: string; key: string } }) {
+function Trends({ q, range, onDrill }: { q: string; range: { from: string; to: string; key: string }; onDrill?: (key: FilterKey, value: string) => void }) {
   const [cmp, setCmp] = useState<{ from: string; to: string; key: string } | null>(null)
   const q2 = cmp ? `${q}${q.includes('?') ? '&' : '?'}from2=${cmp.from}&to2=${cmp.to}` : q
   const st = useAsync(() => api.get(`/api/analytics/trends${q2}`), [q2])
@@ -168,10 +168,10 @@ function Trends({ q, range }: { q: string; range: { from: string; to: string; ke
               <Chart csvName="followers-monthly" option={{ xAxis: { type: 'category', data: labels }, yAxis: { type: 'value', minInterval: 1 }, series: [{ name: 'دنبال‌کنندهٔ جدید', type: 'bar', data: pick(d.followers, 'n') }] }} />
             </Card>
             <Card title="انتشار به تفکیک دانشکده">
-              {!d.byFaculty.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="by-faculty" option={{ tooltip: { trigger: 'item' }, series: [{ name: 'شماره', type: 'pie', radius: ['40%', '70%'], data: d.byFaculty.map((x: any) => ({ name: x.name, value: x.n })) }] }} />}
+              {!d.byFaculty.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="by-faculty" onClick={(p) => p?.data?.id && onDrill?.('faculty', p.data.id)} option={{ tooltip: { trigger: 'item' }, series: [{ name: 'شماره', type: 'pie', radius: ['40%', '70%'], data: d.byFaculty.map((x: any) => ({ name: x.name, value: x.n, id: x.id })) }] }} />}
             </Card>
             <Card title="انتشار به تفکیک موضوع">
-              {!d.byCategory.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="by-category" option={{ grid: { left: 110 }, xAxis: { type: 'value', minInterval: 1 }, yAxis: { type: 'category', inverse: true, data: d.byCategory.map((x: any) => x.name) }, series: [{ name: 'شماره', type: 'bar', data: d.byCategory.map((x: any) => x.n) }] }} />}
+              {!d.byCategory.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="by-category" option={{ grid: { left: 110 }, xAxis: { type: 'value', minInterval: 1 }, yAxis: { type: 'category', inverse: true, data: d.byCategory.map((x: any) => x.name) }, series: [{ name: 'شماره', type: 'bar', data: d.byCategory.map((x: any) => ({ value: x.n, id: x.id })) }] }} onClick={(p) => p?.data?.id && onDrill?.('category', p.data.id)} />}
             </Card>
             {d.yoy && (
               <Card title="مقایسهٔ سال‌به‌سال (همین بازه در سال قبل)" className="lg:col-span-2">
