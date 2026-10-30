@@ -264,8 +264,44 @@ function Ranking({ q }: { q: string }) {
         const val = (r: any, k: string) => (k === 'health' ? r.health?.score ?? 0 : Number(r[k] || 0))
         const rows = [...d.rows].sort((a, b) => val(b, sort) - val(a, sort))
         const exportCsv = () => downloadCsv(`ranking-${d.from}-${d.to}`, csvOf(['نشریه', 'دانشکده', ...RANK_COLS.map((c) => c.label), 'آخرین انتشار'], rows.map((r) => [r.title, r.faculty_name, ...RANK_COLS.map((c) => val(r, c.key)), faDate(r.last_published_at)])))
+        const org = d.org
+        const kindLabel = (k: string) => OWNER_KINDS[k] || 'بدون صاحب امتیاز'
         return (
           <div className="space-y-3">
+            {org && (
+              <section id="org-summary" className="grid gap-3 md:grid-cols-3" aria-label="خلاصهٔ سازمانی">
+                <Card title="مجموع در بازه">
+                  <div className="text-2xl font-bold">{formatNumber(org.totals?.pages || 0)} <span className="text-sm font-normal text-muted">صفحه</span></div>
+                  <div className="text-sm text-muted">{formatNumber(org.totals?.issues || 0)} شمارهٔ منتشرشده</div>
+                  <ul className="mt-2 space-y-1 text-xs">
+                    {org.activeOwners.map((a: any) => (
+                      <li key={a.kind} className="flex justify-between"><span>{kindLabel(a.kind)} فعال</span><b>{formatNumber(a.n)}</b></li>
+                    ))}
+                  </ul>
+                </Card>
+                <Card title="صفحات به تفکیک نوع صاحب امتیاز">
+                  <table className="w-full text-xs">
+                    <thead className="text-muted"><tr><th className="text-right">نوع</th><th>شماره</th><th>صفحه</th></tr></thead>
+                    <tbody>
+                      {org.byOwnerKind.map((r: any) => (
+                        <tr key={r.kind}><td className="py-1">{kindLabel(r.kind)}</td><td className="text-center">{formatNumber(r.issues)}</td><td className="text-center">{formatNumber(r.pages)}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Card>
+                <Card title="فعال‌ترین دانشکده‌ها">
+                  <table className="w-full text-xs">
+                    <thead className="text-muted"><tr><th className="text-right">دانشکده</th><th>نشریه</th><th>شماره</th><th>صفحه</th></tr></thead>
+                    <tbody>
+                      {org.byFaculty.slice(0, 8).map((r: any) => (
+                        <tr key={r.id || 'none'}><td className="py-1">{r.name}</td><td className="text-center">{formatNumber(r.pubs)}</td><td className="text-center">{formatNumber(r.issues)}</td><td className="text-center">{formatNumber(r.pages)}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <button className="mt-2 text-xs text-brand" onClick={() => downloadCsv(`faculties-${d.from}-${d.to}`, csvOf(['دانشکده', 'نشریه', 'شماره', 'صفحه'], org.byFaculty.map((r: any) => [r.name, r.pubs, r.issues, r.pages])))}>CSV</button>
+                </Card>
+              </section>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-muted">این رتبه‌بندی فقط برای مسئولان قابل مشاهده است و هرگز به تیم‌ها نشان داده نمی‌شود. روی عنوان ستون بزنید تا مرتب شود.</p>
               <button className="btn-ghost" onClick={exportCsv}><Download className="size-4" /> CSV</button>
