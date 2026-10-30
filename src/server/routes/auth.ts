@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../context'
 import { checkRateLimit, clearFailures, clientIp, createSession, destroySession, recordFailure, requireUser, userPubRoles } from '../auth'
-import { hashPassword, newId, verifyPassword } from '../lib/crypto'
+import { hashPassword, needsRehash, newId, verifyPassword } from '../lib/crypto'
 import { audit, bad, body, getSetting, HttpError, nowIso, str } from '../lib/util'
 import { toEnDigits } from '../../shared/fa'
 import { generateTotpSecret, otpauthUri, verifyTotp } from '../lib/totp'
@@ -27,6 +27,8 @@ authRoutes.post('/login', async (c) => {
     throw new HttpError(401, 'نام کاربری یا رمز عبور نادرست است', 'bad_credentials')
   }
   if (u.status !== 'active') throw new HttpError(403, 'حساب شما غیرفعال شده است')
+  // Transparent algorithm/iteration upgrade (PasswordHasher): the plaintext is only available right now.
+  if (needsRehash(u.password_hash)) await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [await hashPassword(password), u.id])
   // Second factor: password was right, now the 6-digit authenticator code is required.
   if (u.totp_enabled && u.totp_secret) {
     if (!b.totp) throw new HttpError(401, 'کد شش‌رقمی برنامهٔ احراز هویت را وارد کنید', 'totp_required')
