@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Bookmark, BookOpen, ChevronLeft, ChevronRight, Flag, MessageCircle, Share2 } from 'lucide-react'
 import { api, mediaUrl } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { useFeature } from '../lib/features'
 import { faDate, relativeFa, toFaDigits, cx } from '../lib/format'
 import { Async, Avatar, Button, Textarea, useAction, useAsync, useToast } from '../components/ui'
 
@@ -30,6 +31,7 @@ export default function Post() {
   const { id } = useParams()
   const st = useAsync(() => api.get<PostData>(`/api/public/posts/${id}`), [id])
   const { user } = useAuth()
+  const commentsOn = useFeature('comments')
   const nav = useNavigate()
   const { toast, confirm } = useToast()
   const act = useAction()
@@ -151,7 +153,7 @@ export default function Post() {
                       <div className="mb-1 flex items-center gap-2 text-xs">
                         <b>{c.author}</b>
                         <span className="text-muted">{relativeFa(c.created_at)}</span>
-                        {user && (
+                        {user && commentsOn && (
                           <button className="ms-auto text-brand" onClick={() => setReplyTo(c.id)}>
                             پاسخ
                           </button>
@@ -173,6 +175,9 @@ export default function Post() {
                   </li>
                 ))}
               </ul>
+              {!commentsOn ? (
+                <p className="mt-4 rounded-xl bg-surface-2 p-3 text-sm text-muted">ارسال نظر در حال حاضر توسط مدیر سامانه غیرفعال است.</p>
+              ) : (
               <div className="mt-4">
                 {replyTo && (
                   <div className="mb-1 flex items-center gap-2 text-xs text-muted">
@@ -189,6 +194,7 @@ export default function Post() {
                   </Button>
                 </div>
               </div>
+              )}
             </section>
           </article>
         )
