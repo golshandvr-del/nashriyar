@@ -534,7 +534,7 @@ function Gaps({ q }: { q: string }) {
           <div className="card overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-surface-2 text-xs text-muted">
-                <tr><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">دوره (انتظار)</th><th className="p-2 text-center">شماره‌ها</th><th className="p-2 text-center">میانگین فاصله</th><th className="p-2 text-center">بیشترین فاصله</th><th className="p-2 text-center">روز از آخرین</th></tr>
+                <tr><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">دوره (انتظار)</th><th className="p-2 text-center">شماره‌ها</th><th className="p-2 text-center">میانگین فاصله</th><th className="p-2 text-center">بیشترین فاصله</th><th className="p-2 text-center" title="انحراف معیار ÷ میانگین فاصله‌ها؛ بالاتر = نامنظم‌تر">ضریب تغییرات</th><th className="p-2 text-center">روز از آخرین</th></tr>
               </thead>
               <tbody>
                 {rows.map((r: any) => (
@@ -545,11 +545,21 @@ function Gaps({ q }: { q: string }) {
                           فاصلهٔ غیرعادی {faDate(r.gap_window[0])} تا {faDate(r.gap_window[1])}: {r.factors?.length ? r.factors.join('، ') : 'عامل هم‌زمانی ثبت نشده'}
                         </div>
                       )}
+                      {!!r.intervals?.length && (
+                        <div className="mt-1 flex flex-wrap gap-1 text-[11px]" aria-label="فاصلهٔ شماره‌های متوالی">
+                          {r.intervals.map((g: any) => (
+                            <span key={g.from} className={`rounded px-1 ${g.abnormal ? 'bg-red-100 font-bold text-red-700' : 'bg-surface-2 text-muted'}`} title={`شمارهٔ ${toFaDigits(g.from)} → ${toFaDigits(g.to)}`}>
+                              {toFaDigits(g.from)}→{toFaDigits(g.to)}: {toFaDigits(g.days)} روز
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="p-2 text-center text-xs">{FREQUENCY[r.frequency]} ({toFaDigits(r.expected_days)} روز)</td>
                     <td className="p-2 text-center">{toFaDigits(r.issues)}</td>
                     <td className="p-2 text-center">{r.avg_gap != null ? toFaDigits(Math.round(r.avg_gap)) : '—'}</td>
                     <td className="p-2 text-center">{r.max_gap != null ? toFaDigits(Math.round(r.max_gap)) : '—'}</td>
+                    <td className="p-2 text-center">{r.cv != null ? <Badge tone={r.cv > 0.6 ? 'danger' : r.cv > 0.3 ? 'warn' : 'ok'}>{toFaDigits(r.cv)}</Badge> : '—'}</td>
                     <td className="p-2 text-center font-bold">{r.days_since_last != null ? toFaDigits(Math.round(r.days_since_last)) : 'بدون انتشار'}</td>
                   </tr>
                 ))}
