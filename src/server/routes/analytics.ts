@@ -222,12 +222,12 @@ analyticsRoutes.get('/trends', async (c) => {
     [fromTs, toTs, ...s.params]
   )
   const byFaculty = await db.all(
-    `SELECT COALESCE(f.name, 'بدون دانشکده') AS name, COUNT(i.id) AS n FROM issues i JOIN publications p ON p.id = i.publication_id LEFT JOIN faculties f ON f.id = p.faculty_id
+    `SELECT f.id, COALESCE(f.name, 'بدون دانشکده') AS name, COUNT(i.id) AS n, COALESCE(SUM(i.page_count),0) AS pages FROM issues i JOIN publications p ON p.id = i.publication_id LEFT JOIN faculties f ON f.id = p.faculty_id
      WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY f.id ORDER BY n DESC`,
     [fromTs, toTs, ...s.params]
   )
   const byCategory = await db.all(
-    `SELECT cat.name, COUNT(DISTINCT i.id) AS n FROM issues i JOIN publications p ON p.id = i.publication_id JOIN publication_categories pc ON pc.publication_id = p.id
+    `SELECT cat.id, cat.name, COUNT(DISTINCT i.id) AS n, COUNT(DISTINCT p.id) AS pubs FROM issues i JOIN publications p ON p.id = i.publication_id JOIN publication_categories pc ON pc.publication_id = p.id
      JOIN categories cat ON cat.id = pc.category_id WHERE cat.type = 'subject' AND i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY cat.id ORDER BY n DESC LIMIT 12`,
     [fromTs, toTs, ...s.params]
   )
