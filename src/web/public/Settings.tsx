@@ -153,6 +153,86 @@ function PasswordCard() {
   )
 }
 
+/** Two-factor authentication (TOTP) for staff accounts — setup → confirm code → enabled; disable needs password + code. */
+function TotpCard() {
+  const st = useAsync(() => api.get<{ enabled: boolean; available: boolean; recommended: boolean }>('/api/auth/totp'), [])
+  const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(null)
+  const [code, setCode] = useState('')
+  const [pw, setPw] = useState('')
+  const { busy, run } = useAction()
+  const d = st.data
+  if (!d || !d.available) return null
+  const start = async () => {
+    const r = await run(() => api.post<{ secret: string; uri: string }>('/api/auth/totp/setup', {}))
+    if (r) setSetup(r as { secret: string; uri: string })
+  }
+  const enable = async () => {
+    if (await run(() => api.post('/api/auth/totp/enable', { code }), 'رمز دومرحله‌ای فعال شد')) {
+      setSetup(null)
+      setCode('')
+      st.reload()
+    }
+  }
+  const disable = async () => {
+    if (await run(() => api.post('/api/auth/totp/disable', { password: pw, code }), 'رمز دومرحله‌ای غیرفعال شد')) {
+      setCode('')
+      setPw('')
+      st.reload()
+    }
+  }
+  return (
+    <Card title="رمز دومرحله‌ای (TOTP)" className={!d.enabled && d.recommended ? 'border-amber-400' : undefined}>
+      {d.enabled ? (
+        <div className="space-y-3">
+          <p className="text-sm">
+            <Badge tone="ok">فعال</Badge> هنگام ورود، علاوه بر رمز، کد شش‌رقمی برنامهٔ احراز هویت هم خواسته می‌شود.
+          </p>
+          <Field label="رمز عبور فعلی">
+            <Input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+          </Field>
+          <Field label="کد شش‌رقمی فعلی">
+            <Input dir="ltr" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} />
+          </Field>
+          <Button variant="danger" loading={busy} disabled={!pw || code.length < 6} onClick={disable}>
+            غیرفعال کردن
+          </Button>
+        </div>
+      ) : setup ? (
+        <div className="space-y-3 text-sm">
+          <p>۱. در برنامهٔ احراز هویت (Google Authenticator، Microsoft Authenticator، Aegis و…) یک حساب جدید با «کلید دستی» بسازید و این کلید را وارد کنید:</p>
+          <code dir="ltr" className="block select-all rounded-lg bg-surface-2 p-3 text-center font-mono text-base tracking-widest">
+            {setup.secret.match(/.{1,4}/g)?.join(' ')}
+          </code>
+          <p className="text-xs text-muted">
+            روی گوشی می‌توانید مستقیم{' '}
+            <a href={setup.uri} className="font-bold text-brand">
+              این پیوند
+            </a>{' '}
+            را باز کنید. این کلید را با کسی به اشتراک نگذارید.
+          </p>
+          <p>۲. کد شش‌رقمی که برنامه نشان می‌دهد را وارد کنید:</p>
+          <div className="flex gap-2">
+            <Input dir="ltr" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} />
+            <Button loading={busy} disabled={code.length < 6} onClick={enable}>
+              تأیید و فعال‌سازی
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3 text-sm">
+          <p>
+            با فعال کردن رمز دومرحله‌ای، حتی اگر رمز عبور شما لو برود، بدون گوشی‌تان کسی نمی‌تواند وارد حساب شود.
+            {d.recommended && <b className="text-amber-700 dark:text-amber-300"> برای حساب‌های مدیریتی به‌شدت توصیه می‌شود.</b>}
+          </p>
+          <Button loading={busy} onClick={start}>
+            راه‌اندازی رمز دومرحله‌ای
+          </Button>
+        </div>
+      )}
+    </Card>
+  )
+}
+
 function SessionsCard() {
   const { logout } = useAuth()
   const nav = useNavigate()
@@ -276,6 +356,7 @@ export default function Settings() {
       <ProfileCard />
       <ThemeCard />
       {!user.must_change_password && <PasswordCard />}
+      {user.system_role !== 'student' && <TotpCard />}
       <SessionsCard />
       {user.system_role === 'student' && <MyComments />}
       {user.system_role === 'student' && <DangerCard />}
