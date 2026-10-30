@@ -172,7 +172,7 @@ function Trends({ q, range, onDrill }: { q: string; range: { from: string; to: s
               {!d.byFaculty.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="by-faculty" onClick={(p) => p?.data?.id && onDrill?.('faculty', p.data.id)} option={{ tooltip: { trigger: 'item' }, series: [{ name: 'شماره', type: 'pie', radius: ['40%', '70%'], data: d.byFaculty.map((x: any) => ({ name: x.name, value: x.n, id: x.id })) }] }} />}
             </Card>
             <Card title="انتشار به تفکیک موضوع">
-              {!d.byCategory.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="by-category" option={{ grid: { left: 110 }, xAxis: { type: 'value', minInterval: 1 }, yAxis: { type: 'category', inverse: true, data: d.byCategory.map((x: any) => x.name) }, series: [{ name: 'شماره', type: 'bar', data: d.byCategory.map((x: any) => ({ value: x.n, id: x.id })) }] }} onClick={(p) => p?.data?.id && onDrill?.('category', p.data.id)} />}
+              {!d.byCategory.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="by-category" option={{ grid: { left: 110 }, xAxis: { type: 'value', minInterval: 1 }, yAxis: { type: 'category', inverse: true, data: d.byCategory.map((x: any) => x.name) }, legend: {}, series: [{ name: 'شماره', type: 'bar', data: d.byCategory.map((x: any) => ({ value: x.n, id: x.id })) }, { name: 'نشریه', type: 'bar', data: d.byCategory.map((x: any) => ({ value: x.pubs ?? 0, id: x.id })) }] }} onClick={(p) => p?.data?.id && onDrill?.('category', p.data.id)} />}
             </Card>
             {d.yoy && (
               <Card title="مقایسهٔ سال‌به‌سال (همین بازه در سال قبل)" className="lg:col-span-2">
