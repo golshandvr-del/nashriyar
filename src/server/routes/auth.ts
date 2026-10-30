@@ -1,12 +1,17 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../context'
 import { checkRateLimit, clearFailures, clientIp, createSession, destroySession, recordFailure, requireUser, userPubRoles } from '../auth'
-import { hashPassword, needsRehash, newId, verifyPassword } from '../lib/crypto'
+import { hashPassword, needsRehash, newId, sha256, verifyPassword } from '../lib/crypto'
 import { audit, bad, body, getSetting, HttpError, nowIso, str } from '../lib/util'
 import { toEnDigits } from '../../shared/fa'
 import { generateTotpSecret, otpauthUri, verifyTotp } from '../lib/totp'
 
 export const authRoutes = new Hono<AppEnv>()
+
+/** Allowlist second value / recovery code: Persian digits → Latin, no spaces/dashes, upper-case. */
+export function normalizeSecret(s: string): string {
+  return toEnDigits(s).replace(/[\s\-‌]/g, '').toUpperCase()
+}
 
 const homeFor = (role: string) =>
   role === 'student' ? '/' : role === 'team' ? '/team' : '/admin'
@@ -47,7 +52,7 @@ authRoutes.post('/login', async (c) => {
 authRoutes.post('/register', async (c) => {
   const db = c.get('db')
   if (!(await getSetting(db, 'registration_open', true))) throw new HttpError(403, 'ثبت‌نام در حال حاضر بسته است')
-  const b = await body<{ student_number?: string; password?: string; display_name?: string; faculty_id?: string; accept_terms?: boolean }>(c)
+  const b = await body<{ student_number?: string; password?: string; display_name?: string; faculty_id?: string; accept_terms?: boolean; secret?: string }>(c)
   const sn = toEnDigits(str(b.student_number, 'شماره دانشجویی', { max: 20 }))
   if (!/^\d{6,14}$/.test(sn)) throw bad('شماره دانشجویی باید فقط شامل ۶ تا ۱۴ رقم باشد')
   const password = str(b.password, 'رمز عبور', { min: 8, max: 200 })
@@ -60,7 +65,22 @@ authRoutes.post('/register', async (c) => {
     await recordFailure(c, key)
     throw bad('با این شماره دانشجویی قبلاً حساب ساخته شده است')
   }
+  // Registration mode (SECURITY.md §2): 'open' (default) or 'allowlist' — only listed student numbers, optionally
+  // with a matching second value (national id from the officer's CSV, or an activation code).
+  let allow: { secret_hash: string | null; used_at: string | null } | null = null
+  if ((await getSetting(db, 'registration_mode', 'open')) === 'allowlist') {
+    allow = await db.first('SELECT secret_hash, used_at FROM registration_allowlist WHERE student_number = ?', [sn])
+    if (!allow || allow.used_at) {
+      await recordFailure(c, key)
+      throw new HttpError(403, 'این شماره دانشجویی در فهرست مجاز ثبت‌نام نیست؛ با مسئول نشریات تماس بگیرید', 'not_allowlisted')
+    }
+    if (allow.secret_hash && (await sha256(normalizeSecret(b.secret || ''))) !== allow.secret_hash) {
+      await recordFailure(c, key)
+      throw new HttpError(403, 'کد ملی یا کد فعال‌سازی با فهرست مجاز مطابقت ندارد', 'bad_secret')
+    }
+  }
   const id = newId()
+  if (allow) await db.run('UPDATE registration_allowlist SET used_at = ? WHERE student_number = ?', [nowIso(), sn])
   await db.run(
     `INSERT INTO users (id, username, student_number, display_name, faculty_id, password_hash, system_role, created_at)
      VALUES (?,?,?,?,?,?, 'student', ?)`,
