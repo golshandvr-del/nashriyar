@@ -10,6 +10,7 @@ import {
 import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { getFeatures, sanitizeFeatures } from '../lib/features'
 import { getAiStatus } from '../ai'
+import { DEFAULT_THRESHOLDS, DEFAULT_WEIGHTS, getThresholds, getWeights, sanitizeThresholds, sanitizeWeights } from '../insights'
 
 export const adminRoutes = new Hono<AppEnv>()
 
@@ -832,7 +833,9 @@ adminRoutes.get('/settings', async (c) => {
     out.ai_status = await getAiStatus(db)
   }
   out.feature_flags = await getFeatures(db)
-  return c.json({ settings: out, is_super: u.system_role === 'super_admin' })
+  out.insight_thresholds = await getThresholds(db)
+  out.health_weights = await getWeights(db)
+  return c.json({ settings: out, is_super: u.system_role === 'super_admin', defaults: { insight_thresholds: DEFAULT_THRESHOLDS, health_weights: DEFAULT_WEIGHTS } })
 })
 
 adminRoutes.post('/settings', async (c) => {
@@ -855,6 +858,17 @@ adminRoutes.post('/settings', async (c) => {
     const next = { ...(await getFeatures(db)), ...sanitizeFeatures(b.feature_flags) }
     await setSetting(db, 'feature_flags', next)
     changed.feature_flags = next
+  }
+  // Rule thresholds and health weights (officer and super admin; ROADMAP phase 8)
+  if ('insight_thresholds' in b) {
+    const next = sanitizeThresholds({ ...(await getThresholds(db)), ...((b.insight_thresholds as object) || {}) })
+    await setSetting(db, 'insight_thresholds', next)
+    changed.insight_thresholds = next
+  }
+  if ('health_weights' in b) {
+    const next = sanitizeWeights({ ...(await getWeights(db)), ...((b.health_weights as object) || {}) })
+    await setSetting(db, 'health_weights', next)
+    changed.health_weights = next
   }
   await audit(db, u.id, 'settings.update', 'settings', null, null, changed)
   return c.json({ ok: true })
