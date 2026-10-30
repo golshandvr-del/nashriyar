@@ -214,8 +214,23 @@ export async function computeInsights(db: Db, scope: { sql: string; params: unkn
  * Health score 0..100 per publication — transparent weighted formula:
  * regularity 35, production activity 25, audience 20, explore activity 10, moderation hygiene 10.
  */
-export async function healthScores(db: Db, ids: string[]): Promise<Record<string, { score: number; parts: Record<string, number> }>> {
-  const out: Record<string, { score: number; parts: Record<string, number> }> = {}
+export type Health = { score: number; level: 'green' | 'yellow' | 'red'; parts: Record<string, number>; reasons: string[] }
+
+/** Pure: traffic-light level + human reasons from the raw 0..1 ratios of each part (ROADMAP phase 8). */
+export function healthVerdict(score: number, ratios: Record<string, number>, facts: { since: number; exp: number; acts: number; views: number; posts: number; pending: number }): Pick<Health, 'level' | 'reasons'> {
+  const level = score >= 70 ? 'green' : score >= 40 ? 'yellow' : 'red'
+  const reasons: string[] = []
+  if (ratios.regularity < 0.5) reasons.push(`${Math.round(facts.since)} روز از آخرین انتشار گذشته (دورهٔ اعلامی حدود ${facts.exp} روز)`)
+  if (ratios.activity < 0.5) reasons.push(`فعالیت تولید کم در ۹۰ روز اخیر (${facts.acts} رویداد)`)
+  if (ratios.audience < 0.5) reasons.push(`بازدید کم در ۹۰ روز اخیر (${facts.views} بازدید)`)
+  if (ratios.explore < 0.5) reasons.push(`پست اکسپلور کم در ۹۰ روز اخیر (${facts.posts} پست)`)
+  if (ratios.hygiene < 0.5) reasons.push(`${facts.pending} نظر بررسی‌نشدهٔ قدیمی‌تر از یک هفته`)
+  if (!reasons.length) reasons.push(level === 'green' ? 'همهٔ اجزا در وضعیت مطلوب‌اند' : 'هیچ جزئی بحرانی نیست ولی مجموع امتیاز متوسط است')
+  return { level, reasons }
+}
+
+export async function healthScores(db: Db, ids: string[]): Promise<Record<string, Health>> {
+  const out: Record<string, Health> = {}
   const w = await getWeights(db)
   const total = Object.values(w).reduce((a, b) => a + b, 0) || 1
   const now = Date.now()
@@ -226,7 +241,8 @@ export async function healthScores(db: Db, ids: string[]): Promise<Record<string
     const last = await db.first<{ d: string }>("SELECT MAX(published_at) AS d FROM issues WHERE publication_id = ? AND status IN ('published','archived')", [id])
     const exp = EXPECTED[p.frequency] ?? 120
     const since = (now - new Date(last?.d || p.created_at).getTime()) / DAY
-    const regularity = Math.max(0, Math.min(1, 1.5 - since / exp)) * w.regularity
+    const rReg = Math.max(0, Math.min(1, 1.5 - since / exp))
+    const regularity = rReg * w.regularity
     const acts = (await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM activity_events WHERE publication_id = ? AND created_at > ? AND type IN ('toc.status','stage.status','issue.created','member.added')", [id, d90]))?.n ?? 0
     const activity = Math.min(1, acts / 30) * w.activity
     const views = (await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM view_events WHERE publication_id = ? AND day > ?', [id, d90.slice(0, 10)]))?.n ?? 0
@@ -236,7 +252,9 @@ export async function healthScores(db: Db, ids: string[]): Promise<Record<string
     const pending = (await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM comments cm JOIN posts po ON po.id = cm.post_id WHERE po.publication_id = ? AND cm.status = 'pending' AND cm.created_at < ?", [id, new Date(now - 7 * DAY).toISOString()]))?.n ?? 0
     const hygiene = Math.max(0, 1 - pending / 10) * w.hygiene
     const parts = { regularity, activity, audience, explore, hygiene }
-    out[id] = { score: Math.round(((regularity + activity + audience + explore + hygiene) * 100) / total), parts: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, Math.round(v)])) }
+    const score = Math.round(((regularity + activity + audience + explore + hygiene) * 100) / total)
+    const ratios = { regularity: rReg, activity: Math.min(1, acts / 30), audience: Math.min(1, views / 300), explore: Math.min(1, posts / 6), hygiene: Math.max(0, 1 - pending / 10) }
+    out[id] = { score, parts: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, Math.round(v)])), ...healthVerdict(score, ratios, { since, exp, acts, views, posts, pending }) }
   }
   return out
 }
