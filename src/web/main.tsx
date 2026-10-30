@@ -28,6 +28,21 @@ const Settings = lazy(() => import('./public/Settings'))
 const Verify = lazy(() => import('./public/Verify'))
 const Recruitment = lazy(() => import('./public/Recruitment'))
 
+// Team panel: separate chunks, only downloaded by team members.
+const TeamLayout = lazy(() => import('./team/Layout'))
+const TeamSelect = lazy(() => import('./team/Layout').then((m) => ({ default: m.TeamSelect })))
+const TeamDashboard = lazy(() => import('./team/Dashboard'))
+const TeamIssues = lazy(() => import('./team/Issues'))
+const IssueNew = lazy(() => import('./team/IssueNew'))
+const IssueRoom = lazy(() => import('./team/IssueRoom'))
+const TeamMembers = lazy(() => import('./team/Members'))
+const TeamPosts = lazy(() => import('./team/Posts'))
+const TeamComments = lazy(() => import('./team/Comments'))
+const TeamSales = lazy(() => import('./team/Sales'))
+const TeamStats = lazy(() => import('./team/Stats'))
+const TeamRecruit = lazy(() => import('./team/Recruit'))
+const TeamProfile = lazy(() => import('./team/Profile'))
+
 if (getLargeText()) setLargeText(true)
 
 function App() {
@@ -36,6 +51,21 @@ function App() {
       <Routes>
         {/* full-screen reader, outside the chrome */}
         <Route path="/read/:id" element={<Reader />} />
+        <Route path="/team" element={<TeamSelect />} />
+        <Route path="/team/:pubId" element={<TeamLayout />}>
+          <Route index element={<TeamDashboard />} />
+          <Route path="issues" element={<TeamIssues />} />
+          <Route path="issues/new" element={<IssueNew />} />
+          <Route path="issues/:issueId" element={<IssueRoom />} />
+          <Route path="members" element={<TeamMembers />} />
+          <Route path="posts" element={<TeamPosts />} />
+          <Route path="comments" element={<TeamComments />} />
+          <Route path="sales" element={<TeamSales />} />
+          <Route path="stats" element={<TeamStats />} />
+          <Route path="recruit" element={<TeamRecruit />} />
+          <Route path="profile" element={<TeamProfile />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
         <Route element={<PublicLayout />}>
           <Route index element={<Home />} />
           <Route path="explore" element={<Explore />} />
