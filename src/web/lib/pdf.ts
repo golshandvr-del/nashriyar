@@ -36,7 +36,8 @@ export async function processPdf(issueId: string, file: File, onProgress: (p: Pr
   const targetWidth = opts.targetWidth ?? 1400
   onProgress({ phase: 'reading', page: 0, total: 0, skipped: 0 })
   const m = await pdfjs()
-  const doc = await m.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise
+  const task = m.getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
+  const doc = await task.promise
   const total = doc.numPages
   let existing = new Set<number>()
   try {
@@ -84,7 +85,7 @@ export async function processPdf(issueId: string, file: File, onProgress: (p: Pr
   }
   onProgress({ phase: 'finalizing', page: total, total, skipped })
   await api.post(`/api/media/pages/${issueId}/finalize`, { page_count: total })
-  await doc.destroy()
+  await task.destroy()
   onProgress({ phase: 'done', page: total, total, skipped })
   return total
 }
@@ -92,7 +93,8 @@ export async function processPdf(issueId: string, file: File, onProgress: (p: Pr
 /** Renders page 1 of a PDF as a cover candidate (JPEG blob). */
 export async function pdfFirstPage(file: File, width = 900): Promise<Blob | null> {
   const m = await pdfjs()
-  const doc = await m.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise
+  const task = m.getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
+  const doc = await task.promise
   const page = await doc.getPage(1)
   const base = page.getViewport({ scale: 1 })
   const vp = page.getViewport({ scale: width / base.width })
@@ -104,6 +106,6 @@ export async function pdfFirstPage(file: File, width = 900): Promise<Blob | null
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   await page.render({ canvasContext: ctx, viewport: vp, canvas } as any).promise
   const b = await canvasToBlob(canvas, 'image/jpeg', 0.85)
-  await doc.destroy()
+  await task.destroy()
   return b
 }
