@@ -69,6 +69,13 @@ const AdminSettings = lazy(() => import('./admin/Settings'))
 
 if (getLargeText()) setLargeText(true)
 
+// PWA: register the service worker in production builds only (dev server must stay uncached).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
+
 function App() {
   return (
     <Suspense fallback={<PageLoader />}>
