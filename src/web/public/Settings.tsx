@@ -187,9 +187,11 @@ function RecoveryCard() {
         </div>
       )}
       <div className="flex items-end gap-2">
-        <Field label="رمز فعلی" className="flex-1">
-          <Input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
-        </Field>
+        <div className="flex-1">
+          <Field label="رمز فعلی">
+            <Input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+          </Field>
+        </div>
         <Button loading={busy} onClick={make} disabled={!pw}>
           {has ? 'ساخت کد تازه' : 'ساخت کد'}
         </Button>
