@@ -894,14 +894,14 @@ adminRoutes.delete('/registration-allowlist/:sn', async (c) => {
 })
 
 // ───────── Settings (super admin for technical ones) ─────────
-const OFFICER_SETTINGS = ['site_name', 'university_name', 'registration_open', 'registration_mode', 'supervisor_can_approve', 'guest_can_read_free', 'max_sessions'] as const
+const OFFICER_SETTINGS = ['site_name', 'university_name', 'registration_open', 'registration_mode', 'supervisor_can_approve', 'guest_can_read_free', 'max_sessions', 'default_code_ttl_hours'] as const
 const SUPER_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit', 'ai_timeout_sec'] as const
 
 adminRoutes.get('/settings', async (c) => {
   const u = admin(c)
   const db = c.get('db')
   const out: Record<string, unknown> = {}
-  for (const k of OFFICER_SETTINGS) out[k] = k === 'max_sessions' ? await getSetting(db, k, 5) : k === 'registration_mode' ? await getSetting(db, k, 'open') : await getSetting(db, k, k === 'registration_open' || k === 'guest_can_read_free' ? true : k === 'supervisor_can_approve' ? false : k === 'site_name' ? 'نشریار' : 'دانشگاه')
+  for (const k of OFFICER_SETTINGS) out[k] = k === 'max_sessions' ? await getSetting(db, k, 5) : k === 'default_code_ttl_hours' ? await getSetting(db, k, 24) : k === 'registration_mode' ? await getSetting(db, k, 'open') : await getSetting(db, k, k === 'registration_open' || k === 'guest_can_read_free' ? true : k === 'supervisor_can_approve' ? false : k === 'site_name' ? 'نشریار' : 'دانشگاه')
   if (u.system_role === 'super_admin') {
     for (const k of SUPER_SETTINGS) out[k] = await getSetting(db, k, k === 'ai_enabled' ? false : k === 'ai_monthly_call_limit' ? 0 : k === 'ai_timeout_sec' ? 15 : '')
     if (out.ai_api_key) out.ai_api_key = '••••' + String(out.ai_api_key).slice(-4)
@@ -927,6 +927,7 @@ adminRoutes.post('/settings', async (c) => {
     if (k === 'ai_timeout_sec') v = Math.max(3, Math.min(60, Math.floor(Number(v) || 15)))
     if (k === 'max_sessions') v = Math.max(1, Math.min(20, Math.floor(Number(v) || 5)))
     if (k === 'registration_mode') v = v === 'allowlist' ? 'allowlist' : 'open'
+    if (k === 'default_code_ttl_hours') v = Math.max(1, Math.min(24, Math.floor(Number(v) || 24))) // client decision #5: max 24h
     if (typeof v === 'string') v = v.slice(0, 500)
     await setSetting(db, k, v)
     changed[k] = k === 'ai_api_key' ? '(changed)' : v
