@@ -137,6 +137,39 @@ function Trends({ q, range }: { q: string; range: { from: string; to: string; ke
                 />
               </Card>
             )}
+            {d.compare && (
+              <Card title="مقایسهٔ رشد دو بازه (منحنی‌های تجمعی هم‌تراز از روز اول)" className="lg:col-span-2">
+                <div className="mb-2 grid grid-cols-3 gap-2 text-center text-xs">
+                  {(['issues', 'pages', 'views'] as const).map((k) => (
+                    <div key={k} className="rounded-xl bg-surface-2 p-2">
+                      <div className="text-muted">{{ issues: 'شماره', pages: 'صفحه', views: 'بازدید' }[k]} — شیب در ۳۰ روز</div>
+                      <div className="font-bold">
+                        {toFaDigits(Math.round(d.compare.a.slope[k] * 10) / 10)} در برابر {toFaDigits(Math.round(d.compare.b.slope[k] * 10) / 10)}
+                        {d.compare.growth[k] != null && (
+                          <span className={d.compare.growth[k] >= 0 ? 'text-success' : 'text-danger'}> ({d.compare.growth[k] >= 0 ? '+' : ''}{toFaDigits(d.compare.growth[k])}٪)</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Chart
+                  height={260}
+                  csvName="compare-ranges"
+                  option={{
+                    legend: {},
+                    tooltip: { trigger: 'axis' },
+                    xAxis: { type: 'category', name: 'روز', data: Array.from({ length: Math.max(d.compare.a.days, d.compare.b.days) }, (_, k) => toFaDigits(k + 1)) },
+                    yAxis: [{ type: 'value', minInterval: 1 }, { type: 'value' }],
+                    series: [
+                      { name: `شماره — بازهٔ ۱`, type: 'line', showSymbol: false, data: d.compare.a.issues },
+                      { name: `شماره — بازهٔ ۲`, type: 'line', showSymbol: false, lineStyle: { type: 'dashed' }, data: d.compare.b.issues },
+                      { name: `بازدید — بازهٔ ۱`, type: 'line', yAxisIndex: 1, showSymbol: false, data: d.compare.a.views },
+                      { name: `بازدید — بازهٔ ۲`, type: 'line', yAxisIndex: 1, showSymbol: false, lineStyle: { type: 'dashed' }, data: d.compare.b.views }
+                    ]
+                  }}
+                />
+              </Card>
+            )}
             {d.newPerYear?.length > 0 && (
             <Card title="نشریات جدید ثبت‌شده در هر سال">
               <Chart height={220} csvName="new-publications" option={{ xAxis: { type: 'category', data: d.newPerYear.map((r: any) => toFaDigits(r.y)) }, yAxis: { type: 'value', minInterval: 1 }, series: [{ name: 'نشریهٔ جدید', type: 'bar', data: d.newPerYear.map((r: any) => r.n) }] }} />
@@ -149,6 +182,7 @@ function Trends({ q, range }: { q: string; range: { from: string; to: string; ke
         )
       }}
     </Async>
+    </div>
   )
 }
 
