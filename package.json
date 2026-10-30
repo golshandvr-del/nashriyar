@@ -9,6 +9,7 @@
     "seed": "node server-dist/node.mjs --seed",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/test-e2e.mjs",
+    "test:load": "node tests/load.mjs",
     "backup": "node server-dist/node.mjs --backup",
     "dev:cf": "wrangler pages dev dist --ip 0.0.0.0 --port 3000",
     "db:migrate:local": "wrangler d1 migrations apply nashriyar-production --local",
