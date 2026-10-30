@@ -4,6 +4,7 @@ import { api, qs } from '../lib/api'
 import { CHANNEL, CODE_STATE, faDate, formatNumber, formatToman, relativeFa, toEnDigits } from '../lib/format'
 import { Async, Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Stat, Tabs, useAction, useAsync, useToast } from '../components/ui'
 import { useTeam } from './Layout'
+import { qrDataUrl } from '../lib/qr'
 
 const STATE_TONE: Record<string, 'ok' | 'muted' | 'warn' | 'danger' | 'brand'> = { active: 'brand', redeemed: 'ok', expired: 'muted', revoked: 'danger' }
 
@@ -247,7 +248,9 @@ function CreatedCodes({ data, onClose }: { data: any; onClose: () => void }) {
       <ul className="print-area space-y-2">
         {data.codes.map((c: string) => (
           <li key={c} className="flex items-center justify-between gap-2 rounded-xl border border-line p-3">
-            <span className="font-mono text-lg font-bold tracking-wider" dir="ltr">
+            {/* QR opens /redeem with the code prefilled (URL fragment — never sent to the server) */}
+            <img src={qrDataUrl(`${window.location.origin}/redeem#code=${c}`, 96)} alt={`QR کد ${c}`} width={72} height={72} className="shrink-0 rounded bg-white" />
+            <span className="me-auto font-mono text-lg font-bold tracking-wider" dir="ltr">
               {c}
             </span>
             <button className="no-print rounded-lg p-2 hover:bg-surface-2" onClick={() => copy(c)} aria-label="کپی">
