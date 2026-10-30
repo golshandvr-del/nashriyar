@@ -78,7 +78,8 @@
   - [x] Masonry اکسپلور (cards.tsx: PostMasonry با CSS columns؛ Explore.tsx از آن استفاده می‌کند؛ PostGrid برای صفحهٔ نشریه باقی است)
   - [x] src/web/lib/qr.ts (qrEncode/qrSvg/qrDataUrl، بدون وابستگی) — با OpenCV رمزگشایی و تأیید شد (فارسی و نسخه‌های ۱..۲۹). تست: esbuild به /tmp/qr.mjs + cv2.QRCodeDetector.
   - [x] QR: Sales.tsx (QR هر کد تازه → /redeem#code=…)، Redeem.tsx (پیش‌پرکردن از fragment)، PublishTab.tsx (کارت PrintQr → /issue/:id + دانلود SVG)
-  - صف شکاف‌ها: صفحهٔ انجمن ← واترمارک نامرئی ← سقف نشست هم‌زمان ← قیف/سال‌به‌سال ← /guide ← اسکریپت آزمون بار ← تیک ROADMAP ← build/test ← tag/Release/بستن Milestone
+  - [x] صفحهٔ انجمن/کانون: GET /api/public/associations/:id + مسیر /association/:id (Category kind=association) + لینک از صفحهٔ نشریه (association_id در payload)
+  - صف شکاف‌ها: واترمارک نامرئی ← سقف نشست هم‌زمان ← قیف/سال‌به‌سال ← /guide ← اسکریپت آزمون بار ← تیک ROADMAP ← build/test ← tag/Release/بستن Milestone
 - **گفتگوی ۱۶:** شروع از commit 274 (f30ff6f). صف: تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
 - `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
