@@ -72,6 +72,7 @@
   - [x] حالت دوصفحه‌ای کتاب‌خوان (Reader.tsx: دکمهٔ Columns2، فقط ≥1024px، localStorage `nsh-reader-spread`، گام ۲ صفحه، صفحهٔ اول در راست)
   - [x] پایش نرخ صفحات کتاب‌خوان (reader.ts: checkPageRate روی login_attempts با کلید pages:<viewer>، ۹۰/دقیقه ← ۵ دقیقه 429 page_rate + activity reader.signal kind=rate) + throttle رفرش manifest در Reader.tsx
 - **گفتگوی ۱۶ — یافته‌های ممیزی:** publication_roles (started_at/ended_at) = همان role_history ✔؛ QR هیچ‌جا پیاده نشده ✘؛ صفحهٔ مستقل انجمن، DnD دسته‌ها، نوار پایین موبایل: نیازمند بررسی؛ Milestoneهای ۱..۱۳ و برچسب‌های phase:* در GitHub موجود و همه open.
+  - شکاف‌های کشف‌شده (grep): QR، حالت شب کتاب‌خوان، واترمارک نامرئی، Masonry اکسپلور، راهنمای کاربری درون‌سایت، صفحهٔ انجمن/کانون، Notifier (ایمیل Null)، .env.example، آزمون بار، قیف و سال‌به‌سال. نامعلوم: محدودیت نشست هم‌زمان، ثبت جلسهٔ خواندن، لینک کوتاه‌مدت رسانهٔ پولی، کد بازیابی/فهرست مجاز.
 - **گفتگوی ۱۶:** شروع از commit 274 (f30ff6f). صف: تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
 - `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
