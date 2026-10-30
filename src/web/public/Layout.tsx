@@ -5,6 +5,7 @@ import { useAuth, isMonitor } from '../lib/auth'
 import { api } from '../lib/api'
 import { applyTheme, getTheme } from '../lib/theme'
 import { cx } from '../lib/format'
+import { useFeature } from '../lib/features'
 
 function ThemeButton() {
   const [t, setT] = useState(getTheme())
@@ -59,13 +60,14 @@ export default function PublicLayout() {
   }, [nav])
 
   const panel = user && (isMonitor(user) ? '/admin' : publications.length ? '/team' : null)
+  const exploreOn = useFeature('explore')
   const items = [
     { to: '/', label: 'خانه', icon: House, end: true },
     { to: '/explore', label: 'اکسپلور', icon: Compass },
     { to: '/search', label: 'جست‌وجو', icon: Search },
     { to: '/library', label: 'کتابخانه', icon: Library },
     { to: user ? '/settings' : '/login', label: user ? 'من' : 'ورود', icon: user ? User : LogIn }
-  ]
+  ].filter((i) => exploreOn || i.to !== '/explore')
   const hideChrome = loc.pathname.startsWith('/read/')
 
   return (
