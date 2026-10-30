@@ -106,6 +106,17 @@ const members = (await tm(`/api/team/${pubId}/members`)).data
 const m0 = (members.members || [])[0]
 if (m0) await expect(tm, `/api/team/${pubId}/members/${m0.id}`)
 await expect(tm, `/api/admin/overview`, 403, 'team')
+// purchase-code concurrency (ROADMAP phase 5 acceptance): two simultaneous redemptions of one code → exactly one succeeds
+const paidIssue = tIssues.find((i) => i.status === 'published' && i.pricing === 'paid')
+if (paidIssue) {
+  const made = await tm(`/api/team/${pubId}/codes`, { json: { issue_id: paidIssue.id, count: 1, ttl_hours: 1 } })
+  ok(made.status === 200 && made.data.codes?.length === 1, `team creates purchase code -> ${made.status}`)
+  const code = made.data.codes?.[0]
+  if (code) {
+    const [r1, r2] = await Promise.all([st('/api/me/codes/redeem', { json: { code } }), st('/api/me/codes/redeem', { json: { code } })])
+    ok([r1.status, r2.status].filter((x) => x === 200).length === 1, `concurrent redeem: exactly one success (${r1.status}, ${r2.status})`)
+  }
+}
 // another publication's panel must be forbidden
 const other = (await anon('/api/public/publications')).data
 const otherPub = (other.publications || other.items || []).find((p) => p.id !== pubId)
