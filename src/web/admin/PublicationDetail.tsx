@@ -10,13 +10,13 @@ import type { Credential } from './PublicationNew'
 import { useAdminRole } from './Layout'
 
 const ROLE_FA: Record<string, string> = { managing_director: 'مدیرمسئول', editor_in_chief: 'سردبیر', license_holder: 'صاحب امتیاز' }
-type Tab = 'issues' | 'roles' | 'members' | 'followers' | 'activity'
+type Tab = 'summary' | 'issues' | 'roles' | 'members' | 'followers' | 'activity'
 
 export default function AdminPublicationDetail() {
   const { id = '' } = useParams()
   const { admin } = useAdminRole()
   const st = useAsync(() => api.get(`/api/admin/publications/${id}`), [id])
-  const [tab, setTab] = useState<Tab>('issues')
+  const [tab, setTab] = useState<Tab>('summary')
   const [editing, setEditing] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
 
@@ -55,6 +55,7 @@ export default function AdminPublicationDetail() {
               value={tab}
               onChange={setTab}
               tabs={[
+                { key: 'summary', label: 'خلاصه' },
                 { key: 'issues', label: `شماره‌ها (${toFaDigits(d.issues.length)})` },
                 { key: 'roles', label: 'ارکان' },
                 { key: 'members', label: `اعضا (${toFaDigits(d.members.length)})` },
@@ -62,6 +63,7 @@ export default function AdminPublicationDetail() {
                 { key: 'activity', label: 'فعالیت' }
               ]}
             />
+            {tab === 'summary' && <SummaryTab d={d} />}
             {tab === 'issues' && <IssuesTab issues={d.issues} stages={d.stages} />}
             {tab === 'roles' && <RolesTab pubId={p.id} roles={d.roles} admin={admin} onChange={st.reload} />}
             {tab === 'members' && <MembersTab members={d.members} />}
@@ -91,6 +93,61 @@ export default function AdminPublicationDetail() {
         )
       }}
     </Async>
+  )
+}
+
+/** Dossier summary (ROADMAP phase 7): issues, sales, explore and the audit trail at a glance. */
+function SummaryTab({ d }: { d: any }) {
+  const published = d.issues.filter((i: any) => i.status === 'published' || i.status === 'archived')
+  const pages = published.reduce((a: number, i: any) => a + Number(i.page_count || 0), 0)
+  const director = d.roles.find((r: any) => r.role === 'managing_director' && !r.ended_at)
+  const s = d.sales || {}
+  const e = d.explore || {}
+  const toman = (n: unknown) => `${formatNumber(Number(n || 0))} تومان`
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Info label="شمارهٔ منتشرشده" value={formatNumber(published.length)} />
+        <Info label="مجموع صفحات" value={formatNumber(pages)} />
+        <Info label="اعضای فعال" value={formatNumber(d.members.filter((m: any) => m.is_active).length)} />
+        <Info label="مدیرمسئول فعلی" value={director?.display_name || '—'} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="فروش (کل دوره)">
+          <dl className="grid grid-cols-2 gap-2 text-sm">
+            <dt className="text-muted">کد ساخته/استفاده‌شده</dt><dd>{formatNumber(Number(s.codes_created || 0))} / {formatNumber(Number(s.codes_redeemed || 0))}</dd>
+            <dt className="text-muted">درآمد دیجیتال</dt><dd>{toman(s.revenue_digital)}</dd>
+            <dt className="text-muted">فروش چاپی</dt><dd>{formatNumber(Number(s.print_sold || 0))} نسخه</dd>
+            <dt className="text-muted">درآمد اعلامی چاپی</dt><dd>{toman(s.revenue_print)}</dd>
+          </dl>
+        </Card>
+        <Card title="اکسپلور">
+          <dl className="grid grid-cols-2 gap-2 text-sm">
+            <dt className="text-muted">پست منتشرشده</dt><dd>{formatNumber(Number(e.posts || 0))}</dd>
+            <dt className="text-muted">بازدید پست (۹۰ روز)</dt><dd>{formatNumber(Number(e.post_views_90d || 0))}</dd>
+            <dt className="text-muted">«خواندن کامل» (۹۰ روز)</dt><dd>{formatNumber(Number(e.read_full_90d || 0))}</dd>
+            <dt className="text-muted">ذخیره / نظر تأییدشده</dt><dd>{formatNumber(Number(e.saves || 0))} / {formatNumber(Number(e.comments || 0))}</dd>
+          </dl>
+        </Card>
+      </div>
+      <Card title="ممیزی (آخرین ۵۰ رویداد)">
+        {!d.audit?.length ? (
+          <Empty title="رویدادی ثبت نشده" />
+        ) : (
+          <ol className="space-y-2 text-sm">
+            {d.audit.map((a: any, i: number) => (
+              <li key={i} className="flex justify-between gap-2 border-b border-line pb-2 last:border-0">
+                <span>
+                  <span className="font-mono text-xs text-muted" dir="ltr">{a.action}</span>
+                  {a.actor_name ? ` · ${a.actor_name}` : ''}
+                </span>
+                <span className="shrink-0 text-xs text-muted">{relativeFa(a.created_at)}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+    </div>
   )
 }
 
