@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowUp, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { toFaDigits } from '../lib/format'
-import { Async, Badge, Button, Card, Empty, Input, Modal, PageHeader, useAction, useAsync, useToast } from '../components/ui'
+import { Async, Badge, Button, Card, Empty, Input, Modal, PageHeader, Select, useAction, useAsync, useToast } from '../components/ui'
 
 interface Banner { title: string; subtitle: string; link: string; color: string }
 interface IssueOpt { id: string; number: number; title: string; publication_title: string }
@@ -56,6 +56,7 @@ function Shelves({ shelves, issues, reload }: { shelves: any[]; issues: IssueOpt
                   {s.is_active ? <Badge tone="ok">فعال</Badge> : <Badge>غیرفعال</Badge>}
                 </div>
                 <div className="mt-1 truncate text-xs text-muted">
+                  {s.rule ? <>قفسهٔ خودکار ({s.rule.split(':')[0]})</> : <>
                   {toFaDigits(s.issue_ids.length)} شماره:{' '}
                   {s.issue_ids
                     .slice(0, 4)
@@ -64,6 +65,7 @@ function Shelves({ shelves, issues, reload }: { shelves: any[]; issues: IssueOpt
                     .map((i: IssueOpt) => `${i.publication_title} ${toFaDigits(i.number)}`)
                     .join('، ')}
                   {s.issue_ids.length > 4 ? '…' : ''}
+                  </>}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -84,6 +86,20 @@ function ShelfModal({ shelf, issues, onClose, onDone }: { shelf: any; issues: Is
   const [title, setTitle] = useState<string>(shelf.title || '')
   const [ids, setIds] = useState<string[]>(shelf.issue_ids || [])
   const [order, setOrder] = useState<number>(shelf.sort_order ?? 0)
+  const [rule, setRule] = useState<string>(shelf.rule || 'manual')
+  const [facets, setFacets] = useState<{ categories: { id: string; name: string }[]; faculties: { id: string; name: string }[] }>({ categories: [], faculties: [] })
+  useEffect(() => {
+    api.get<any>('/api/public/categories').then(setFacets).catch(() => {})
+  }, [])
+  const ruleOptions = [
+    { value: 'manual', label: 'دستی (انتخاب شماره‌ها)' },
+    { value: 'latest', label: 'خودکار: تازه‌ترین شماره‌ها' },
+    { value: 'free', label: 'خودکار: تازه‌ترین رایگان‌ها' },
+    { value: 'popular', label: 'خودکار: پربازدیدترین ۳۰ روز اخیر' },
+    ...facets.faculties.map((f) => ({ value: `faculty:${f.id}`, label: `خودکار: دانشکدهٔ ${f.name}` })),
+    ...facets.categories.map((c) => ({ value: `category:${c.id}`, label: `خودکار: دستهٔ ${c.name}` }))
+  ]
+  const manual = rule === 'manual'
   const [q, setQ] = useState('')
   const { run, busy } = useAction()
   const byId = new Map(issues.map((i) => [i.id, i]))
@@ -97,7 +113,7 @@ function ShelfModal({ shelf, issues, onClose, onDone }: { shelf: any; issues: Is
     setIds(next)
   }
   const save = async () => {
-    const payload = { id: shelf.id, title: title.trim(), issue_ids: ids, sort_order: order, is_active: shelf.id ? !!shelf.is_active : true }
+    const payload = { id: shelf.id, title: title.trim(), issue_ids: manual ? ids : [], rule, sort_order: order, is_active: shelf.id ? !!shelf.is_active : true }
     if (await run(() => api.post('/api/admin/shelves', payload), 'ذخیره شد')) onDone()
   }
   return (
@@ -109,7 +125,7 @@ function ShelfModal({ shelf, issues, onClose, onDone }: { shelf: any; issues: Is
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>انصراف</Button>
-          <Button disabled={busy || !title.trim() || !ids.length} onClick={save}><Save className="size-4" /> ذخیره</Button>
+          <Button disabled={busy || !title.trim() || (manual && !ids.length)} onClick={save}><Save className="size-4" /> ذخیره</Button>
         </>
       }
     >
@@ -123,6 +139,12 @@ function ShelfModal({ shelf, issues, onClose, onDone }: { shelf: any; issues: Is
           <Input type="number" min={0} value={order} onChange={(e) => setOrder(Number(e.target.value) || 0)} />
         </label>
       </div>
+      <label className="mt-3 block">
+        <span className="label">نوع قفسه</span>
+        <Select value={rule} onChange={(e) => setRule(e.target.value)} options={ruleOptions} />
+      </label>
+      {!manual && <p className="mt-3 rounded-xl bg-surface-2 p-3 text-sm leading-7 text-muted">این قفسه خودکار پر می‌شود (حداکثر ۱۲ شماره) و با انتشار شماره‌های تازه به‌روز می‌ماند؛ انتخاب دستی لازم نیست.</p>}
+      {manual && (
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div>
           <div className="label">شماره‌های انتخاب‌شده ({toFaDigits(ids.length)}/۴۰)</div>
@@ -165,6 +187,7 @@ function ShelfModal({ shelf, issues, onClose, onDone }: { shelf: any; issues: Is
           </ul>
         </div>
       </div>
+      )}
     </Modal>
   )
 }
