@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { KeyRound, Plus, Search, UserCheck, UserX } from 'lucide-react'
+import { KeyRound, Plus, Search, ShieldOff, UserCheck, UserX } from 'lucide-react'
 import { api, qs } from '../lib/api'
 import { ROLE_LABEL } from '../lib/auth'
 import { relativeFa, toFaDigits } from '../lib/format'
@@ -27,6 +27,10 @@ export default function AdminUsers() {
     if (!(await confirm(`رمز «${u.display_name}» بازنشانی شود؟ همهٔ نشست‌های فعال او بسته می‌شود.`, { danger: true, okLabel: 'بازنشانی' }))) return
     const r: any = await run(() => api.post(`/api/admin/users/${u.id}/reset-password`))
     if (r) setCreds([{ ...r.credentials, role_fa: ROLE_LABEL[u.system_role as keyof typeof ROLE_LABEL] }])
+  }
+  const resetTotp = async (u: any) => {
+    if (!(await confirm(`رمز دومرحله‌ای «${u.display_name}» غیرفعال شود؟ (برای وقتی که گوشی خود را گم کرده است؛ پس از ورود باید دوباره راه‌اندازی کند)`, { danger: true, okLabel: 'غیرفعال کن' }))) return
+    if (await run(() => api.post(`/api/admin/users/${u.id}/reset-totp`), 'رمز دومرحله‌ای غیرفعال شد')) st.reload()
   }
   const toggle = async (u: any) => {
     const next = u.status === 'suspended' ? 'active' : 'suspended'
@@ -91,6 +95,7 @@ export default function AdminUsers() {
                       <td className="font-medium">
                         {u.display_name}
                         {u.must_change_password ? <Badge tone="warn" className="ms-2">رمز موقت</Badge> : null}
+                        {u.totp_enabled ? <Badge tone="ok" className="ms-2">2FA</Badge> : null}
                       </td>
                       <td dir="ltr" className="text-start text-muted">{u.username || (u.student_number && toFaDigits(u.student_number)) || '—'}</td>
                       <td><Badge tone={['super_admin', 'pub_officer'].includes(u.system_role) ? 'brand' : 'muted'}>{ROLE_LABEL[u.system_role as keyof typeof ROLE_LABEL] || u.system_role}</Badge></td>
@@ -103,6 +108,11 @@ export default function AdminUsers() {
                             <Button variant="ghost" disabled={busy} onClick={() => reset(u)} aria-label="بازنشانی رمز" title="بازنشانی رمز">
                               <KeyRound className="size-4" />
                             </Button>
+                            {!!u.totp_enabled && (
+                              <Button variant="ghost" disabled={busy} onClick={() => resetTotp(u)} aria-label="بازنشانی رمز دومرحله‌ای" title="بازنشانی رمز دومرحله‌ای">
+                                <ShieldOff className="size-4" />
+                              </Button>
+                            )}
                             <Button variant={u.status === 'suspended' ? 'ghost' : 'danger'} disabled={busy} onClick={() => toggle(u)} aria-label={u.status === 'suspended' ? 'فعال‌سازی' : 'تعلیق'} title={u.status === 'suspended' ? 'فعال‌سازی' : 'تعلیق'}>
                               {u.status === 'suspended' ? <UserCheck className="size-4" /> : <UserX className="size-4" />}
                             </Button>
