@@ -9,6 +9,7 @@ import {
 import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { requireFeature } from '../lib/features'
 import { suggestKeywords } from '../ai'
+import { traceCode } from './reader'
 
 export const teamRoutes = new Hono<AppEnv>()
 
@@ -620,6 +621,29 @@ teamRoutes.post('/:pubId/codes/:codeId/revoke', async (c) => {
   if (!r.changes) throw bad('این کد قابل ابطال نیست (استفاده‌شده یا قبلاً باطل‌شده)')
   await audit(db, user.id, 'codes.revoke', 'access_code', c.req.param('codeId'))
   return c.json({ ok: true })
+})
+
+/**
+ * Resolve an invisible-watermark code found in a leaked page image (ROADMAP phase 5).
+ * Stateless: recompute HMAC(user|issue) for everyone who could read this issue and compare.
+ */
+teamRoutes.post('/:pubId/issues/:issueId/trace', async (c) => {
+  const { pub: p, user } = await pub(c, true)
+  const i = await issueOf(c, p.id, c.req.param('issueId'))
+  const b = await body<{ code?: string }>(c)
+  const code = str(b.code, 'کد ردیابی', { max: 16 }).toLowerCase().replace(/[^0-9a-f]/g, '')
+  if (code.length !== 8) throw bad('کد ردیابی باید ۸ نویسهٔ هگز باشد')
+  const db = c.get('db')
+  const readers = await db.all<{ id: string; student_number: string | null; username: string; display_name: string | null }>(
+    `SELECT u.id, u.student_number, u.username, u.display_name FROM users u WHERE u.id IN (
+       SELECT user_id FROM entitlements WHERE issue_id = ? UNION SELECT user_id FROM reading_progress WHERE issue_id = ?)`,
+    [i.id, i.id]
+  )
+  const secret = c.get('deps').secret
+  let match: (typeof readers)[number] | null = null
+  for (const r of readers) if ((await traceCode(secret, r.id, i.id)) === code) { match = r; break }
+  await audit(db, user.id, 'watermark.trace', 'issue', i.id, null, { code, found: !!match })
+  return c.json({ ok: true, checked: readers.length, match: match && { student_number: match.student_number, username: match.username, display_name: match.display_name } })
 })
 
 /** Revoke a reader's access to an issue (abuse handling). */
