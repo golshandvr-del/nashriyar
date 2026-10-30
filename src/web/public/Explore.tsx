@@ -13,6 +13,8 @@ export default function Explore() {
   const [stories, setStories] = useState<Story[]>([])
   const [cats, setCats] = useState<{ id: string; name: string }[]>([])
   const [cat, setCat] = useState('')
+  const [facs, setFacs] = useState<{ id: string; name: string }[]>([])
+  const [fac, setFac] = useState('') // faculty filter (ROADMAP phase 6)
   const [loading, setLoading] = useState(true)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +23,13 @@ export default function Explore() {
 
   useEffect(() => {
     api.get('/api/public/stories').then((r) => setStories(r.stories || [])).catch(() => {})
-    api.get('/api/public/categories').then((r) => setCats((r.categories || []).filter((c: any) => c.type === 'subject' && !c.parent_id))).catch(() => {})
+    api
+      .get('/api/public/categories')
+      .then((r) => {
+        setCats((r.categories || []).filter((c: any) => c.type === 'subject' && !c.parent_id))
+        setFacs(r.faculties || [])
+      })
+      .catch(() => {})
     api.post('/api/public/track', { type: 'explore' }).catch(() => {})
   }, [])
 
@@ -33,7 +41,7 @@ export default function Explore() {
     try {
       // oldest timestamp so far (the server interleaves publications, so the last tile is not always the oldest)
       const before = reset || !posts.length ? undefined : posts.reduce((m, x) => ((x.published_at ?? '') < m ? x.published_at ?? '' : m), posts[0].published_at ?? '')
-      const r = await api.get<{ posts: PostLite[] }>(`/api/public/explore${qs({ before, category: cat })}`)
+      const r = await api.get<{ posts: PostLite[] }>(`/api/public/explore${qs({ before, category: cat, faculty: fac })}`)
       setPosts((p) => (reset ? r.posts : [...p, ...r.posts]))
       setDone(r.posts.length < 30)
     } catch (e: any) {
@@ -49,7 +57,7 @@ export default function Explore() {
     setDone(false)
     load(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cat])
+  }, [cat, fac])
 
   useEffect(() => {
     const el = sentinel.current
@@ -89,6 +97,16 @@ export default function Explore() {
           {[{ id: '', name: 'همه' }, ...cats].map((c) => (
             <button key={c.id} onClick={() => setCat(c.id)} className={cx('chip shrink-0', cat === c.id && 'border-brand bg-brand-soft font-bold text-brand')}>
               {c.name}
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {facs.length > 0 && (
+        <nav className="no-scrollbar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4" aria-label="فیلتر دانشکده">
+          {[{ id: '', name: 'همهٔ دانشکده‌ها' }, ...facs].map((f) => (
+            <button key={f.id} onClick={() => setFac(f.id)} className={cx('chip shrink-0 text-xs', fac === f.id && 'border-brand bg-brand-soft font-bold text-brand')}>
+              {f.name}
             </button>
           ))}
         </nav>
