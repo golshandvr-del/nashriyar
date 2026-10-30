@@ -576,7 +576,7 @@ function Directors({ q }: { q: string }) {
               <div className="card overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-surface-2 text-xs text-muted">
-                    <tr><th className="p-2 text-right">مدیرمسئول</th><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">دوره (ماه)</th><th className="p-2 text-center">شماره</th><th className="p-2 text-center">در ماه</th><th className="p-2 text-center">چرخهٔ میانگین</th><th className="p-2 text-center">بازدید</th><th className="p-2 text-center">فروش</th><th className="p-2 text-center">دنبال‌کنندهٔ جدید</th></tr>
+                    <tr><th className="p-2 text-right">مدیرمسئول</th><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">دوره (ماه)</th><th className="p-2 text-center">شماره</th><th className="p-2 text-center">در ماه</th><th className="p-2 text-center">چرخهٔ میانگین</th><th className="p-2 text-center">بازدید</th><th className="p-2 text-center">فروش</th><th className="p-2 text-center">دنبال‌کنندهٔ جدید</th><th className="p-2 text-center">تأخیر</th><th className="p-2 text-center">تحقق دوره</th></tr>
                   </thead>
                   <tbody>
                     {rows.map((r: any, i: number) => (
@@ -590,6 +590,8 @@ function Directors({ q }: { q: string }) {
                         <td className="p-2 text-center">{formatNumber(r.views)}</td>
                         <td className="p-2 text-center">{formatNumber(r.digital_sold)}</td>
                         <td className="p-2 text-center">{formatNumber(r.new_followers)}</td>
+                        <td className="p-2 text-center">{r.late ? `${toFaDigits(r.late)} شماره${r.avg_late_days != null ? ` (${toFaDigits(r.avg_late_days)} روز)` : ''}` : '—'}</td>
+                        <td className="p-2 text-center">{r.fulfilment != null ? <Badge tone={r.fulfilment >= 80 ? 'ok' : r.fulfilment >= 50 ? 'warn' : 'danger'}>{toFaDigits(r.fulfilment)}٪</Badge> : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
