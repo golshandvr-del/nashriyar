@@ -152,7 +152,41 @@ analyticsRoutes.get('/trends', async (c) => {
     `SELECT substr(p.created_at,1,4) AS y, COUNT(*) AS n FROM publications p WHERE p.deleted_at IS NULL${s.sql} GROUP BY y ORDER BY y`,
     s.params
   )
-  return c.json({ from, to, published, views, sales, followers, byFaculty, byCategory, weekday, yoy: { published: yoyPublished, views: yoyViews }, newPerYear })
+  // Two-range comparison (ROADMAP phase 7): daily cumulative curves aligned by day offset + regression slope per range
+  let compare: unknown = null
+  const from2 = c.req.query('from2')
+  const to2 = c.req.query('to2')
+  if (from2 && to2 && /^\d{4}-\d{2}-\d{2}$/.test(from2) && /^\d{4}-\d{2}-\d{2}$/.test(to2)) {
+    const series = async (f: string, t: string) => {
+      const pub = await db.all<{ d: string; n: number; pages: number }>(
+        `SELECT substr(i.published_at,1,10) AS d, COUNT(*) AS n, COALESCE(SUM(i.page_count),0) AS pages FROM issues i JOIN publications p ON p.id = i.publication_id
+         WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY d`,
+        [f + 'T00:00:00.000Z', t + 'T23:59:59.999Z', ...s.params]
+      )
+      const vw = await db.all<{ d: string; n: number }>(
+        `SELECT v.day AS d, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY v.day`,
+        [f, t, ...s.params]
+      )
+      const days = Math.min(731, Math.max(1, Math.round((new Date(t).getTime() - new Date(f).getTime()) / DAY) + 1))
+      const idx = (d: string) => Math.round((new Date(d).getTime() - new Date(f).getTime()) / DAY)
+      const cumIssues = new Array(days).fill(0)
+      const cumPages = new Array(days).fill(0)
+      const cumViews = new Array(days).fill(0)
+      for (const r of pub) { const k = idx(r.d); if (k >= 0 && k < days) { cumIssues[k] += r.n; cumPages[k] += r.pages } }
+      for (const r of vw) { const k = idx(r.d); if (k >= 0 && k < days) cumViews[k] += r.n }
+      for (let k = 1; k < days; k++) { cumIssues[k] += cumIssues[k - 1]; cumPages[k] += cumPages[k - 1]; cumViews[k] += cumViews[k - 1] }
+      const fit = (ys: number[]) => linearFit(ys.map((y, x) => ({ x, y })))
+      return {
+        from: f, to: t, days, issues: cumIssues, pages: cumPages, views: cumViews,
+        slope: { issues: fit(cumIssues).slope * 30, pages: fit(cumPages).slope * 30, views: fit(cumViews).slope * 30 } // per 30 days
+      }
+    }
+    const a1 = await series(from, to)
+    const a2 = await series(from2, to2)
+    const growth = (x: number, y: number) => (y ? Math.round(((x - y) / y) * 1000) / 10 : null)
+    compare = { a: a1, b: a2, growth: { issues: growth(a1.slope.issues, a2.slope.issues), pages: growth(a1.slope.pages, a2.slope.pages), views: growth(a1.slope.views, a2.slope.views) } }
+  }
+  return c.json({ from, to, published, views, sales, followers, byFaculty, byCategory, weekday, yoy: { published: yoyPublished, views: yoyViews }, newPerYear, compare })
 })
 
 /**
