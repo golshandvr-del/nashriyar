@@ -127,6 +127,8 @@
 - **گفتگوی ۲۲–۲۳:** فهرست مجاز ثبت‌نام (API + کارت مسئول + فیلد ثبت‌نام)، کد بازیابی یک‌بارمصرف (/recover)، تب‌های کتابخانه، لینک امضاشدهٔ کوتاه‌مدت برای رسانهٔ پولی (lib/media-sign.ts)، default_code_ttl_hours مسئول (شماره‌های تازه ارث می‌برند)، ثبت رویداد reader.session، تست هم‌زمانی کد در smoke.mjs. فاز ۵ تیک خورد (جز «پیش‌نمایش عمومی پایدار» = نیازمند استقرار/کارفرما). تیک‌ها: ۱۰۰.
 - ابزار سندباکس: `~/ck.sh` (تابع ck: add+commit+push با ۵ تلاش)، `~/tick.py` (تیک ROADMAP با «زیررشته|||یادداشت» از stdin). راه‌اندازی: npm install → npm run build → npm run seed → pm2 start server-dist/node.mjs --name nashriyar.
 
+- **گفتگوی ۲۴:** migration 0005 (posts.alt_json، متن جایگزین تصاویر: API ساخت پست + alts[] در همهٔ خروجی‌ها + فیلد در composer)، نظرهای pending فقط برای نویسنده با برچسب، زمان‌بندی پست، «خواندن کامل»، فیلتر دانشکده در اکسپلور، اعلان پست تازه. **فاز ۶ کامل تیک خورد** (تیک‌ها: ۱۱۶). نکته: `/api/team/my` → `publications[].publication_id`.
+
 ## حساب‌های نمایشی (پس از seed)
 - سوپرادمین: `admin` / `admin1234` — مسئول نشریات: `officer` / `officer1234`
 - تیم نمونه: `pub1-director` / `team1234` (و `pub1-editor`، `pub1-holder`)
