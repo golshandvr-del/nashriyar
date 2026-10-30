@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Bookmark, ChevronLeft, ChevronRight, KeyRound, List, Maximize, Trash2, ZoomIn, ZoomOut } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { useFeature } from '../lib/features'
 import { toFaDigits, cx } from '../lib/format'
 import { Button, ErrorBox, Modal, PageLoader, Spinner, useToast } from '../components/ui'
 
@@ -288,15 +289,18 @@ export default function Reader() {
 }
 
 function Locked({ m, compact }: { m: Manifest; compact?: boolean }) {
+  const paidOn = useFeature('paid_content')
   return (
     <div className={cx('card mx-auto max-w-md text-center', compact ? 'p-4' : 'mt-10 p-8')}>
       <KeyRound className="mx-auto size-10 text-brand" />
       <p className="mt-3 font-bold">{m.allowed ? 'پایان پیش‌نمایش رایگان' : 'این شماره پولی است'}</p>
       <p className="mt-1 text-sm text-muted">برای خواندن کامل، کد خرید دریافتی از تیم نشریه را ثبت کنید.</p>
       <div className="mt-4 flex justify-center gap-2">
-        <Link to={`/redeem?issue=${m.issue.id}`}>
-          <Button>ثبت کد خرید</Button>
-        </Link>
+        {paidOn && (
+          <Link to={`/redeem?issue=${m.issue.id}`}>
+            <Button>ثبت کد خرید</Button>
+          </Link>
+        )}
         <Link to={`/issue/${m.issue.id}`}>
           <Button variant="ghost">جزئیات شماره</Button>
         </Link>
