@@ -3,7 +3,7 @@ import type { Context } from 'hono'
 import type { AppEnv } from '../context'
 import { MONITOR_ROLES } from '../context'
 import { requireRole } from '../auth'
-import { body, dateRange, nowIso, parseJson } from '../lib/util'
+import { body, dateRange, getSetting, nowIso, parseJson } from '../lib/util'
 import { computeInsights, healthScores } from '../insights'
 import { linearFit, termBounds } from '../../shared/fa'
 import { aiNarrative, aiAsk } from '../ai'
@@ -60,6 +60,31 @@ function previousRange(from: string, to: string) {
   return { pFrom, pTo }
 }
 
+/**
+ * View count over [from, to] (ROADMAP phase 7 rollup): finished days come from view_daily,
+ * days after the rollup watermark (today / backlog) from raw view_events. Same scope rules as pubScope.
+ */
+async function viewCount(c: Context<AppEnv>, from: string, to: string, type?: string) {
+  const db = c.get('db')
+  const s = pubScope(c)
+  const until = (await getSetting<string | null>(db, 'analytics_rollup_until', null)) || '0000-00-00'
+  const t = type ? ' AND v.entity_type = ?' : ''
+  const tp = type ? [type] : []
+  const rolled = Number(
+    (await db.first<{ n: number }>(
+      `SELECT COALESCE(SUM(v.n),0) AS n FROM view_daily v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ? AND v.day <= ?${t}${s.sql}`,
+      [from, to, until, ...tp, ...s.params]
+    ))?.n ?? 0
+  )
+  const raw = Number(
+    (await db.first<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ? AND v.day > ?${t}${s.sql}`,
+      [from, to, until, ...tp, ...s.params]
+    ))?.n ?? 0
+  )
+  return rolled + raw
+}
+
 async function kpis(c: Context<AppEnv>, from: string, to: string) {
   const db = c.get('db')
   const s = pubScope(c)
@@ -70,9 +95,9 @@ async function kpis(c: Context<AppEnv>, from: string, to: string) {
     published: await one(`SELECT COUNT(*) AS n FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql}`, [fromTs, toTs, ...s.params]),
     pages: await one(`SELECT COALESCE(SUM(i.page_count),0) AS n FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql}`, [fromTs, toTs, ...s.params]),
     started: await one(`SELECT COUNT(*) AS n FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.deleted_at IS NULL AND i.created_at BETWEEN ? AND ?${s.sql}`, [fromTs, toTs, ...s.params]),
-    views: await one(`SELECT COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql}`, [from, to, ...s.params]),
-    reads: await one(`SELECT COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.entity_type = 'issue_read' AND v.day BETWEEN ? AND ?${s.sql}`, [from, to, ...s.params]),
-    post_views: await one(`SELECT COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.entity_type = 'post' AND v.day BETWEEN ? AND ?${s.sql}`, [from, to, ...s.params]),
+    views: await viewCount(c, from, to),
+    reads: await viewCount(c, from, to, 'issue_read'),
+    post_views: await viewCount(c, from, to, 'post'),
     new_followers: await one(`SELECT COUNT(*) AS n FROM follows f JOIN publications p ON p.id = f.publication_id WHERE f.created_at BETWEEN ? AND ?${s.sql}`, [fromTs, toTs, ...s.params]),
     digital_sold: await one(`SELECT COUNT(*) AS n FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql}`, [fromTs, toTs, ...s.params]),
     revenue_digital: await one(`SELECT COALESCE(SUM(ac.price_paid),0) AS n FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql}`, [fromTs, toTs, ...s.params]),
