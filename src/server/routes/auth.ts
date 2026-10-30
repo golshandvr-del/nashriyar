@@ -4,6 +4,7 @@ import { checkRateLimit, clearFailures, clientIp, createSession, destroySession,
 import { hashPassword, newId, verifyPassword } from '../lib/crypto'
 import { audit, bad, body, getSetting, HttpError, nowIso, str } from '../lib/util'
 import { toEnDigits } from '../../shared/fa'
+import { generateTotpSecret, otpauthUri, verifyTotp } from '../lib/totp'
 
 export const authRoutes = new Hono<AppEnv>()
 
@@ -11,14 +12,14 @@ const homeFor = (role: string) =>
   role === 'student' ? '/' : role === 'team' ? '/team' : '/admin'
 
 authRoutes.post('/login', async (c) => {
-  const b = await body<{ username?: string; password?: string }>(c)
+  const b = await body<{ username?: string; password?: string; totp?: string }>(c)
   const username = toEnDigits(str(b.username, 'نام کاربری', { max: 64 })).toLowerCase()
   const password = str(b.password, 'رمز عبور', { max: 200 })
   const key = `login:${clientIp(c)}:${username}`
   await checkRateLimit(c, key)
   const db = c.get('db')
-  const u = await db.first<{ id: string; password_hash: string; status: string; system_role: string }>(
-    'SELECT id, password_hash, status, system_role FROM users WHERE (username = ? OR student_number = ?) AND deleted_at IS NULL',
+  const u = await db.first<{ id: string; password_hash: string; status: string; system_role: string; totp_enabled: number; totp_secret: string | null; totp_last_step: number | null }>(
+    'SELECT id, password_hash, status, system_role, totp_enabled, totp_secret, totp_last_step FROM users WHERE (username = ? OR student_number = ?) AND deleted_at IS NULL',
     [username, username]
   )
   if (!u || !(await verifyPassword(password, u.password_hash))) {
@@ -26,6 +27,16 @@ authRoutes.post('/login', async (c) => {
     throw new HttpError(401, 'نام کاربری یا رمز عبور نادرست است', 'bad_credentials')
   }
   if (u.status !== 'active') throw new HttpError(403, 'حساب شما غیرفعال شده است')
+  // Second factor: password was right, now the 6-digit authenticator code is required.
+  if (u.totp_enabled && u.totp_secret) {
+    if (!b.totp) throw new HttpError(401, 'کد شش‌رقمی برنامهٔ احراز هویت را وارد کنید', 'totp_required')
+    const step = await verifyTotp(u.totp_secret, b.totp, u.totp_last_step)
+    if (step == null) {
+      await recordFailure(c, key)
+      throw new HttpError(401, 'کد دومرحله‌ای نادرست یا منقضی است', 'totp_invalid')
+    }
+    await db.run('UPDATE users SET totp_last_step = ? WHERE id = ?', [step, u.id])
+  }
   await clearFailures(c, key)
   await createSession(c, u.id)
   return c.json({ ok: true, home: homeFor(u.system_role) })
