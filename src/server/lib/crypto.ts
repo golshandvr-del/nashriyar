@@ -57,6 +57,21 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return timingSafeEqual(toHex(bits), hashHex)
 }
 
+/** True when a stored hash uses an older algorithm or fewer iterations than today's default (rehash on next login). */
+export function needsRehash(stored: string): boolean {
+  const [algo, iterStr] = String(stored).split('$')
+  return algo !== 'pbkdf2' || Number(iterStr) < PBKDF2_ITER
+}
+
+/** Password hashing behind one interface so the algorithm can be upgraded (e.g. scrypt/argon2 on Node) without touching routes. */
+export interface PasswordHasher {
+  hash(password: string): Promise<string>
+  verify(password: string, stored: string): Promise<boolean>
+  needsRehash(stored: string): boolean
+}
+
+export const passwordHasher: PasswordHasher = { hash: hashPassword, verify: verifyPassword, needsRehash }
+
 export function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false
   let r = 0
