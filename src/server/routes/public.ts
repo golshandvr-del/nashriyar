@@ -13,6 +13,37 @@ const ISSUE_CARD = `i.id, i.number, i.title, i.cover_key, i.pricing, i.price_dig
   p.id AS publication_id, p.slug AS publication_slug, p.title AS publication_title, p.theme_color`
 const PUBLISHED = `i.status = 'published' AND i.deleted_at IS NULL AND p.status = 'active' AND p.deleted_at IS NULL`
 
+// SEO sitemap (referenced from /robots.txt). Lives under /api so the Cloudflare worker serves it;
+// URLs are absolute, built from the request origin so the same code works on any domain.
+publicRoutes.get('/sitemap.xml', async (c) => {
+  const db = c.get('db')
+  const origin = new URL(c.req.url).origin
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const day = (iso?: string | null) => (iso ? iso.slice(0, 10) : undefined)
+  const urls: { loc: string; lastmod?: string; priority: string }[] = [
+    { loc: '/', priority: '1.0' },
+    { loc: '/explore', priority: '0.8' },
+    { loc: '/categories', priority: '0.6' },
+    { loc: '/recruitment', priority: '0.4' }
+  ]
+  const pubs = await db.all<{ slug: string; last: string | null }>(
+    `SELECT p.slug, (SELECT MAX(i.published_at) FROM issues i WHERE i.publication_id = p.id AND i.status = 'published' AND i.deleted_at IS NULL) AS last
+     FROM publications p WHERE p.status = 'active' AND p.deleted_at IS NULL`
+  )
+  for (const p of pubs) urls.push({ loc: `/p/${encodeURIComponent(p.slug)}`, lastmod: day(p.last), priority: '0.8' })
+  const issues = await db.all<{ id: string; published_at: string | null; updated_at: string | null }>(
+    `SELECT i.id, i.published_at, i.updated_at FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED} ORDER BY i.published_at DESC LIMIT 5000`
+  )
+  for (const i of issues) urls.push({ loc: `/issue/${i.id}`, lastmod: day(i.updated_at || i.published_at), priority: '0.7' })
+  const cats = await db.all<{ slug: string }>('SELECT slug FROM categories WHERE is_active = 1')
+  for (const k of cats) urls.push({ loc: `/c/${encodeURIComponent(k.slug)}`, priority: '0.5' })
+  const xml =
+    '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    urls.map((u) => `  <url><loc>${esc(origin + u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}<priority>${u.priority}</priority></url>`).join('\n') +
+    '\n</urlset>\n'
+  return c.body(xml, 200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' })
+})
+
 publicRoutes.get('/home', async (c) => {
   const db = c.get('db')
   const latest = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED} ORDER BY i.published_at DESC LIMIT 18`)
