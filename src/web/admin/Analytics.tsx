@@ -699,15 +699,47 @@ function Sales({ q }: { q: string }) {
   return (
     <Async state={st}>
       {(d: any) => {
-        const totals = sumSales(d.byIssue)
+        // server totals (ROADMAP phase 7); fall back to summing byIssue for older responses
+        const fb = sumSales(d.byIssue)
+        const t = d.totals || { codes_created: fb.created, codes_redeemed: fb.redeemed, revenue_digital: fb.revenue, print_sold: fb.print, codes_expired: 0, use_rate: 0, revenue_print: 0 }
+        const kpi = (label: string, value: string) => (
+          <div className="card p-3"><div className="text-xs text-muted">{label}</div><div className="text-xl font-extrabold">{value}</div></div>
+        )
+        const breakdown = (rows: any[] | undefined, name: string) =>
+          !rows?.length ? <Empty title="داده‌ای نیست" /> : (
+            <table className="w-full text-xs">
+              <thead className="text-muted"><tr><th className="text-right">{name}</th><th>فروش</th><th>درآمد</th></tr></thead>
+              <tbody>
+                {rows.slice(0, 10).map((r: any) => (
+                  <tr key={r.id || r.name || 'none'} className="border-t border-line"><td className="py-1">{r.title || r.name}</td><td className="text-center">{formatNumber(r.sold)}</td><td className="text-center whitespace-nowrap">{formatToman(r.revenue)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          )
         return (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <div className="card p-3"><div className="text-xs text-muted">کد ساخته‌شده</div><div className="text-xl font-extrabold">{formatNumber(totals.created)}</div></div>
-              <div className="card p-3"><div className="text-xs text-muted">کد استفاده‌شده</div><div className="text-xl font-extrabold">{formatNumber(totals.redeemed)}</div></div>
-              <div className="card p-3"><div className="text-xs text-muted">درآمد دیجیتال</div><div className="text-xl font-extrabold">{formatToman(totals.revenue)}</div></div>
-              <div className="card p-3"><div className="text-xs text-muted">فروش چاپی</div><div className="text-xl font-extrabold">{formatNumber(totals.print)}</div></div>
+              {kpi('کد ساخته‌شده', formatNumber(t.codes_created))}
+              {kpi('کد استفاده‌شده', formatNumber(t.codes_redeemed))}
+              {kpi('کد منقضی‌شدهٔ بدون استفاده', formatNumber(t.codes_expired))}
+              {kpi('نرخ استفاده', `${toFaDigits(t.use_rate)}٪`)}
+              {kpi('درآمد دیجیتال', formatToman(t.revenue_digital))}
+              {kpi('فروش چاپی (نسخه)', formatNumber(t.print_sold))}
+              {kpi('درآمد اعلامی چاپی', formatToman(t.revenue_print))}
+              {kpi('مجموع درآمد اعلامی', formatToman(Number(t.revenue_digital || 0) + Number(t.revenue_print || 0)))}
             </div>
+            {!!d.monthly?.length && (
+              <Card title="روند فروش دیجیتال (ماهانه)">
+                <Chart csvName="sales-trend" option={{ legend: {}, xAxis: { type: 'category', data: d.monthly.map((r: any) => faMonthLabel(r.m)) }, yAxis: [{ type: 'value', minInterval: 1 }, { type: 'value' }], series: [{ name: 'فروش', type: 'bar', data: d.monthly.map((r: any) => r.sold) }, { name: 'درآمد', type: 'line', yAxisIndex: 1, smooth: true, data: d.monthly.map((r: any) => r.revenue) }] }} />
+              </Card>
+            )}
+            {d.byPublication && (
+              <div className="grid gap-4 lg:grid-cols-3">
+                <Card title="به تفکیک نشریه">{breakdown(d.byPublication, 'نشریه')}</Card>
+                <Card title="به تفکیک دانشکده">{breakdown(d.byFaculty, 'دانشکده')}</Card>
+                <Card title="به تفکیک دسته">{breakdown(d.byCategory, 'دسته')}</Card>
+              </div>
+            )}
             <div className="grid gap-4 lg:grid-cols-3">
               <Card title="کانال‌های پرداخت">
                 {!d.channels.length ? <Empty title="داده‌ای نیست" /> : <Chart height={220} option={{ tooltip: { trigger: 'item' }, series: [{ type: 'pie', radius: ['40%', '70%'], data: d.channels.map((c: any) => ({ name: CHANNEL[c.channel] || c.channel, value: c.n })) }] }} />}
