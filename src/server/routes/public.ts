@@ -261,6 +261,7 @@ publicRoutes.get('/faculties/:id', async (c) => {
 
 // ───────── Explore (image-only feed) ─────────
 publicRoutes.get('/explore', async (c) => {
+  await requireFeature(c.get('db'), 'explore')
   const db = c.get('db')
   const before = c.req.query('before') || '9999'
   const cat = c.req.query('category')
@@ -292,6 +293,7 @@ publicRoutes.get('/stories', async (c) => {
 })
 
 publicRoutes.get('/posts/:id', async (c) => {
+  await requireFeature(c.get('db'), 'explore')
   const db = c.get('db')
   const po = await db.first<any>(
     `SELECT po.id, po.caption, po.images_json, po.published_at, po.publication_id, po.source_issue_id, po.source_toc_item_id,
@@ -315,6 +317,7 @@ publicRoutes.get('/posts/:id', async (c) => {
 })
 
 publicRoutes.get('/recruitment', async (c) => {
+  await requireFeature(c.get('db'), 'recruitment')
   const rows = await c.get('db').all(
     `SELECT r.id, r.title, r.roles_needed, r.body, r.contact, r.open_until, p.slug AS publication_slug, p.title AS publication_title
      FROM recruitment_calls r JOIN publications p ON p.id = r.publication_id WHERE (r.open_until IS NULL OR r.open_until >= ?) AND p.status = 'active' ORDER BY r.created_at DESC`,
@@ -324,6 +327,7 @@ publicRoutes.get('/recruitment', async (c) => {
 })
 
 publicRoutes.get('/certificates/:code', async (c) => {
+  await requireFeature(c.get('db'), 'certificates')
   const r = await c.get('db').first(
     `SELECT ce.verify_code, ce.roles, ce.issued_at, tm.full_name, i.title AS issue_title, i.number AS issue_number, p.title AS publication_title
      FROM certificates ce JOIN team_members tm ON tm.id = ce.team_member_id JOIN issues i ON i.id = ce.issue_id JOIN publications p ON p.id = i.publication_id
