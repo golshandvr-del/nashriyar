@@ -128,10 +128,10 @@ function Form({ initial, isSuper, reload }: { initial: S; isSuper: boolean; relo
               <span className="label">سقف درخواست ماهانه (۰ = نامحدود)</span>
               <Input dir="ltr" type="number" min={0} value={s.ai_monthly_call_limit ?? 0} onChange={(e) => set({ ai_monthly_call_limit: Number(e.target.value) || 0 })} />
             </label>
-          <label className="block">
-            <span className="label">مهلت هر درخواست (ثانیه، ۳ تا ۶۰)</span>
-            <Input dir="ltr" type="number" min={3} max={60} value={s.ai_timeout_sec ?? 15} onChange={(e) => set({ ai_timeout_sec: Number(e.target.value) || 15 })} />
-          </label>
+            <label className="block">
+              <span className="label">مهلت هر درخواست (ثانیه، ۳ تا ۶۰)</span>
+              <Input dir="ltr" type="number" min={3} max={60} value={s.ai_timeout_sec ?? 15} onChange={(e) => set({ ai_timeout_sec: Number(e.target.value) || 15 })} />
+            </label>
           </div>
           {s.ai_status && (
             <div className="rounded-xl bg-surface-2 p-3 text-sm">
