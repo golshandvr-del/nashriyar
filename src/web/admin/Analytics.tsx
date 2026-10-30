@@ -19,6 +19,9 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'sales', label: 'فروش' },
   { key: 'forecast', label: 'پیش‌بینی ترم' }
 ]
+const FILTER_KEYS = ['faculty', 'owner_kind', 'association', 'publication', 'category', 'pricing'] as const
+type FilterKey = (typeof FILTER_KEYS)[number]
+const OWNER_KINDS: Record<string, string> = { scientific_association: 'انجمن علمی', cultural_club: 'کانون فرهنگی', islamic_association: 'انجمن اسلامی', other: 'سایر' }
 const WEEKDAYS = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه']
 const HEALTH_PARTS: Record<string, string> = { regularity: 'نظم انتشار (۳۵)', activity: 'فعالیت تولید (۲۵)', audience: 'مخاطب (۲۰)', explore: 'اکسپلور (۱۰)', hygiene: 'رسیدگی به نظرها (۱۰)' }
 
@@ -29,10 +32,20 @@ export default function AdminAnalytics() {
   const { role } = useAdminRole()
   const [sp, setSp] = useSearchParams()
   const tab = (sp.get('tab') as Tab) || 'trends'
-  const [range, setRange] = useState(defaultRange('1y'))
-  const [faculty, setFaculty] = useState('')
-  const structure = useAsync(() => (role === 'faculty_supervisor' ? Promise.resolve({ faculties: [] }) : api.get('/api/admin/structure')), [role])
-  const q = qs({ from: range.from, to: range.to, faculty })
+  // Range + global filters live in the URL (ROADMAP phase 7) so a view can be bookmarked/shared.
+  const def = defaultRange('1y')
+  const range = { from: sp.get('from') || def.from, to: sp.get('to') || def.to, key: sp.get('range') || def.key }
+  const f = Object.fromEntries(FILTER_KEYS.map((k) => [k, sp.get(k) || ''])) as Record<FilterKey, string>
+  const patch = (o: Record<string, string>) => {
+    const n = new URLSearchParams(sp)
+    for (const [k, v] of Object.entries(o)) v ? n.set(k, v) : n.delete(k)
+    setSp(n, { replace: true })
+  }
+  const setRange = (r: { from: string; to: string; key: string }) => patch({ from: r.from, to: r.to, range: r.key })
+  const structure = useAsync(() => (role === 'faculty_supervisor' ? Promise.resolve({ faculties: [], associations: [] }) : api.get('/api/admin/structure')), [role])
+  const lists = useAsync(() => Promise.all([api.get('/api/public/categories'), api.get('/api/admin/publications')]), [])
+  const q = qs({ from: range.from, to: range.to, ...f })
+  const active = FILTER_KEYS.filter((k) => f[k]).length
 
   return (
     <div className="space-y-4">
@@ -41,19 +54,61 @@ export default function AdminAnalytics() {
         subtitle="شاخص‌ها و مقایسهٔ نشریات در بازهٔ انتخابی"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {role !== 'faculty_supervisor' && !!structure.data?.faculties?.length && (
-              <select className="input !w-auto" value={faculty} onChange={(e) => setFaculty(e.target.value)} aria-label="دانشکده">
-                <option value="">همهٔ دانشکده‌ها</option>
-                {structure.data.faculties.map((f: any) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-            )}
             <RangePicker value={range} onChange={setRange} />
           </div>
         }
       />
-      <Tabs<Tab> value={tab} onChange={(k) => setSp({ tab: k }, { replace: true })} tabs={TABS} />
+      <section id="analytics-filters" className="card flex flex-wrap items-center gap-2 p-3 text-sm" aria-label="فیلترهای سراسری">
+        {role !== 'faculty_supervisor' && !!structure.data?.faculties?.length && (
+          <select className="input !w-auto" value={f.faculty} onChange={(e) => patch({ faculty: e.target.value })} aria-label="دانشکده">
+            <option value="">همهٔ دانشکده‌ها</option>
+            {structure.data.faculties.map((x: any) => (
+              <option key={x.id} value={x.id}>{x.name}</option>
+            ))}
+          </select>
+        )}
+        <select className="input !w-auto" value={f.owner_kind} onChange={(e) => patch({ owner_kind: e.target.value })} aria-label="نوع صاحب امتیاز">
+          <option value="">همهٔ صاحبان امتیاز</option>
+          {Object.entries(OWNER_KINDS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+        {!!structure.data?.associations?.length && (
+          <select className="input !w-auto" value={f.association} onChange={(e) => patch({ association: e.target.value })} aria-label="انجمن">
+            <option value="">همهٔ انجمن‌ها/کانون‌ها</option>
+            {structure.data.associations.map((x: any) => (
+              <option key={x.id} value={x.id}>{x.name}{x.faculty_name ? ` — ${x.faculty_name}` : ''}</option>
+            ))}
+          </select>
+        )}
+        {!!lists.data?.[1]?.publications?.length && (
+          <select className="input !w-auto" value={f.publication} onChange={(e) => patch({ publication: e.target.value })} aria-label="نشریه">
+            <option value="">همهٔ نشریات</option>
+            {lists.data[1].publications.map((x: any) => (
+              <option key={x.id} value={x.id}>{x.title}</option>
+            ))}
+          </select>
+        )}
+        {!!lists.data?.[0]?.categories?.length && (
+          <select className="input !w-auto" value={f.category} onChange={(e) => patch({ category: e.target.value })} aria-label="دسته یا رشته">
+            <option value="">همهٔ دسته‌ها و رشته‌ها</option>
+            {lists.data[0].categories.map((x: any) => (
+              <option key={x.id} value={x.id}>{x.type === 'major' ? 'رشته: ' : ''}{x.name}</option>
+            ))}
+          </select>
+        )}
+        <select className="input !w-auto" value={f.pricing} onChange={(e) => patch({ pricing: e.target.value })} aria-label="رایگان یا پولی">
+          <option value="">رایگان و پولی</option>
+          <option value="free">رایگان</option>
+          <option value="paid">پولی</option>
+        </select>
+        {active > 0 && (
+          <button className="text-xs text-brand" onClick={() => patch(Object.fromEntries(FILTER_KEYS.map((k) => [k, ''])))}>
+            پاک‌کردن فیلترها ({toFaDigits(active)})
+          </button>
+        )}
+      </section>
+      <Tabs<Tab> value={tab} onChange={(k) => patch({ tab: k })} tabs={TABS} />
       {tab === 'trends' && <Trends q={q} range={range} />}
       {tab === 'ranking' && <Ranking q={q} />}
       {tab === 'production' && <Production q={q} />}
