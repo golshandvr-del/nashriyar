@@ -1,0 +1,20 @@
+name: پیشنهاد قابلیت
+description: پیشنهاد یک قابلیت یا بهبود
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes: { label: چه مشکلی را حل می‌کند؟ }
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes: { label: راه‌حل پیشنهادی }
+    validations: { required: true }
+  - type: dropdown
+    id: phase
+    attributes:
+      label: فاز مرتبط در ROADMAP
+      options: [فاز ۰–۳, فاز ۴–۶, فاز ۷–۸, فاز ۹ (نسخهٔ ۱٫۰), فاز ۱۰ (AI), فاز ۱۱ (هاست شخصی), فاز ۱۲ (آینده)]
+  - type: textarea
+    id: alternatives
+    attributes: { label: جایگزین‌های بررسی‌شده }

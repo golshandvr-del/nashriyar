@@ -1,0 +1,34 @@
+name: گزارش خطا
+description: گزارش یک خطا یا رفتار نادرست در نشریار
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: بخش
+      options: [پیشخوان عمومی, کتاب‌خوان, پنل تیم, پنل مدیریت, حساب کاربری, سرور/استقرار]
+    validations: { required: true }
+  - type: dropdown
+    id: role
+    attributes:
+      label: نقش کاربر
+      options: [مهمان, دانشجو, عضو تیم نشریه, مسئول نشریات, سوپرادمین, ناظر دانشکده, تحلیل‌گر]
+  - type: textarea
+    id: steps
+    attributes:
+      label: مراحل بازتولید
+      placeholder: "۱. به صفحهٔ ... بروید\n۲. روی ... بزنید\n۳. ..."
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: رفتار مورد انتظار }
+    validations: { required: true }
+  - type: textarea
+    id: actual
+    attributes: { label: رفتار مشاهده‌شده (تصویر یا پیام خطا) }
+  - type: input
+    id: env
+    attributes: { label: مرورگر / دستگاه, placeholder: "مثلاً Chrome 140 روی اندروید" }
+  - type: markdown
+    attributes:
+      value: "⚠️ هرگز رمز، کد خرید یا شماره دانشجویی دیگران را در گزارش قرار ندهید. آسیب‌پذیری امنیتی را به‌صورت خصوصی گزارش کنید (docs/SECURITY.md)."
