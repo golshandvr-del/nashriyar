@@ -39,6 +39,7 @@ export default function AdminPublicationDetail() {
               actions={
                 <div className="flex flex-wrap gap-2">
                   <Link to={`/p/${p.slug}`} className="btn-ghost">صفحهٔ عمومی</Link>
+                  <Link to={`/admin/publications/${p.id}/scorecard`} className="btn-ghost">کارنامهٔ قابل چاپ</Link>
                   {admin && <Button variant="ghost" icon={<Pencil className="size-4" />} onClick={() => setEditing(true)}>ویرایش</Button>}
                   {admin && <Button variant="ghost" onClick={() => setStatusOpen(true)}>تغییر وضعیت</Button>}
                 </div>
