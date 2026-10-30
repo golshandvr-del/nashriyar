@@ -511,6 +511,7 @@ analyticsRoutes.get('/explore', async (c) => {
   )
   const funnel = [
     { key: 'post', label: 'دیدن پست اکسپلور', n: await uniq('post') },
+    { key: 'post_read_full', label: 'کلیک «خواندن کامل»', n: await uniq('post_read_full') },
     { key: 'issue', label: 'ورود به صفحهٔ شماره', n: await uniq('issue') },
     { key: 'issue_read', label: 'شروع خواندن', n: await uniq('issue_read') },
     { key: 'purchase', label: 'خرید (بازخرید کد)', n: bought }
