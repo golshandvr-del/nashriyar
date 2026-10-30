@@ -5,6 +5,8 @@ import { useAuth, PUB_ROLE_LABEL, isAdmin } from '../lib/auth'
 import type { PubRole } from '../lib/auth'
 import { cx } from '../lib/format'
 import { usePublicSettings } from '../lib/features'
+import { CommandPalette, PaletteButton } from '../components/CommandPalette'
+import type { PaletteItem } from '../components/CommandPalette'
 import { Empty, PageLoader } from '../components/ui'
 
 interface TeamCtx {
@@ -77,6 +79,16 @@ export default function TeamLayout() {
   const pub = publications.find((p) => p.publication_id === pubId) || null
   if (!pub && !isAdmin(user)) return <Navigate to="/team" replace />
   const base = `/team/${pubId}`
+  const paletteItems: PaletteItem[] = [
+    ...navItems.map((n) => ({ id: `nav-${n.to || 'home'}`, label: n.label, hint: 'پنل تیم', icon: <n.icon className="size-4" />, to: n.to ? `${base}/${n.to}` : base })),
+    { id: 'act-new-issue', label: 'ثبت شمارهٔ جدید', hint: 'اقدام', icon: <BookOpen className="size-4" />, to: `${base}/issues/new`, keywords: 'new issue شماره' },
+    ...publications
+      .filter((p) => p.publication_id !== pubId)
+      .map((p) => ({ id: `pub-${p.publication_id}`, label: p.title, hint: 'تغییر نشریه', icon: <BookOpen className="size-4" />, to: `/team/${p.publication_id}` })),
+    ...(pub ? [{ id: 'act-public', label: 'صفحهٔ عمومی نشریه', hint: 'اقدام', icon: <ClipboardCheck className="size-4" />, to: `/p/${pub.slug}` }] : []),
+    { id: 'act-settings', label: 'تنظیمات حساب من', hint: 'اقدام', icon: <Settings className="size-4" />, to: '/settings', keywords: 'password totp رمز' },
+    { id: 'act-site', label: 'رفتن به سایت', hint: 'اقدام', icon: <House className="size-4" />, to: '/' }
+  ]
 
   return (
     <Ctx.Provider value={{ pubId, pub, base }}>
@@ -101,6 +113,9 @@ export default function TeamLayout() {
             <Link to="/" className="rounded-lg p-2 hover:bg-surface-2" aria-label="سایت">
               <House className="size-5" />
             </Link>
+          </div>
+          <div className="hidden px-2 pt-2 md:block">
+            <PaletteButton />
           </div>
           <nav className="no-scrollbar flex gap-1 overflow-x-auto p-2 md:flex-col md:overflow-visible">
             {navItems.map((n) => (
@@ -130,6 +145,7 @@ export default function TeamLayout() {
           )}
           <Outlet />
         </main>
+        <CommandPalette items={paletteItems} placeholder="جست‌وجو در صفحه‌های پنل تیم…" />
       </div>
     </Ctx.Provider>
   )
