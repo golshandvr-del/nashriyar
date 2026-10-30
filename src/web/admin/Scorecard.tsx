@@ -98,8 +98,14 @@ export default function AdminScorecard() {
               {d.health && (
                 <section>
                   <h2 className="mb-2 font-bold">
-                    امتیاز سلامت: <span className="text-2xl">{toFaDigits(d.health.score)}</span> <span className="text-sm text-muted">از ۱۰۰ (۹۰ روز اخیر)</span>
+                    امتیاز سلامت: <span className="text-2xl">{toFaDigits(d.health.score)}</span> <span className="text-sm text-muted">از ۱۰۰ (۹۰ روز اخیر)</span>{' '}
+                    {d.health.level && <Badge tone={d.health.level === 'green' ? 'ok' : d.health.level === 'yellow' ? 'warn' : 'danger'}>{d.health.level === 'green' ? 'سبز' : d.health.level === 'yellow' ? 'زرد' : 'قرمز'}</Badge>}
                   </h2>
+                  {!!d.health.reasons?.length && (
+                    <ul className="mb-2 list-inside list-disc text-sm text-muted">
+                      {d.health.reasons.map((x: string) => <li key={x}>{toFaDigits(x)}</li>)}
+                    </ul>
+                  )}
                   <div className="space-y-1">
                     {Object.entries(HEALTH_FA).map(([k, [label, max]]) => {
                       const v = d.health.parts[k] ?? 0
