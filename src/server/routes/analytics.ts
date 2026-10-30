@@ -587,11 +587,13 @@ analyticsRoutes.get('/gaps', async (c) => {
 })
 
 /** Managing-director performance: output of each director during their own tenure (uses role history). */
+const DIRECTOR_EXPECTED: Record<string, number> = { monthly: 30, bimonthly: 60, quarterly: 90, biannual: 180, irregular: 120 }
+
 analyticsRoutes.get('/directors', async (c) => {
   const db = c.get('db')
   const s = pubScope(c)
   const tenures = await db.all<any>(
-    `SELECT r.user_id, r.started_at, r.ended_at, u.display_name, p.id AS publication_id, p.title AS publication_title
+    `SELECT r.user_id, r.started_at, r.ended_at, u.display_name, p.id AS publication_id, p.title AS publication_title, p.frequency
      FROM publication_roles r JOIN users u ON u.id = r.user_id JOIN publications p ON p.id = r.publication_id
      WHERE r.role = 'managing_director' AND p.deleted_at IS NULL${s.sql} ORDER BY p.title, r.started_at`,
     s.params
@@ -601,7 +603,10 @@ analyticsRoutes.get('/directors', async (c) => {
     const end = t.ended_at || nowIso()
     const months = Math.max(1, (new Date(end).getTime() - new Date(t.started_at).getTime()) / (30 * DAY))
     const pub = await db.first<any>(
-      `SELECT COUNT(*) AS n, COALESCE(SUM(page_count),0) AS pages, AVG(julianday(published_at) - julianday(created_at)) AS cycle FROM issues
+      `SELECT COUNT(*) AS n, COALESCE(SUM(page_count),0) AS pages, AVG(julianday(published_at) - julianday(created_at)) AS cycle,
+         SUM(CASE WHEN planned_publish_at IS NOT NULL AND substr(published_at,1,10) > planned_publish_at THEN 1 ELSE 0 END) AS late,
+         AVG(CASE WHEN planned_publish_at IS NOT NULL AND substr(published_at,1,10) > planned_publish_at THEN julianday(substr(published_at,1,10)) - julianday(planned_publish_at) END) AS avg_late_days
+       FROM issues
        WHERE publication_id = ? AND status IN ('published','archived') AND published_at BETWEEN ? AND ?`,
       [t.publication_id, t.started_at, end]
     )
@@ -611,7 +616,12 @@ analyticsRoutes.get('/directors', async (c) => {
     rows.push({
       ...t, current: !t.ended_at, months: Math.round(months * 10) / 10, published: pub?.n ?? 0, pages: pub?.pages ?? 0,
       per_month: Math.round(((pub?.n ?? 0) / months) * 100) / 100, avg_cycle_days: pub?.cycle != null ? Math.round(pub.cycle) : null,
-      views: views?.n ?? 0, digital_sold: sold?.n ?? 0, new_followers: followers?.n ?? 0
+      views: views?.n ?? 0, digital_sold: sold?.n ?? 0, new_followers: followers?.n ?? 0,
+      // ROADMAP phase 7: delay + fulfilment of the declared publication frequency during this tenure
+      late: pub?.late ?? 0,
+      avg_late_days: pub?.avg_late_days != null ? Math.round(pub.avg_late_days) : null,
+      expected: Math.max(1, Math.floor((months * 30) / (DIRECTOR_EXPECTED[t.frequency] ?? 120))),
+      fulfilment: Math.min(999, Math.round(((pub?.n ?? 0) / Math.max(1, Math.floor((months * 30) / (DIRECTOR_EXPECTED[t.frequency] ?? 120)))) * 100))
     })
   }
   return c.json({ rows })
