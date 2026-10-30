@@ -31,7 +31,16 @@ const ASSIGN_ROLES = [
   { value: 'illustrator', label: 'تصویرگر' },
   { value: 'photographer', label: 'عکاس' }
 ]
-const STEPS = ['اطلاعات پایه', 'فهرست مطالب', 'اعضا و نقش‌ها', 'مرور و ساخت']
+const STEPS = ['اطلاعات پایه', 'فهرست مطالب', 'اعضا و نقش‌ها', 'مراحل و مهلت‌ها', 'مرور و ساخت']
+/** Default production-stage template (mirrors DEFAULT_STAGES on the server); editable per issue in step 4. */
+const DEFAULT_STAGES = [
+  { key: 'writing', title: 'نویسندگی' },
+  { key: 'editing', title: 'ویراستاری' },
+  { key: 'graphics', title: 'گرافیک و تصویرسازی' },
+  { key: 'layout', title: 'صفحه‌آرایی' },
+  { key: 'review', title: 'بازبینی نهایی' },
+  { key: 'publish', title: 'انتشار' }
+]
 let seq = 0
 const newKey = () => `k${Date.now().toString(36)}${seq++}`
 
@@ -50,6 +59,7 @@ export default function IssueNew() {
   const [paste, setPaste] = useState('')
   const [team, setTeam] = useState<Record<string, string>>({}) // member_id -> production role
   const [err, setErr] = useState<string | null>(null)
+  const [stages, setStages] = useState(DEFAULT_STAGES.map((x) => ({ ...x, due_at: '' })))
 
   useEffect(() => {
     api.get(`/api/team/${pubId}/members`).then((r) => {
@@ -123,7 +133,8 @@ export default function IssueNew() {
           progress_view: info.progress_view,
           planned_publish_at: info.planned_publish_at || null,
           toc: toc.map((t) => ({ key: t.key, title: t.title, kind: t.kind, due_at: t.due_at || null, assignments: t.assignments.filter((a) => a.member_id) })),
-          members: Object.entries(team).map(([member_id, production_role]) => ({ member_id, production_role }))
+          members: Object.entries(team).map(([member_id, production_role]) => ({ member_id, production_role })),
+          stages: stages.filter((x) => x.title.trim()).map((x) => ({ key: x.key, title: x.title.trim(), due_at: x.due_at || null }))
         }),
       'شماره ساخته شد'
     )
@@ -266,6 +277,25 @@ export default function IssueNew() {
       )}
 
       {step === 3 && (
+        <Card title="مراحل تولید و مهلت‌ها" action={<span className="text-xs text-muted">{formatNumber(stages.length)} مرحله</span>}>
+          <p className="mb-3 text-xs leading-6 text-muted">الگوی پیش‌فرض را می‌توانید برای این شماره تغییر دهید: نام مرحله، مهلت، حذف یا افزودن. مرحلهٔ «انتشار» همیشه آخر است و پس از تأیید مسئول نشریات کامل می‌شود.</p>
+          <ul className="space-y-2">
+            {stages.map((st, idx) => (
+              <li key={st.key} className="flex flex-wrap items-center gap-2">
+                <span className="w-6 text-center text-xs text-muted">{formatNumber(idx + 1)}</span>
+                <Input className="min-w-40 flex-1" value={st.title} disabled={st.key === 'publish'} onChange={(e) => setStages(stages.map((x) => (x.key === st.key ? { ...x, title: e.target.value } : x)))} aria-label="نام مرحله" />
+                <Input type="date" dir="ltr" className="w-40" value={st.due_at} onChange={(e) => setStages(stages.map((x) => (x.key === st.key ? { ...x, due_at: e.target.value } : x)))} aria-label="مهلت مرحله" />
+                {st.key !== 'publish' && (
+                  <button className="rounded p-1 text-danger hover:bg-surface-2" onClick={() => setStages(stages.filter((x) => x.key !== st.key))} aria-label="حذف مرحله"><Trash2 className="size-4" /></button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <Button className="mt-3" variant="ghost" icon={<Plus className="size-4" />} disabled={stages.length >= 19} onClick={() => setStages([...stages.slice(0, -1), { key: `custom${Date.now().toString(36)}`, title: '', due_at: '' }, ...stages.slice(-1)])}>مرحلهٔ جدید</Button>
+        </Card>
+      )}
+
+      {step === 4 && (
         <Card title="مرور">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <dt className="text-muted">عنوان</dt><dd className="font-bold">{info.title}</dd>
@@ -273,7 +303,7 @@ export default function IssueNew() {
             <dt className="text-muted">کلیدواژه‌ها</dt><dd>{keywords.join('، ') || '—'}</dd>
             <dt className="text-muted">فهرست مطالب</dt><dd>{formatNumber(toc.filter((t) => t.title.trim()).length)} بخش</dd>
             <dt className="text-muted">اعضا</dt><dd>{formatNumber(Object.keys(team).length)} نفر</dd>
-            <dt className="text-muted">مراحل تولید</dt><dd>نویسندگی ← ویراستاری ← گرافیک ← صفحه‌آرایی ← بازبینی ← انتشار</dd>
+            <dt className="text-muted">مراحل تولید</dt><dd>{stages.filter((x) => x.title.trim()).map((x) => x.title).join(' ← ')}</dd>
           </dl>
           <p className="mt-4 text-xs leading-6 text-muted">پس از ساخت، در «اتاق شماره» می‌توانید پیشرفت را ثبت کنید، PDF و جلد را بارگذاری کنید و برای تأیید انتشار ارسال کنید. انتشار نهایی همیشه با تأیید مسئول نشریات است.</p>
         </Card>
