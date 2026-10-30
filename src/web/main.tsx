@@ -99,7 +99,7 @@ function App() {
           <Route path="publications" element={<AdminPublications />} />
           <Route path="publications/new" element={<Guard access="admin"><AdminPublicationNew /></Guard>} />
           <Route path="publications/:id" element={<AdminPublicationDetail />} />
-          <Route path="issues/:issueId" element={<AdminIssueDetail />} />
+          <Route path="issues/:id" element={<AdminIssueDetail />} />
           <Route path="people" element={<AdminPeople />} />
           <Route path="people/:key" element={<AdminPerson />} />
           <Route path="structure" element={<AdminStructure />} />
