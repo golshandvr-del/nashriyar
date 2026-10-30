@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Download } from 'lucide-react'
 import { api, qs } from '../lib/api'
 import { FREQUENCY, faDate, faMonthLabel, formatNumber, formatToman, toFaDigits, CHANNEL } from '../lib/format'
 import { Async, Badge, Card, Empty, PageHeader, Tabs, useAsync } from '../components/ui'
-import { Chart, ExportButtons, downloadCsv } from '../components/Chart'
+import { Chart, ExportButtons } from '../components/Chart'
 import { RangePicker, defaultRange } from '../team/Stats'
 import { useAdminRole } from './Layout'
 
