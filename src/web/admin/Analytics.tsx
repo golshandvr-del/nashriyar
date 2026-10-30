@@ -8,7 +8,7 @@ import { Chart, downloadCsv } from '../components/Chart'
 import { RangePicker, defaultRange } from '../team/Stats'
 import { useAdminRole } from './Layout'
 
-type Tab = 'trends' | 'ranking' | 'production' | 'gaps' | 'directors' | 'explore' | 'sales'
+type Tab = 'trends' | 'ranking' | 'production' | 'gaps' | 'directors' | 'explore' | 'sales' | 'forecast'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'trends', label: 'روندها' },
   { key: 'ranking', label: 'رتبه‌بندی' },
@@ -16,7 +16,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'gaps', label: 'فاصلهٔ انتشار' },
   { key: 'directors', label: 'بازدهی مدیران' },
   { key: 'explore', label: 'اکسپلور' },
-  { key: 'sales', label: 'فروش' }
+  { key: 'sales', label: 'فروش' },
+  { key: 'forecast', label: 'پیش‌بینی ترم' }
 ]
 const WEEKDAYS = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه']
 const HEALTH_PARTS: Record<string, string> = { regularity: 'نظم انتشار (۳۵)', activity: 'فعالیت تولید (۲۵)', audience: 'مخاطب (۲۰)', explore: 'اکسپلور (۱۰)', hygiene: 'رسیدگی به نظرها (۱۰)' }
@@ -60,6 +61,7 @@ export default function AdminAnalytics() {
       {tab === 'directors' && <Directors q={q} />}
       {tab === 'explore' && <ExploreStats q={q} />}
       {tab === 'sales' && <Sales q={q} />}
+      {tab === 'forecast' && <Forecast q={q} />}
     </div>
   )
 }
@@ -182,6 +184,79 @@ function Ranking({ q }: { q: string }) {
               </div>
             )}
             <p className="text-xs text-muted">امتیاز سلامت (۰ تا ۱۰۰) = {Object.values(HEALTH_PARTS).join(' + ')}. برای دیدن اجزا نشانگر را روی عدد نگه دارید.</p>
+          </div>
+        )
+      }}
+    </Async>
+  )
+}
+
+function Forecast({ q }: { q: string }) {
+  // The forecast always covers the current academic term; only the faculty filter from q applies.
+  const fq = new URLSearchParams(q.replace(/^\?/, '')).get('faculty') || ''
+  const st = useAsync(() => api.get(`/api/analytics/forecast${qs({ faculty: fq })}`), [fq])
+  return (
+    <Async state={st}>
+      {(d: any) => {
+        const reliability = (r2: number, weeks: number) => (weeks < 4 ? 'داده کم — فقط تقریبی' : r2 >= 0.8 ? 'قابل اتکا' : r2 >= 0.5 ? 'متوسط' : 'ضعیف')
+        const line = (key: 'issues' | 'pages') => {
+          const f = d[key]
+          const xs = Array.from({ length: d.term.weeks_total }, (_, i) => i + 1)
+          return {
+            tooltip: { trigger: 'axis' },
+            legend: { data: ['واقعی', 'روند خطی'] },
+            xAxis: { type: 'category', data: xs.map((w) => `هفتهٔ ${toFaDigits(w)}`) },
+            yAxis: { type: 'value' },
+            series: [
+              { name: 'واقعی', type: 'line', data: d.cumulative.map((c: any) => c[key]) },
+              { name: 'روند خطی', type: 'line', lineStyle: { type: 'dashed' }, symbol: 'none', data: xs.map((w) => Math.max(0, Math.round((f.per_week * (w - d.term.weeks_elapsed) + f.actual) * 10) / 10)) }
+            ]
+          }
+        }
+        const behind = d.publications.filter((p: any) => p.behind)
+        return (
+          <div className="space-y-4">
+            <p className="text-sm text-muted">
+              {d.term.label} · {faDate(d.term.start)} تا {faDate(d.term.end)} · هفتهٔ {toFaDigits(d.term.weeks_elapsed)} از {toFaDigits(d.term.weeks_total)}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(['issues', 'pages'] as const).map((k) => (
+                <div key={k} className="card p-3">
+                  <div className="text-xs text-muted">{k === 'issues' ? 'شمارهٔ منتشرشده' : 'صفحهٔ منتشرشده'} تا پایان ترم</div>
+                  <div className="text-xl font-extrabold">
+                    {formatNumber(d[k].actual)} <span className="text-sm font-normal text-muted">← پیش‌بینی</span> {formatNumber(d[k].projected)}
+                  </div>
+                  <div className="mt-1 text-xs text-muted">
+                    سرعت: {toFaDigits(d[k].per_week)} در هفته · r² = {toFaDigits(d[k].r2)} · {reliability(d[k].r2, d.term.weeks_elapsed)}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card title="روند تجمعی شماره‌ها"><Chart csvName="forecast-issues" option={line('issues')} /></Card>
+              <Card title="روند تجمعی صفحات"><Chart csvName="forecast-pages" option={line('pages')} /></Card>
+            </div>
+            <Card title={`پیش‌بینی هر نشریه${behind.length ? ` — ${toFaDigits(behind.length)} نشریه عقب از دورهٔ انتشار` : ''}`}>
+              {!d.publications.length ? <Empty title="نشریهٔ فعالی نیست" /> : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-xs text-muted"><tr><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">دورهٔ انتشار</th><th className="p-2 text-center">تاکنون</th><th className="p-2 text-center">پیش‌بینی پایان ترم</th><th className="p-2 text-center">انتظار طبق دوره</th></tr></thead>
+                    <tbody>
+                      {d.publications.map((p: any) => (
+                        <tr key={p.id} className="border-t border-line">
+                          <td className="p-2"><Link to={`/admin/publications/${p.id}`} className="hover:text-brand">{p.title}</Link></td>
+                          <td className="p-2 text-center">{FREQUENCY[p.frequency] || '—'}</td>
+                          <td className="p-2 text-center">{toFaDigits(p.actual)}</td>
+                          <td className="p-2 text-center">{toFaDigits(p.projected)}</td>
+                          <td className="p-2 text-center">{p.expected == null ? '—' : p.behind ? <Badge tone="danger">{toFaDigits(p.expected)}</Badge> : <Badge tone="success">{toFaDigits(p.expected)}</Badge>}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+            <p className="text-xs text-muted">روش: برازش خط حداقل مربعات روی تعداد تجمعی هفتگی از ابتدای ترم و برون‌یابی تا پایان ترم. پیش‌بینی هر نشریه = سرعت تاکنون × کل هفته‌های ترم.</p>
           </div>
         )
       }}
