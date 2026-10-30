@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowDown, ArrowUp, CheckSquare, Info, Lightbulb, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, CheckSquare, EyeOff, Info, Lightbulb, ShieldAlert } from 'lucide-react'
 import { api, qs } from '../lib/api'
 import { delta, faMonthLabel, formatNumber, formatToman, relativeFa, toFaDigits } from '../lib/format'
-import { Async, Card, PageHeader, Stat, useAsync } from '../components/ui'
+import { Async, Card, PageHeader, Stat, useAction, useAsync } from '../components/ui'
 import { RangePicker, defaultRange } from '../team/Stats'
 import { Chart } from '../components/Chart'
 import { FEED_LABEL } from './Live'
@@ -62,6 +62,11 @@ export default function AdminOverview() {
   const { role } = useAdminRole()
   const [range, setRange] = useState(defaultRange('30d'))
   const base = useAsync(() => Promise.all([api.get('/api/admin/overview'), api.get('/api/analytics/insights')]), [])
+  const { run } = useAction()
+  // ROADMAP phase 8: «دیدم/رد کردن» on the overview insight cards
+  const dismiss = async (key: string) => {
+    if (await run(() => api.post(`/api/analytics/insights/${encodeURIComponent(key)}/dismiss`), 'پنهان شد')) base.reload()
+  }
   const sum = useAsync(() => api.get(`/api/analytics/summary${qs({ from: range.from, to: range.to })}`), [range.from, range.to])
   // ROADMAP phase 7 overview: overall monthly trend (last 12 months) + recent activity feed
   const trendRange = defaultRange('acad')
@@ -110,6 +115,12 @@ export default function AdminOverview() {
                         <div className="min-w-0">
                           <div className="font-bold">{it.title}</div>
                           <div className="text-xs opacity-80">{it.detail}</div>
+                          <div className="mt-1 flex flex-wrap gap-3 text-xs">
+                            {it.link && <Link to={it.link} className="font-bold underline">بررسی</Link>}
+                            <button className="inline-flex items-center gap-1 opacity-70 hover:opacity-100" onClick={() => dismiss(it.key)}>
+                              <EyeOff className="size-3" /> دیدم
+                            </button>
+                          </div>
                         </div>
                       </li>
                     )
