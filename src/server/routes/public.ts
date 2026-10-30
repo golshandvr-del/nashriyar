@@ -259,6 +259,22 @@ publicRoutes.get('/faculties/:id', async (c) => {
   return c.json({ faculty: f, publications, issues })
 })
 
+/** Association (scientific society) / cultural club page — ROADMAP phase 4. */
+publicRoutes.get('/associations/:id', async (c) => {
+  const db = c.get('db')
+  const a = await db.first<any>(
+    'SELECT a.id, a.name, a.kind, f.id AS faculty_id, f.name AS faculty_name FROM associations a LEFT JOIN faculties f ON f.id = a.faculty_id WHERE a.id = ? AND a.is_active = 1',
+    [c.req.param('id')]
+  )
+  if (!a) throw notFound()
+  const publications = await db.all(
+    "SELECT p.id, p.slug, p.title, p.tagline, p.logo_key, p.theme_color FROM publications p WHERE p.association_id = ? AND p.status = 'active' AND p.deleted_at IS NULL ORDER BY p.title",
+    [a.id]
+  )
+  const issues = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED} AND p.association_id = ? ORDER BY i.published_at DESC LIMIT 30`, [a.id])
+  return c.json({ association: a, publications, issues })
+})
+
 // ───────── Explore (image-only feed) ─────────
 publicRoutes.get('/explore', async (c) => {
   await requireFeature(c.get('db'), 'explore')
