@@ -1,0 +1,399 @@
+import { useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Download } from 'lucide-react'
+import { api, qs } from '../lib/api'
+import { FREQUENCY, faDate, faMonthLabel, formatNumber, formatToman, toFaDigits, CHANNEL } from '../lib/format'
+import { Async, Badge, Card, Empty, PageHeader, Tabs, useAsync } from '../components/ui'
+import { Chart, downloadCsv } from '../components/Chart'
+import { RangePicker, defaultRange } from '../team/Stats'
+import { useAdminRole } from './Layout'
+
+type Tab = 'trends' | 'ranking' | 'production' | 'gaps' | 'directors' | 'explore' | 'sales'
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'trends', label: 'روندها' },
+  { key: 'ranking', label: 'رتبه‌بندی' },
+  { key: 'production', label: 'سرعت تولید' },
+  { key: 'gaps', label: 'فاصلهٔ انتشار' },
+  { key: 'directors', label: 'بازدهی مدیران' },
+  { key: 'explore', label: 'اکسپلور' },
+  { key: 'sales', label: 'فروش' }
+]
+const WEEKDAYS = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه']
+const HEALTH_PARTS: Record<string, string> = { regularity: 'نظم انتشار (۳۵)', activity: 'فعالیت تولید (۲۵)', audience: 'مخاطب (۲۰)', explore: 'اکسپلور (۱۰)', hygiene: 'رسیدگی به نظرها (۱۰)' }
+
+const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+const csvOf = (head: string[], rows: unknown[][]) => [head.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n')
+
+export default function AdminAnalytics() {
+  const { role } = useAdminRole()
+  const [sp, setSp] = useSearchParams()
+  const tab = (sp.get('tab') as Tab) || 'trends'
+  const [range, setRange] = useState(defaultRange('1y'))
+  const [faculty, setFaculty] = useState('')
+  const structure = useAsync(() => (role === 'faculty_supervisor' ? Promise.resolve({ faculties: [] }) : api.get('/api/admin/structure')), [role])
+  const q = qs({ from: range.from, to: range.to, faculty })
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="آمار و تحلیل"
+        subtitle="شاخص‌ها و مقایسهٔ نشریات در بازهٔ انتخابی"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {role !== 'faculty_supervisor' && !!structure.data?.faculties?.length && (
+              <select className="input !w-auto" value={faculty} onChange={(e) => setFaculty(e.target.value)} aria-label="دانشکده">
+                <option value="">همهٔ دانشکده‌ها</option>
+                {structure.data.faculties.map((f: any) => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+            )}
+            <RangePicker value={range} onChange={setRange} />
+          </div>
+        }
+      />
+      <Tabs<Tab> value={tab} onChange={(k) => setSp({ tab: k }, { replace: true })} tabs={TABS} />
+      {tab === 'trends' && <Trends q={q} />}
+      {tab === 'ranking' && <Ranking q={q} />}
+      {tab === 'production' && <Production q={q} />}
+      {tab === 'gaps' && <Gaps q={q} />}
+      {tab === 'directors' && <Directors q={q} />}
+      {tab === 'explore' && <ExploreStats q={q} />}
+      {tab === 'sales' && <Sales q={q} />}
+    </div>
+  )
+}
+
+function Trends({ q }: { q: string }) {
+  const st = useAsync(() => api.get(`/api/analytics/trends${q}`), [q])
+  return (
+    <Async state={st}>
+      {(d: any) => {
+        const months = Array.from(new Set([...d.published, ...d.views, ...d.sales, ...d.followers].map((x: any) => x.m))).sort() as string[]
+        const pick = (arr: any[], k: string) => months.map((m) => arr.find((x) => x.m === m)?.[k] ?? 0)
+        const labels = months.map(faMonthLabel)
+        return (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="انتشار ماهانه">
+              <Chart csvName="published-monthly" option={{ legend: {}, xAxis: { type: 'category', data: labels }, yAxis: [{ type: 'value', minInterval: 1 }, { type: 'value' }], series: [{ name: 'شماره', type: 'bar', data: pick(d.published, 'n') }, { name: 'صفحه', type: 'line', yAxisIndex: 1, smooth: true, data: pick(d.published, 'pages') }] }} />
+            </Card>
+            <Card title="بازدید ماهانه">
+              <Chart csvName="views-monthly" option={{ legend: {}, xAxis: { type: 'category', data: labels }, yAxis: { type: 'value' }, series: [{ name: 'بازدید کل', type: 'line', smooth: true, areaStyle: { opacity: 0.12 }, data: pick(d.views, 'n') }, { name: 'خواندن شماره', type: 'line', smooth: true, data: pick(d.views, 'reads') }, { name: 'بازدید پست', type: 'line', smooth: true, data: pick(d.views, 'post_views') }] }} />
+            </Card>
+            <Card title="فروش دیجیتال">
+              <Chart csvName="sales-monthly" option={{ legend: {}, xAxis: { type: 'category', data: labels }, yAxis: [{ type: 'value', minInterval: 1 }, { type: 'value' }], series: [{ name: 'تعداد', type: 'bar', data: pick(d.sales, 'n') }, { name: 'درآمد (تومان)', type: 'line', yAxisIndex: 1, smooth: true, data: pick(d.sales, 'revenue') }] }} />
+            </Card>
+            <Card title="دنبال‌کنندهٔ جدید">
+              <Chart csvName="followers-monthly" option={{ xAxis: { type: 'category', data: labels }, yAxis: { type: 'value', minInterval: 1 }, series: [{ name: 'دنبال‌کنندهٔ جدید', type: 'bar', data: pick(d.followers, 'n') }] }} />
+            </Card>
+            <Card title="انتشار به تفکیک دانشکده">
+              {!d.byFaculty.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="by-faculty" option={{ tooltip: { trigger: 'item' }, series: [{ name: 'شماره', type: 'pie', radius: ['40%', '70%'], data: d.byFaculty.map((x: any) => ({ name: x.name, value: x.n })) }] }} />}
+            </Card>
+            <Card title="انتشار به تفکیک موضوع">
+              {!d.byCategory.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="by-category" option={{ grid: { left: 110 }, xAxis: { type: 'value', minInterval: 1 }, yAxis: { type: 'category', inverse: true, data: d.byCategory.map((x: any) => x.name) }, series: [{ name: 'شماره', type: 'bar', data: d.byCategory.map((x: any) => x.n) }] }} />}
+            </Card>
+            <Card title="بازدید بر حسب روز هفته" className="lg:col-span-2">
+              <Chart height={220} csvName="weekday" option={{ xAxis: { type: 'category', data: [6, 0, 1, 2, 3, 4, 5].map((i) => WEEKDAYS[i]) }, yAxis: { type: 'value' }, series: [{ name: 'بازدید', type: 'bar', data: [6, 0, 1, 2, 3, 4, 5].map((i) => d.weekday.find((w: any) => w.d === i)?.n ?? 0) }] }} />
+            </Card>
+          </div>
+        )
+      }}
+    </Async>
+  )
+}
+
+const RANK_COLS: { key: string; label: string; money?: boolean }[] = [
+  { key: 'health', label: 'سلامت' },
+  { key: 'published', label: 'شماره' },
+  { key: 'pages', label: 'صفحه' },
+  { key: 'views', label: 'بازدید' },
+  { key: 'reads', label: 'خواندن' },
+  { key: 'followers', label: 'دنبال‌کننده' },
+  { key: 'new_followers', label: 'دنبال‌کنندهٔ جدید' },
+  { key: 'digital_sold', label: 'فروش دیجیتال' },
+  { key: 'revenue', label: 'درآمد', money: true },
+  { key: 'posts', label: 'پست' },
+  { key: 'members', label: 'اعضا' }
+]
+
+function Ranking({ q }: { q: string }) {
+  const st = useAsync(() => api.get(`/api/analytics/ranking${q}`), [q])
+  const [sort, setSort] = useState('health')
+  return (
+    <Async state={st}>
+      {(d: any) => {
+        const val = (r: any, k: string) => (k === 'health' ? r.health?.score ?? 0 : Number(r[k] || 0))
+        const rows = [...d.rows].sort((a, b) => val(b, sort) - val(a, sort))
+        const exportCsv = () => downloadCsv(`ranking-${d.from}-${d.to}`, csvOf(['نشریه', 'دانشکده', ...RANK_COLS.map((c) => c.label), 'آخرین انتشار'], rows.map((r) => [r.title, r.faculty_name, ...RANK_COLS.map((c) => val(r, c.key)), faDate(r.last_published_at)])))
+        return (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted">این رتبه‌بندی فقط برای مسئولان قابل مشاهده است و هرگز به تیم‌ها نشان داده نمی‌شود. روی عنوان ستون بزنید تا مرتب شود.</p>
+              <button className="btn-ghost" onClick={exportCsv}><Download className="size-4" /> CSV</button>
+            </div>
+            {!rows.length ? (
+              <Empty title="داده‌ای نیست" />
+            ) : (
+              <div className="card overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface-2 text-xs text-muted">
+                    <tr>
+                      <th className="p-2 text-right">#</th>
+                      <th className="p-2 text-right">نشریه</th>
+                      {RANK_COLS.map((c) => (
+                        <th key={c.key} className="cursor-pointer p-2 text-center whitespace-nowrap hover:text-ink" onClick={() => setSort(c.key)}>
+                          {c.label}{sort === c.key ? ' ▼' : ''}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, idx) => (
+                      <tr key={r.id} className="border-t border-line hover:bg-surface-2/50">
+                        <td className="p-2 text-muted">{toFaDigits(idx + 1)}</td>
+                        <td className="p-2">
+                          <Link to={`/admin/publications/${r.id}`} className="flex items-center gap-2 font-medium hover:text-brand">
+                            <span className="size-2.5 shrink-0 rounded-full" style={{ background: r.theme_color || 'var(--brand)' }} />
+                            <span className="whitespace-nowrap">{r.title}</span>
+                            {r.status !== 'active' && <Badge tone="danger">{r.status === 'suspended' ? 'تعلیق' : 'بایگانی'}</Badge>}
+                          </Link>
+                          <div className="text-[11px] text-muted">{r.faculty_name || '—'} · {FREQUENCY[r.frequency] || r.frequency}</div>
+                        </td>
+                        {RANK_COLS.map((c) => (
+                          <td key={c.key} className="p-2 text-center">
+                            {c.key === 'health' ? (
+                              <span
+                                title={Object.entries(r.health?.parts || {}).map(([k, v]) => `${HEALTH_PARTS[k] || k}: ${v}`).join('\n')}
+                                className={`inline-block min-w-10 rounded-md px-1.5 py-0.5 text-xs font-bold ${val(r, 'health') >= 70 ? 'bg-ok/10 text-ok' : val(r, 'health') >= 40 ? 'bg-warn/10 text-warn' : 'bg-danger/10 text-danger'}`}
+                              >
+                                {toFaDigits(val(r, 'health'))}
+                              </span>
+                            ) : c.money ? (
+                              <span className="whitespace-nowrap text-xs">{formatToman(val(r, c.key))}</span>
+                            ) : (
+                              formatNumber(val(r, c.key))
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="text-xs text-muted">امتیاز سلامت (۰ تا ۱۰۰) = {Object.values(HEALTH_PARTS).join(' + ')}. برای دیدن اجزا نشانگر را روی عدد نگه دارید.</p>
+          </div>
+        )
+      }}
+    </Async>
+  )
+}
+
+function Production({ q }: { q: string }) {
+  const st = useAsync(() => api.get(`/api/analytics/production${q}`), [q])
+  return (
+    <Async state={st}>
+      {(d: any) => (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="card p-3"><div className="text-xs text-muted">درخواست تأیید</div><div className="text-xl font-extrabold">{formatNumber(d.approvals?.n || 0)}</div></div>
+            <div className="card p-3"><div className="text-xs text-muted">میانگین زمان تأیید</div><div className="text-xl font-extrabold">{toFaDigits(Math.round((d.approvals?.avg_days || 0) * 10) / 10)} روز</div></div>
+            <div className="card p-3"><div className="text-xs text-muted">درخواست اصلاح</div><div className="text-xl font-extrabold">{formatNumber(d.approvals?.changes || 0)}</div></div>
+          </div>
+          <Card title="میانگین مدت هر مرحلهٔ تولید (روز)">
+            {!d.stages.length ? <Empty title="داده‌ای نیست" /> : (
+              <Chart csvName="stage-durations" option={{ grid: { left: 110 }, xAxis: { type: 'value' }, yAxis: { type: 'category', inverse: true, data: d.stages.map((s: any) => s.title) }, series: [{ name: 'میانگین روز', type: 'bar', data: d.stages.map((s: any) => Math.round((s.avg_days || 0) * 10) / 10) }] }} />
+            )}
+          </Card>
+          <Card title="چرخهٔ تولید هر نشریه">
+            {!d.cycle.length ? <Empty title="داده‌ای نیست" /> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs text-muted"><tr><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">شماره‌ها</th><th className="p-2 text-center">میانگین چرخه (روز)</th><th className="p-2 text-center">با تأخیر</th></tr></thead>
+                  <tbody>
+                    {d.cycle.map((r: any) => (
+                      <tr key={r.id} className="border-t border-line">
+                        <td className="p-2"><Link to={`/admin/publications/${r.id}`} className="hover:text-brand">{r.title}</Link></td>
+                        <td className="p-2 text-center">{toFaDigits(r.n)}</td>
+                        <td className="p-2 text-center">{toFaDigits(Math.round((r.avg_cycle_days || 0) * 10) / 10)}</td>
+                        <td className="p-2 text-center">{r.late ? <Badge tone="danger">{toFaDigits(r.late)}</Badge> : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+    </Async>
+  )
+}
+
+function Gaps({ q }: { q: string }) {
+  const st = useAsync(() => api.get(`/api/analytics/gaps${q}`), [q])
+  return (
+    <Async state={st}>
+      {(d: any) => {
+        const rows = [...d.rows].sort((a, b) => Number(b.overdue) - Number(a.overdue) || (b.days_since_last ?? 9999) - (a.days_since_last ?? 9999))
+        return !rows.length ? <Empty title="داده‌ای نیست" /> : (
+          <div className="card overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-2 text-xs text-muted">
+                <tr><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">دوره (انتظار)</th><th className="p-2 text-center">شماره‌ها</th><th className="p-2 text-center">میانگین فاصله</th><th className="p-2 text-center">بیشترین فاصله</th><th className="p-2 text-center">روز از آخرین</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((r: any) => (
+                  <tr key={r.id} className={`border-t border-line ${r.overdue ? 'bg-danger/5' : ''}`}>
+                    <td className="p-2"><Link to={`/admin/publications/${r.id}`} className="hover:text-brand">{r.title}</Link> {!!r.overdue && <Badge tone="danger">عقب از دوره</Badge>}</td>
+                    <td className="p-2 text-center text-xs">{FREQUENCY[r.frequency]} ({toFaDigits(r.expected_days)} روز)</td>
+                    <td className="p-2 text-center">{toFaDigits(r.issues)}</td>
+                    <td className="p-2 text-center">{r.avg_gap != null ? toFaDigits(Math.round(r.avg_gap)) : '—'}</td>
+                    <td className="p-2 text-center">{r.max_gap != null ? toFaDigits(Math.round(r.max_gap)) : '—'}</td>
+                    <td className="p-2 text-center font-bold">{r.days_since_last != null ? toFaDigits(Math.round(r.days_since_last)) : 'بدون انتشار'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }}
+    </Async>
+  )
+}
+
+function Directors({ q }: { q: string }) {
+  const st = useAsync(() => api.get(`/api/analytics/directors${q}`), [q])
+  const [onlyCurrent, setOnlyCurrent] = useState(false)
+  return (
+    <Async state={st}>
+      {(d: any) => {
+        const rows = d.rows.filter((r: any) => !onlyCurrent || r.current)
+        return (
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={onlyCurrent} onChange={(e) => setOnlyCurrent(e.target.checked)} /> فقط مدیران فعلی</label>
+            {!rows.length ? <Empty title="داده‌ای نیست" /> : (
+              <div className="card overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface-2 text-xs text-muted">
+                    <tr><th className="p-2 text-right">مدیرمسئول</th><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">دوره (ماه)</th><th className="p-2 text-center">شماره</th><th className="p-2 text-center">در ماه</th><th className="p-2 text-center">چرخهٔ میانگین</th><th className="p-2 text-center">بازدید</th><th className="p-2 text-center">فروش</th><th className="p-2 text-center">دنبال‌کنندهٔ جدید</th></tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r: any, i: number) => (
+                      <tr key={i} className="border-t border-line">
+                        <td className="p-2 font-medium">{r.display_name} {r.current && <Badge tone="ok">فعلی</Badge>}</td>
+                        <td className="p-2 text-xs"><Link to={`/admin/publications/${r.publication_id}`} className="hover:text-brand">{r.publication_title}</Link><div className="text-muted">{faDate(r.started_at)} — {r.ended_at ? faDate(r.ended_at) : 'اکنون'}</div></td>
+                        <td className="p-2 text-center">{toFaDigits(r.months)}</td>
+                        <td className="p-2 text-center">{toFaDigits(r.published)}</td>
+                        <td className="p-2 text-center">{toFaDigits(Math.round((r.per_month || 0) * 100) / 100)}</td>
+                        <td className="p-2 text-center">{r.avg_cycle_days != null ? `${toFaDigits(Math.round(r.avg_cycle_days))} روز` : '—'}</td>
+                        <td className="p-2 text-center">{formatNumber(r.views)}</td>
+                        <td className="p-2 text-center">{formatNumber(r.digital_sold)}</td>
+                        <td className="p-2 text-center">{formatNumber(r.new_followers)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )
+      }}
+    </Async>
+  )
+}
+
+function ExploreStats({ q }: { q: string }) {
+  const st = useAsync(() => api.get(`/api/analytics/explore${q}`), [q])
+  return (
+    <Async state={st}>
+      {(d: any) => (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            {[
+              ['کل نظرها', d.moderation?.total], ['در انتظار', d.moderation?.pending], ['تأییدشده', d.moderation?.approved], ['ردشده', d.moderation?.rejected]
+            ].map(([l, v]) => <div key={l as string} className="card p-3"><div className="text-xs text-muted">{l}</div><div className="text-xl font-extrabold">{formatNumber(Number(v || 0))}</div></div>)}
+            <div className="card p-3"><div className="text-xs text-muted">میانگین زمان بررسی</div><div className="text-xl font-extrabold">{toFaDigits(Math.round(d.moderation?.avg_hours || 0))} ساعت</div></div>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="پست و بازدید هر نشریه">
+              {!d.byPub.length ? <Empty title="داده‌ای نیست" /> : <Chart csvName="explore-by-pub" option={{ legend: {}, grid: { left: 110 }, xAxis: { type: 'value' }, yAxis: { type: 'category', inverse: true, data: d.byPub.map((x: any) => x.title) }, series: [{ name: 'بازدید', type: 'bar', data: d.byPub.map((x: any) => x.views) }, { name: 'پست', type: 'bar', data: d.byPub.map((x: any) => x.posts) }] }} height={Math.max(240, d.byPub.length * 28)} />}
+            </Card>
+            <Card title="پربازدیدترین پست‌ها">
+              {!d.top.length ? <Empty title="داده‌ای نیست" /> : (
+                <ol className="space-y-2 text-sm">
+                  {d.top.map((p: any, i: number) => (
+                    <li key={p.id} className="flex items-center justify-between gap-2 border-b border-line pb-2 last:border-0">
+                      <Link to={`/post/${p.id}`} className="min-w-0 hover:text-brand">
+                        <span className="text-muted">{toFaDigits(i + 1)}. </span>
+                        <span className="line-clamp-1">{p.caption || 'بدون متن'}</span>
+                        <span className="block text-xs text-muted">{p.publication_title}</span>
+                      </Link>
+                      <span className="shrink-0 text-xs text-muted">{formatNumber(p.views)} بازدید · {formatNumber(p.saves)} ذخیره · {formatNumber(p.comments)} نظر</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </Card>
+          </div>
+        </div>
+      )}
+    </Async>
+  )
+}
+
+function Sales({ q }: { q: string }) {
+  const st = useAsync(() => api.get(`/api/analytics/sales${q}`), [q])
+  return (
+    <Async state={st}>
+      {(d: any) => {
+        const totals = useMemoTotals(d.byIssue)
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="card p-3"><div className="text-xs text-muted">کد ساخته‌شده</div><div className="text-xl font-extrabold">{formatNumber(totals.created)}</div></div>
+              <div className="card p-3"><div className="text-xs text-muted">کد استفاده‌شده</div><div className="text-xl font-extrabold">{formatNumber(totals.redeemed)}</div></div>
+              <div className="card p-3"><div className="text-xs text-muted">درآمد دیجیتال</div><div className="text-xl font-extrabold">{formatToman(totals.revenue)}</div></div>
+              <div className="card p-3"><div className="text-xs text-muted">فروش چاپی</div><div className="text-xl font-extrabold">{formatNumber(totals.print)}</div></div>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Card title="کانال‌های پرداخت">
+                {!d.channels.length ? <Empty title="داده‌ای نیست" /> : <Chart height={220} option={{ tooltip: { trigger: 'item' }, series: [{ type: 'pie', radius: ['40%', '70%'], data: d.channels.map((c: any) => ({ name: CHANNEL[c.channel] || c.channel, value: c.n })) }] }} />}
+              </Card>
+              <Card title="فروش به تفکیک شماره" className="lg:col-span-2" action={<button className="btn-ghost !px-2 !py-1" onClick={() => downloadCsv('sales-by-issue', csvOf(['نشریه', 'شماره', 'عنوان', 'قیمت', 'کد ساخته‌شده', 'استفاده‌شده', 'منقضی', 'درآمد', 'فروش چاپی'], d.byIssue.map((r: any) => [r.publication_title, r.number, r.title, r.price_digital, r.codes_created, r.codes_redeemed, r.codes_expired, r.revenue_digital, r.print_sold])))}><Download className="size-4" /></button>}>
+                {!d.byIssue.length ? <Empty title="فروشی در این بازه ثبت نشده" /> : (
+                  <div className="max-h-[28rem] overflow-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-xs text-muted"><tr><th className="p-2 text-right">شماره</th><th className="p-2 text-center">کد</th><th className="p-2 text-center">استفاده</th><th className="p-2 text-center">درآمد</th><th className="p-2 text-center">چاپی</th></tr></thead>
+                      <tbody>
+                        {d.byIssue.map((r: any) => (
+                          <tr key={r.id} className="border-t border-line">
+                            <td className="p-2"><Link to={`/admin/issues/${r.id}`} className="hover:text-brand">{r.publication_title} · {toFaDigits(r.number)}</Link></td>
+                            <td className="p-2 text-center">{formatNumber(r.codes_created)}</td>
+                            <td className="p-2 text-center">{formatNumber(r.codes_redeemed)}</td>
+                            <td className="p-2 text-center text-xs whitespace-nowrap">{formatToman(r.revenue_digital)}</td>
+                            <td className="p-2 text-center">{formatNumber(r.print_sold)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </div>
+          </div>
+        )
+      }}
+    </Async>
+  )
+}
+
+// plain helper (not a hook despite the name pattern — no React state involved)
+function useMemoTotals(rows: any[]) {
+  return rows.reduce(
+    (a, r) => ({ created: a.created + Number(r.codes_created || 0), redeemed: a.redeemed + Number(r.codes_redeemed || 0), revenue: a.revenue + Number(r.revenue_digital || 0), print: a.print + Number(r.print_sold || 0) }),
+    { created: 0, redeemed: 0, revenue: 0, print: 0 }
+  )
+}
+
+export const _unused = useMemo
