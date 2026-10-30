@@ -248,7 +248,7 @@ function Forecast({ q }: { q: string }) {
                           <td className="p-2 text-center">{FREQUENCY[p.frequency] || '—'}</td>
                           <td className="p-2 text-center">{toFaDigits(p.actual)}</td>
                           <td className="p-2 text-center">{toFaDigits(p.projected)}</td>
-                          <td className="p-2 text-center">{p.expected == null ? '—' : p.behind ? <Badge tone="danger">{toFaDigits(p.expected)}</Badge> : <Badge tone="success">{toFaDigits(p.expected)}</Badge>}</td>
+                          <td className="p-2 text-center">{p.expected == null ? '—' : p.behind ? <Badge tone="danger">{toFaDigits(p.expected)}</Badge> : <Badge tone="ok">{toFaDigits(p.expected)}</Badge>}</td>
                         </tr>
                       ))}
                     </tbody>
