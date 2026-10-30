@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { AppEnv } from '../context'
 import { clientIp } from '../auth'
 import { hmac, newId } from '../lib/crypto'
+import { signedMediaUrl } from '../lib/media-sign'
 import { body, getSetting, inList, notFound, nowIso, parseJson, today } from '../lib/util'
 import { normalizeFa } from '../../shared/fa'
 import { getFeatures, requireFeature } from '../lib/features'
@@ -231,10 +232,19 @@ publicRoutes.get('/issues/:id', async (c) => {
     else if (await db.first('SELECT 1 FROM publication_roles WHERE user_id = ? AND publication_id = ? AND ended_at IS NULL', [u.id, i.publication_id])) access = 'full'
   }
   await trackView(c, 'issue', i.id, i.publication_id)
+  // paid supplementary media: hand out short-lived, session-bound URLs only to readers with access (lib/media-sign.ts)
+  const sid = c.get('sessionId')
+  const mediaOut = await Promise.all(
+    (media as any[]).map(async (m) => ({
+      ...m,
+      url:
+        m.access === 'free' ? `/api/media/k/${m.storage_key}` : m.access === 'paid' && access === 'full' && sid ? await signedMediaUrl(c.get('deps').secret, m.storage_key, sid) : null
+    }))
+  )
   return c.json({
     issue: { ...i, contacts: parseJson(i.contacts_json, []), contacts_json: undefined },
     toc: tocOut,
-    media,
+    media: mediaOut,
     credits,
     categories,
     others,
