@@ -34,6 +34,35 @@ function Kanban({ toc }: { toc: any[] }) {
   )
 }
 
+/** Checklist view: same stages + TOC data as the timeline; unticking is a real status change and is logged in stage_events too. */
+function Checklist({ stages, toc, disabled, onStage, onToc }: { stages: any[]; toc: any[]; disabled: boolean; onStage: (s: any, status: string) => void; onToc: (t: any, status: string) => void }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <ul className="space-y-2 text-sm">
+        {stages.map((s) => (
+          <li key={s.id}>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={s.status === 'done'} disabled={disabled || s.key === 'publish'} onChange={(e) => onStage(s, e.target.checked ? 'done' : 'in_progress')} />
+              <span className={cx(s.status === 'done' && 'text-muted line-through')}>{s.title}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <ul className="space-y-2 text-sm">
+        {toc.map((t) => (
+          <li key={t.id} className={cx(t.parent_id && 'ps-5')}>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={t.status === 'done'} disabled={disabled} onChange={(e) => onToc(t, e.target.checked ? 'done' : 'edited')} />
+              <span className={cx(t.status === 'done' && 'text-muted line-through')}>{t.title}</span>
+            </label>
+          </li>
+        ))}
+        {!toc.length && <li className="text-muted">فهرست مطالب خالی است.</li>}
+      </ul>
+    </div>
+  )
+}
+
 export default function ProgressTab({ d, reload, pubId }: RoomProps) {
   const issueId = d.issue.id
   const { busy, run } = useAction()
@@ -50,6 +79,7 @@ export default function ProgressTab({ d, reload, pubId }: RoomProps) {
         reload()
       }
     })
+  const setToc = (t: any, status: string) => run(() => api.post(`/api/team/${pubId}/issues/${issueId}/toc/${t.id}/status`, { status, note: note.trim() || undefined })).then((r) => r && reload())
   const setDue = (s: any, due_at: string) => run(() => api.post(`/api/team/${pubId}/issues/${issueId}/stages/${s.id}`, { due_at: due_at || null })).then((r) => r && reload())
 
   return (
@@ -95,6 +125,12 @@ export default function ProgressTab({ d, reload, pubId }: RoomProps) {
           })}
         </ol>
       </Card>
+
+      {d.issue.progress_view === 'checklist' && (
+        <Card title="چک‌لیست">
+          <Checklist stages={stages} toc={d.toc} disabled={busy || locked} onStage={setStage} onToc={setToc} />
+        </Card>
+      )}
 
       {d.issue.progress_view === 'kanban' && (
         <Card title="کانبان فهرست مطالب">
