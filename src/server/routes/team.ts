@@ -247,12 +247,14 @@ teamRoutes.post('/:pubId/issues', async (c) => {
   const id = newId()
   const now = nowIso()
   const director = await db.first<{ user_id: string }>("SELECT user_id FROM publication_roles WHERE publication_id = ? AND role = 'managing_director' AND ended_at IS NULL", [p.id])
+  // officer-configurable default purchase-code validity (ROADMAP phase 5; client decision #5: max 24h)
+  const defTtl = Math.max(1, Math.min(24, Math.floor(Number(await getSetting(db, 'default_code_ttl_hours', 24)) || 24)))
   const stmts: { sql: string; params: unknown[] }[] = []
   stmts.push({
-    sql: `INSERT INTO issues (id, publication_id, number, title, summary, keywords, status, progress_view, planned_publish_at, director_user_id, created_by, created_at, updated_at)
-          VALUES (?,?,?,?,?,?, 'planning', ?,?,?,?,?,?)`,
+    sql: `INSERT INTO issues (id, publication_id, number, title, summary, keywords, status, progress_view, planned_publish_at, director_user_id, created_by, created_at, updated_at, code_ttl_hours)
+          VALUES (?,?,?,?,?,?, 'planning', ?,?,?,?,?,?,?)`,
     params: [id, p.id, number, title, str(b.summary, 'خلاصه', { max: 3000, optional: true }), keywordsCsv(b.keywords),
-      oneOf(b.progress_view, ['timeline', 'checklist', 'kanban'] as const, 'نمای پیشرفت', 'timeline'), b.planned_publish_at || null, director?.user_id ?? null, user.id, now, now]
+      oneOf(b.progress_view, ['timeline', 'checklist', 'kanban'] as const, 'نمای پیشرفت', 'timeline'), b.planned_publish_at || null, director?.user_id ?? null, user.id, now, now, defTtl]
   })
   for (const cid of (Array.isArray(b.category_ids) ? b.category_ids : []).slice(0, 10)) stmts.push({ sql: 'INSERT OR IGNORE INTO issue_categories (issue_id, category_id) VALUES (?,?)', params: [id, cid] })
 
