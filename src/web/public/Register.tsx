@@ -12,15 +12,16 @@ export default function Register() {
   const { user, refresh } = useAuth()
   const [sp] = useSearchParams()
   const nav = useNavigate()
-  const [f, setF] = useState({ student_number: '', display_name: '', faculty_id: '', password: '', password2: '', accept_terms: false })
+  const [f, setF] = useState({ student_number: '', display_name: '', faculty_id: '', password: '', password2: '', accept_terms: false, secret: '' })
   const [faculties, setFaculties] = useState<{ id: string; name: string }[]>([])
   const [open, setOpen] = useState(true)
+  const [mode, setMode] = useState<'open' | 'allowlist'>('open')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     api.get('/api/public/categories').then((r) => setFaculties(r.faculties || [])).catch(() => {})
-    api.get('/api/public/settings').then((r) => setOpen(r.registration_open !== false)).catch(() => {})
+    api.get('/api/public/settings').then((r) => (setOpen(r.registration_open !== false), setMode(r.registration_mode === 'allowlist' ? 'allowlist' : 'open'))).catch(() => {})
   }, [])
 
   if (user) return <Navigate to={safeNext(sp.get('next'))} replace />
@@ -39,7 +40,8 @@ export default function Register() {
         display_name: f.display_name.trim(),
         faculty_id: f.faculty_id || null,
         password: f.password,
-        accept_terms: f.accept_terms
+        accept_terms: f.accept_terms,
+        ...(mode === 'allowlist' && f.secret.trim() ? { secret: toEnDigits(f.secret.trim()) } : {})
       })
       await refresh()
       nav(safeNext(sp.get('next')), { replace: true })
@@ -63,6 +65,11 @@ export default function Register() {
             <Field label="شماره دانشجویی" hint="فقط رقم؛ نام کاربری شما همین شماره خواهد بود.">
               <Input dir="ltr" inputMode="numeric" value={f.student_number} onChange={set('student_number')} required autoFocus />
             </Field>
+            {mode === 'allowlist' && (
+              <Field label="کد ملی یا کد فعال‌سازی" hint="ثبت‌نام فقط برای دانشجویان فهرست مجاز باز است؛ اگر مسئول نشریات برای شما کد فعال‌سازی صادر کرده آن را وارد کنید، وگرنه کد ملی.">
+                <Input dir="ltr" value={f.secret} onChange={set('secret')} autoComplete="off" maxLength={40} />
+              </Field>
+            )}
             <Field label="نام و نام خانوادگی">
               <Input value={f.display_name} onChange={set('display_name')} required minLength={2} maxLength={80} />
             </Field>
