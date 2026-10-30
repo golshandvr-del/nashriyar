@@ -67,7 +67,7 @@ async function signPage(c: any, issueId: string, page: number, exp: number) {
 async function accessFor(c: any, issueId: string) {
   const db = c.get('db')
   const i = await db.first(
-    `SELECT i.id, i.title, i.number, i.status, i.pricing, i.page_count, i.free_preview_pages, i.publication_id, p.title AS publication_title, p.slug AS publication_slug
+    `SELECT i.id, i.title, i.number, i.status, i.published_at, i.pricing, i.page_count, i.free_preview_pages, i.publication_id, p.title AS publication_title, p.slug AS publication_slug
      FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.id = ? AND i.deleted_at IS NULL`,
     [issueId]
   )
@@ -81,7 +81,8 @@ async function accessFor(c: any, issueId: string) {
     else if (await db.first('SELECT 1 FROM publication_roles WHERE user_id = ? AND publication_id = ? AND ended_at IS NULL', [u.id, i.publication_id])) staff = true
     if (!staff && (await db.first('SELECT 1 FROM entitlements WHERE user_id = ? AND issue_id = ? AND revoked_at IS NULL', [u.id, i.id]))) full = true
   }
-  if (i.status !== 'published' && !staff) throw notFound('شماره یافت نشد')
+  // scheduled publishing: hidden from readers until published_at (team/staff can preview before)
+  if ((i.status !== 'published' || !i.published_at || i.published_at > nowIso()) && !staff) throw notFound('شماره یافت نشد')
   if (staff || i.pricing === 'free') full = true
   const allowed = full ? i.page_count : Math.min(i.page_count, Math.max(0, i.free_preview_pages || 0))
   return { issue: i, full, allowed, user: u }
