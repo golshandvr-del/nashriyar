@@ -4,6 +4,7 @@ import { Megaphone, UserCheck, UserPlus } from 'lucide-react'
 import { api, mediaUrl } from '../lib/api'
 import { absUrl, useMeta } from '../lib/meta'
 import { useAuth, PUB_ROLE_LABEL } from '../lib/auth'
+import { useFeature } from '../lib/features'
 import { ASSOC_KIND, FREQUENCY, faDate, toFaDigits } from '../lib/format'
 import { Async, Avatar, Button, Card, Empty, Tabs, useAction, useAsync } from '../components/ui'
 import { IssueGrid, PostGrid } from '../components/cards'
@@ -45,6 +46,7 @@ export default function Publication() {
   const posts = useAsync(() => api.get<{ posts: PostLite[] }>(`/api/public/publications/${slug}/posts`), [slug])
   const [tab, setTab] = useState<Tab>('issues')
   const { user } = useAuth()
+  const recruitOn = useFeature('recruitment')
   const nav = useNavigate()
   const act = useAction()
   const pd = st.data?.publication
@@ -131,7 +133,7 @@ export default function Publication() {
               </section>
             )}
 
-            {d.recruitment.length > 0 && (
+            {recruitOn && d.recruitment.length > 0 && (
               <div className="card mt-4 flex items-center gap-3 border-brand/40 bg-brand-soft p-3 text-sm">
                 <Megaphone className="size-5 text-brand" />
                 <span className="flex-1">
