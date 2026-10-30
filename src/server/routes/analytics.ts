@@ -649,7 +649,24 @@ analyticsRoutes.get('/explore', async (c) => {
     { key: 'issue_read', label: 'شروع خواندن', n: await uniq('issue_read') },
     { key: 'purchase', label: 'خرید (بازخرید کد)', n: bought }
   ]
-  return c.json({ from, to, top: top.map((r) => ({ ...r, image: parseJson<string[]>(r.images_json, [])[0] || null, images_json: undefined })), byPub, moderation, funnel, hourly, calendar })
+  // Public-space totals + most viewed categories/associations (ROADMAP phase 7)
+  const totals = await db.first<{ views: number; uniq: number }>(
+    `SELECT COUNT(*) AS views, COUNT(DISTINCT v.viewer_hash) AS uniq FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql}`,
+    [from, to, ...s.params]
+  )
+  const byCategory = await db.all(
+    `SELECT cat.id, cat.name, COUNT(v.id) AS views, COUNT(DISTINCT v.viewer_hash) AS uniq
+     FROM view_events v JOIN publications p ON p.id = v.publication_id JOIN publication_categories pc ON pc.publication_id = p.id JOIN categories cat ON cat.id = pc.category_id
+     WHERE cat.type = 'subject' AND v.day BETWEEN ? AND ?${s.sql} GROUP BY cat.id ORDER BY views DESC LIMIT 12`,
+    [from, to, ...s.params]
+  )
+  const byAssociation = await db.all(
+    `SELECT a.id, a.name, a.kind, COUNT(v.id) AS views, COUNT(DISTINCT v.viewer_hash) AS uniq
+     FROM view_events v JOIN publications p ON p.id = v.publication_id JOIN associations a ON a.id = p.association_id
+     WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY a.id ORDER BY views DESC LIMIT 12`,
+    [from, to, ...s.params]
+  )
+  return c.json({ from, to, totals, byCategory, byAssociation, top: top.map((r) => ({ ...r, image: parseJson<string[]>(r.images_json, [])[0] || null, images_json: undefined })), byPub, moderation, funnel, hourly, calendar })
 })
 
 /** Sales: digital codes and print, by publication and issue. */
