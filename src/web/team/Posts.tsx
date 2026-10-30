@@ -130,6 +130,7 @@ function PostComposer({ pubId, story, onClose, onDone }: { pubId: string; story:
   const [aspect, setAspect] = useState<Aspect>(story ? 'original' : '1:1')
   const [keys, setKeys] = useState<string[]>([])
   const [caption, setCaption] = useState('')
+  const [publishAt, setPublishAt] = useState('') // local datetime; empty = publish now (ROADMAP phase 6 scheduling)
   const [uploading, setUploading] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const { busy, run } = useAction()
@@ -160,9 +161,10 @@ function PostComposer({ pubId, story, onClose, onDone }: { pubId: string; story:
 
   const submit = (draft: boolean) =>
     run(async () => {
-      await api.post(`/api/team/${pubId}/posts`, { images: keys, caption, source_issue_id: issueId, source_toc_item_id: tocId, is_story: story, draft })
+      await api.post(`/api/team/${pubId}/posts`, { images: keys, caption, source_issue_id: issueId, source_toc_item_id: tocId, is_story: story, draft,
+        ...(!story && publishAt ? { publish_at: new Date(publishAt).toISOString() } : {}) })
       onDone()
-    }, draft ? 'پیش‌نویس ذخیره شد' : story ? 'استوری منتشر شد' : 'پست منتشر شد')
+    }, draft ? 'پیش‌نویس ذخیره شد' : story ? 'استوری منتشر شد' : publishAt && new Date(publishAt) > new Date() ? 'پست زمان‌بندی شد' : 'پست منتشر شد')
 
   const ready = keys.length > 0 && !!issueId && !!tocId && !uploading
   return (
@@ -230,6 +232,11 @@ function PostComposer({ pubId, story, onClose, onDone }: { pubId: string; story:
             <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={2200} rows={6} placeholder="چند جمله دربارهٔ این بخش…" />
           </Field>
           <div className="text-left text-[11px] text-muted">{formatNumber(caption.length)}/۲۲۰۰</div>
+          {!story && (
+            <Field label="زمان انتشار (اختیاری)" hint="خالی = انتشار فوری. پست تا این زمان برای مخاطبان نمایش داده نمی‌شود (حداکثر ۹۰ روز بعد).">
+              <Input dir="ltr" type="datetime-local" value={publishAt} onChange={(e) => setPublishAt(e.target.value)} />
+            </Field>
+          )}
         </div>
       </div>
     </Modal>
