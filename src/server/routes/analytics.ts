@@ -46,10 +46,24 @@ analyticsRoutes.use('*', async (c, next) => {
 /** Faculty supervisors are restricted to their own faculty. */
 export function pubScope(c: Context<AppEnv>, alias = 'p') {
   const u = c.get('user')!
-  const fac = c.req.query('faculty')
-  if (u.system_role === 'faculty_supervisor') return { sql: ` AND ${alias}.faculty_id = ?`, params: [u.scope_faculty_id] as unknown[] }
-  if (fac) return { sql: ` AND ${alias}.faculty_id = ?`, params: [fac] as unknown[] }
-  return { sql: '', params: [] as unknown[] }
+  const q = (k: string) => (c.req.query(k) || '').slice(0, 64)
+  let sql = ''
+  const params: unknown[] = []
+  const add = (frag: string, v: unknown) => {
+    sql += frag
+    params.push(v)
+  }
+  if (u.system_role === 'faculty_supervisor') add(` AND ${alias}.faculty_id = ?`, u.scope_faculty_id)
+  else if (q('faculty')) add(` AND ${alias}.faculty_id = ?`, q('faculty'))
+  // global filters (ROADMAP phase 7), all kept in the URL by the dashboard
+  if (q('owner_kind')) add(` AND ${alias}.association_id IN (SELECT id FROM associations WHERE kind = ?)`, q('owner_kind'))
+  if (q('association')) add(` AND ${alias}.association_id = ?`, q('association'))
+  if (q('publication')) add(` AND ${alias}.id = ?`, q('publication'))
+  if (q('category')) add(` AND ${alias}.id IN (SELECT publication_id FROM publication_categories WHERE category_id = ?)`, q('category'))
+  // free/paid: publications that publish issues of that pricing model
+  if (q('pricing') === 'free' || q('pricing') === 'paid')
+    add(` AND ${alias}.id IN (SELECT publication_id FROM issues WHERE pricing = ? AND deleted_at IS NULL)`, q('pricing'))
+  return { sql, params }
 }
 
 const DAY = 86400_000
