@@ -65,7 +65,7 @@
   8. [x] TOTP: migrations/0002_totp.sql + src/server/lib/totp.ts (RFC 6238، تست‌برداری RFC پاس) + login با کد totp_required/totp_invalid و ضد replay + /api/auth/totp{,/setup,/enable,/disable} + کارت در /settings (فقط کارکنان) + POST /api/admin/users/:id/reset-totp + `--create-admin` 2FA را هم پاک می‌کند — تست شد
   9. [x] پالت فرمان Ctrl+K: src/web/components/CommandPalette.tsx (CommandPalette + PaletteButton، رویداد window `nashriyar:palette`) در admin/Layout (صفحه‌ها بر اساس نقش + جست‌وجوی زندهٔ نشریات) و team/Layout (صفحه‌ها + شمارهٔ جدید + تعویض نشریه) — tsc پاس
   10. [x] AI: GuardedProvider در src/server/ai.ts — سقف ماهانه `ai_monthly_call_limit` (۰=نامحدود)، ثبت مصرف `ai_usage` (calls/tokens/failures ماه جاری)، قطع‌کنندهٔ مدار `ai_breaker` (۳ خطا ← ۱۰ دقیقه توقف)؛ همه در جدول settings بدون مایگریشن؛ ai_status در GET /api/admin/settings و نمایش در admin/Settings — با سرور mock تست شد
-  11. [ ] (تصمیم) FTS5 ← فعلاً LIKE روی search_text نرمال‌شده؛ در DECISIONS ثبت شود
+  11. [x] (تصمیم) FTS5 ← ADR-012 در docs/DECISIONS.md ثبت شد (LIKE روی search_text نرمال‌شده؛ مسیر ارتقا: FTS5 trigram)
 - بعد از شکاف‌ها: README/CHANGELOG ← تیک‌زدن ROADMAP ← بستن Milestoneها و Release v1.0.0.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
 - `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
