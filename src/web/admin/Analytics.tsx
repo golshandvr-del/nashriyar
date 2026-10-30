@@ -300,7 +300,7 @@ function Ranking({ q }: { q: string }) {
                       ))}
                     </tbody>
                   </table>
-                  <button className="mt-2 text-xs text-brand" onClick={() => downloadCsv(`faculties-${d.from}-${d.to}`, csvOf(['دانشکده', 'نشریه', 'شماره', 'صفحه'], org.byFaculty.map((r: any) => [r.name, r.pubs, r.issues, r.pages])))}>CSV</button>
+                  <ExportButtons className="mt-2" name={`faculties-${d.from}-${d.to}`} csv={() => csvOf(['دانشکده', 'نشریه', 'شماره', 'صفحه'], org.byFaculty.map((r: any) => [r.name, r.pubs, r.issues, r.pages]))} />
                 </Card>
               </section>
             )}
