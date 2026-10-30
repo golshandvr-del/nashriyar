@@ -116,3 +116,17 @@ export function Chart({ option, height = 260, csvName, onClick, className }: { o
     </div>
   )
 }
+
+/** CSV + Excel download buttons for any table (ROADMAP phase 8: Excel export for every table). */
+export function ExportButtons({ name, csv, className }: { name: string; csv: () => string; className?: string }) {
+  return (
+    <span className={`no-print inline-flex items-center gap-1 ${className || ''}`}>
+      <button type="button" className="btn-ghost !px-2 !py-1 text-xs" title="دریافت CSV" aria-label="دریافت CSV" onClick={() => downloadCsv(name, csv())}>
+        <Download className="size-4" /> CSV
+      </button>
+      <button type="button" className="btn-ghost !px-2 !py-1 text-xs" title="دریافت Excel" aria-label="دریافت Excel" onClick={() => downloadXlsxFromCsv(name, csv())}>
+        <FileSpreadsheet className="size-4" /> Excel
+      </button>
+    </span>
+  )
+}
