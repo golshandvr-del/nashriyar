@@ -1,0 +1,15 @@
+# Keep the build context small and never ship secrets or runtime data into the image.
+node_modules
+dist
+server-dist
+data
+.git
+.github
+.wrangler
+.env
+.env.*
+!.env.example
+.dev.vars
+*.log
+docs
+tests
