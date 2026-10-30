@@ -75,7 +75,8 @@
   - شکاف‌های کشف‌شده (grep): QR، حالت شب کتاب‌خوان، واترمارک نامرئی، Masonry اکسپلور، راهنمای کاربری درون‌سایت، صفحهٔ انجمن/کانون، Notifier (ایمیل Null)، .env.example، آزمون بار، قیف و سال‌به‌سال. نامعلوم: محدودیت نشست هم‌زمان، ثبت جلسهٔ خواندن، لینک کوتاه‌مدت رسانهٔ پولی، کد بازیابی/فهرست مجاز.
   - [x] حالت شب کتاب‌خوان (Reader.tsx: دکمهٔ Moon، localStorage `nsh-reader-night`، فیلتر invert روی canvas)
   - [x] .env.example (از قبل بود؛ بازنویسی + PORT/HOST/DATA_DIR/STATIC_DIR فعال) ؛ [x] src/server/lib/notifier.ts (Notifier/NullNotifier/setNotifier/deliverOutbound) + فراخوانی در notify() در lib/util.ts
-  - صف شکاف‌ها: Masonry اکسپلور ← QR (کدها + چاپی) ← صفحهٔ انجمن ← واترمارک نامرئی ← سقف نشست هم‌زمان ← قیف/سال‌به‌سال ← /guide ← اسکریپت آزمون بار ← تیک ROADMAP ← build/test ← tag/Release/بستن Milestone
+  - [x] Masonry اکسپلور (cards.tsx: PostMasonry با CSS columns؛ Explore.tsx از آن استفاده می‌کند؛ PostGrid برای صفحهٔ نشریه باقی است)
+  - صف شکاف‌ها: QR (کدها + چاپی) ← صفحهٔ انجمن ← واترمارک نامرئی ← سقف نشست هم‌زمان ← قیف/سال‌به‌سال ← /guide ← اسکریپت آزمون بار ← تیک ROADMAP ← build/test ← tag/Release/بستن Milestone
 - **گفتگوی ۱۶:** شروع از commit 274 (f30ff6f). صف: تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
 - `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
