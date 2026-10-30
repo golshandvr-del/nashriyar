@@ -76,6 +76,7 @@
   - [x] حالت شب کتاب‌خوان (Reader.tsx: دکمهٔ Moon، localStorage `nsh-reader-night`، فیلتر invert روی canvas)
   - [x] .env.example (از قبل بود؛ بازنویسی + PORT/HOST/DATA_DIR/STATIC_DIR فعال) ؛ [x] src/server/lib/notifier.ts (Notifier/NullNotifier/setNotifier/deliverOutbound) + فراخوانی در notify() در lib/util.ts
   - [x] Masonry اکسپلور (cards.tsx: PostMasonry با CSS columns؛ Explore.tsx از آن استفاده می‌کند؛ PostGrid برای صفحهٔ نشریه باقی است)
+  - [x] src/web/lib/qr.ts (qrEncode/qrSvg/qrDataUrl، بدون وابستگی) — با OpenCV رمزگشایی و تأیید شد (فارسی و نسخه‌های ۱..۲۹). تست: esbuild به /tmp/qr.mjs + cv2.QRCodeDetector.
   - صف شکاف‌ها: QR (کدها + چاپی) ← صفحهٔ انجمن ← واترمارک نامرئی ← سقف نشست هم‌زمان ← قیف/سال‌به‌سال ← /guide ← اسکریپت آزمون بار ← تیک ROADMAP ← build/test ← tag/Release/بستن Milestone
 - **گفتگوی ۱۶:** شروع از commit 274 (f30ff6f). صف: تیک‌زدن صادقانهٔ ROADMAP (موارد زیرساختی فاز ۱۱ = «نیازمند کارفرما») ← build + npm test ← تگ v1.0.0 و GitHub Release.
 - تست نوشتنی پنل مدیریت: `node tests/admin-writes.mjs` (پس از seed تازه) — **همه پاس** (commit ~152). پاسخ login فقط `{ok, home}` است؛ `must_change_password` در `/api/auth/me` → `user` است.
