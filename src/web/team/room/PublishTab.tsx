@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Award, CheckCircle2, Send, ShieldOff, Undo2, XCircle } from 'lucide-react'
+import { Award, CheckCircle2, QrCode, Send, ShieldOff, Undo2, XCircle } from 'lucide-react'
 import { api } from '../../lib/api'
 import { faDate, formatNumber, formatToman, relativeFa, toEnDigits } from '../../lib/format'
 import { Badge, Button, Card, Field, Input, Select, Textarea, useAction, useToast } from '../../components/ui'
 import type { RoomProps } from './TocTab'
+import { qrDataUrl, qrSvg } from '../../lib/qr'
 
 const DECISION: Record<string, { label: string; tone: 'ok' | 'danger' | 'muted' | 'warn' }> = {
   approved: { label: 'تأیید شد', tone: 'ok' },
@@ -221,9 +222,35 @@ export default function PublishTab({ d, reload, pubId }: RoomProps) {
               </div>
             </Card>
           )}
+          <PrintQr issueId={i.id} number={i.number} />
           <p className="text-center text-xs text-muted">منتشرشده در {faDate(i.published_at)} · {formatNumber(i.page_count || 0)} صفحه</p>
         </>
       )}
     </div>
+  )
+}
+
+/** QR for the printed edition (ROADMAP phase 3): links the paper copy to the issue's digital page. */
+function PrintQr({ issueId, number }: { issueId: string; number: number }) {
+  const url = `${window.location.origin}/issue/${issueId}`
+  const download = () => {
+    const blob = new Blob([qrSvg(url, { px: 1024 })], { type: 'image/svg+xml' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `qr-issue-${number}.svg`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+  }
+  return (
+    <Card title={<span className="flex items-center gap-2"><QrCode className="size-5" /> QR نسخهٔ چاپی</span>}>
+      <div className="flex flex-wrap items-center gap-4">
+        <img src={qrDataUrl(url, 160)} alt="QR صفحهٔ دیجیتال این شماره" width={128} height={128} className="rounded-lg bg-white p-1" />
+        <div className="min-w-0 flex-1 space-y-2 text-sm">
+          <p className="text-muted">این کد را روی جلد یا شناسنامهٔ نسخهٔ چاپی بگذارید تا خواننده به صفحهٔ دیجیتال همین شماره برسد.</p>
+          <p className="truncate font-mono text-xs" dir="ltr">{url}</p>
+          <Button variant="ghost" onClick={download}>دریافت SVG برای چاپ</Button>
+        </div>
+      </div>
+    </Card>
   )
 }
