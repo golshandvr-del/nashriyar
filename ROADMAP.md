@@ -45,17 +45,17 @@
 ### کارها
 - [x] ساخت مخزن GitHub و قوانین چک‌پوینت ([`AGENTS.md`](./AGENTS.md))
 - [x] مستندات چشم‌انداز، معماری، مدل داده، نقش‌ها، امنیت، آمار، تجربهٔ کاربری
-- [ ] تبدیل به monorepo با npm workspaces: `apps/server`, `apps/web`, `packages/shared`, `packages/db`
-- [ ] TypeScript strict، ESLint، Prettier، EditorConfig
-- [ ] **لایهٔ Adapter:** `DbAdapter` (D1 / better-sqlite3)، `StorageAdapter` (R2 / S3 / دیسک)، `AIProvider` (Null)، `Clock`
-- [ ] دو نقطهٔ ورود: `entry/cloudflare.ts` و `entry/node.ts` + تست دود (smoke) برای هر دو
-- [ ] Drizzle + سیستم مهاجرت + اسکریپت seed با دادهٔ نمونهٔ واقع‌گرایانه (۶ دانشکده، ۱۵ انجمن/کانون، ۲۰ نشریه، ۸۰ شماره در ۳ سال، بازدیدهای مصنوعی) — برای اینکه داشبوردها از روز اول معنادار باشند
-- [ ] **سامانهٔ طراحی:** Tailwind (build-time)، توکن‌های رنگ معنایی، تم روشن/تیره/سیستمی بدون چشمک، فونت وزیرمتن self-host، آیکن‌های Lucide، کامپوننت‌های پایه (دکمه، فیلد، انتخاب‌گر، مودال، تب، جدول، کارت، Toast، Skeleton، حالت خالی)
-- [ ] ابزارهای فارسی در `packages/shared`: نرمال‌سازی متن (ی/ک/نیم‌فاصله/اعداد)، قالب‌بندی اعداد، تاریخ و **بازه‌گزین شمسی**
-- [ ] پوستهٔ سه بخش (عمومی، تیم، مدیریت) با مسیریابی و تقسیم کد
-- [ ] سرآیندهای امنیتی و CSP بدون منبع خارجی
-- [ ] GitHub Actions: lint، typecheck، تست، build؛ اسکن اسرار (gitleaks)
-- [ ] قالب Issue و Pull Request، برچسب‌ها و Milestoneها مطابق فازها
+- [x] تبدیل به monorepo با npm workspaces: `apps/server`, `apps/web`, `packages/shared`, `packages/db` — ✅ جایگزین آگاهانه: تک‌بسته با مرز پوشه‌ای `src/server|web|shared|entry` (ADR-013)
+- [x] TypeScript strict، ESLint، Prettier، EditorConfig — ✅ `strict: true`؛ oxlint با قواعد سازگار ESLint (`npm run lint`، چون typescript-eslint با TS7 سازگار نیست)؛ `.prettierrc.json` (`npm run format`)؛ `.editorconfig`
+- [x] **لایهٔ Adapter:** `DbAdapter` (D1 / better-sqlite3)، `StorageAdapter` (R2 / S3 / دیسک)، `AIProvider` (Null)، `Clock` — ✅ `src/server/adapters/{db,storage,clock}.ts` (D1/node:sqlite، R2/دیسک/حافظه، Clock) + `AIProvider` در `src/server/ai.ts`
+- [x] دو نقطهٔ ورود: `entry/cloudflare.ts` و `entry/node.ts` + تست دود (smoke) برای هر دو — ✅ `src/entry/{cloudflare,node}.ts`؛ `npm test` (Node) و `npm run test:cf` (wrangler pages dev)
+- [x] Drizzle + سیستم مهاجرت + اسکریپت seed با دادهٔ نمونهٔ واقع‌گرایانه (۶ دانشکده، ۱۵ انجمن/کانون، ۲۰ نشریه، ۸۰ شماره در ۳ سال، بازدیدهای مصنوعی) — برای اینکه داشبوردها از روز اول معنادار باشند — ✅ به‌جای Drizzle: SQL پارامتری + `migrations/*.sql` با جدول `_migrations` (ADR-014)؛ seed: ۶ دانشکده، ۱۵ انجمن/کانون، ۲۰ نشریه، ۶۸ شماره، ~۹٬۵۰۰ بازدید مصنوعی
+- [x] **سامانهٔ طراحی:** Tailwind (build-time)، توکن‌های رنگ معنایی، تم روشن/تیره/سیستمی بدون چشمک، فونت وزیرمتن self-host، آیکن‌های Lucide، کامپوننت‌های پایه (دکمه، فیلد، انتخاب‌گر، مودال، تب، جدول، کارت، Toast، Skeleton، حالت خالی) — ✅ Tailwind 4 (vite)، توکن‌های معنایی در `styles.css`، `theme-init.js` بدون چشمک، Vazirmatn از node_modules، lucide-react، `components/ui.tsx`
+- [x] ابزارهای فارسی در `packages/shared`: نرمال‌سازی متن (ی/ک/نیم‌فاصله/اعداد)، قالب‌بندی اعداد، تاریخ و **بازه‌گزین شمسی** — ✅ در `src/shared/fa.ts` (normalizeFa، اعداد، تاریخ شمسی، `jalaliPresets`)
+- [x] پوستهٔ سه بخش (عمومی، تیم، مدیریت) با مسیریابی و تقسیم کد — ✅ `src/web/{public,team,admin}` با `React.lazy`
+- [x] سرآیندهای امنیتی و CSP بدون منبع خارجی — ✅ `src/server/app.ts` + `public/_headers`؛ بررسی خودکار در `tests/smoke-cf.mjs`
+- [x] GitHub Actions: lint، typecheck، تست، build؛ اسکن اسرار (gitleaks) — ✅ `.github/workflows/ci.yml`: typecheck، lint، build، e2e، smoke Cloudflare، gitleaks، Docker
+- [x] قالب Issue و Pull Request، برچسب‌ها و Milestoneها مطابق فازها — ✅ `.github/ISSUE_TEMPLATE/*`، `pull_request_template.md`، ۳۴ برچسب (phase:*، area:*) و ۱۳ Milestone
 - [ ] اولین پیش‌نمایش موقت عمومی
 
 ### معیار پذیرش
