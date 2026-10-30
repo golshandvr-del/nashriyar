@@ -81,7 +81,8 @@ if (pub.credentials?.[0]) {
   const dir = client()
   const r = await dir('/api/auth/login', { json: { username: pub.credentials[0].username, password: pub.credentials[0].password } })
   ok(r.status === 200, 'new director can log in with temp password')
-  ok(r.data?.user?.must_change_password || r.data?.must_change_password, 'temp password forces change')
+  const me = await dir('/api/auth/me')
+  ok(me.data?.user?.must_change_password === 1 || me.data?.user?.must_change_password === true, 'temp password forces change')
 }
 await call(of, 'PUT', `/api/admin/publications/${pub.id}`, { tagline: 'شعار تازه', license_number: 'LIC-' + stamp })
 const dossier = await call(of, 'GET', `/api/admin/publications/${pub.id}`)
