@@ -5,6 +5,15 @@ import { Async, Button, Card, Input, PageHeader, useAction, useAsync } from '../
 
 type S = Record<string, any>
 
+const FEATURE_LABELS: Record<string, string> = {
+  explore: 'اکسپلور و پست‌ها',
+  comments: 'نظر دانشجویان زیر پست‌ها',
+  recruitment: 'فراخوان جذب نیرو',
+  paid_content: 'محتوای پولی و کد خرید',
+  certificates: 'استعلام گواهی همکاری',
+  physical_sales: 'ثبت فروش نسخهٔ چاپی'
+}
+
 function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3">
@@ -60,6 +69,27 @@ function Form({ initial, isSuper, reload }: { initial: S; isSuper: boolean; relo
           <Toggle checked={!!s.registration_open} onChange={(v) => set({ registration_open: v })} label="ثبت‌نام دانشجویان باز است" hint="در صورت بستن، فقط حساب‌های موجود می‌توانند وارد شوند." />
           <Toggle checked={!!s.guest_can_read_free} onChange={(v) => set({ guest_can_read_free: v })} label="مهمان‌ها شماره‌های رایگان را بخوانند" hint="بدون ورود به سامانه." />
           <Toggle checked={!!s.supervisor_can_approve} onChange={(v) => set({ supervisor_can_approve: v })} label="ناظر دانشکده مجوز تأیید انتشار دارد" hint="در غیر این صورت فقط مسئول نشریات تأیید می‌کند." />
+        </div>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <h2 className="text-lg font-bold">قابلیت‌های سامانه</h2>
+        <p className="text-sm text-muted">
+          {isSuper ? 'با خاموش کردن هر قابلیت، بخش مربوط برای همهٔ کاربران پنهان و مسیرهای API آن مسدود می‌شود. داده‌ها حذف نمی‌شوند.' : 'فقط سوپرادمین می‌تواند قابلیت‌ها را روشن یا خاموش کند.'}
+        </p>
+        <div className="grid gap-3 md:grid-cols-3">
+          {Object.entries(FEATURE_LABELS).map(([k, label]) => (
+            <label key={k} className={`flex items-start gap-3 rounded-xl border border-line p-3 ${isSuper ? 'cursor-pointer' : 'opacity-70'}`}>
+              <input
+                type="checkbox"
+                className="mt-1 size-4"
+                disabled={!isSuper}
+                checked={s.feature_flags?.[k] !== false}
+                onChange={(e) => set({ feature_flags: { ...(s.feature_flags || {}), [k]: e.target.checked } })}
+              />
+              <span className="font-medium">{label}</span>
+            </label>
+          ))}
         </div>
       </Card>
 
