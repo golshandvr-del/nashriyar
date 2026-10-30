@@ -124,6 +124,9 @@
 - مایگریشن جدید: فایل در migrations/ + افزودن به آرایهٔ MIGRATIONS در src/server/migrate.ts.
 - اجرای تست/بیلد طولانی در Bash: timeout ابزار را 300000+ بگذار (پیش‌فرض ۲ دقیقه است و حلقه‌های انتظار را می‌کشد).
 
+- **گفتگوی ۲۲–۲۳:** فهرست مجاز ثبت‌نام (API + کارت مسئول + فیلد ثبت‌نام)، کد بازیابی یک‌بارمصرف (/recover)، تب‌های کتابخانه، لینک امضاشدهٔ کوتاه‌مدت برای رسانهٔ پولی (lib/media-sign.ts)، default_code_ttl_hours مسئول (شماره‌های تازه ارث می‌برند)، ثبت رویداد reader.session، تست هم‌زمانی کد در smoke.mjs. فاز ۵ تیک خورد (جز «پیش‌نمایش عمومی پایدار» = نیازمند استقرار/کارفرما). تیک‌ها: ۱۰۰.
+- ابزار سندباکس: `~/ck.sh` (تابع ck: add+commit+push با ۵ تلاش)، `~/tick.py` (تیک ROADMAP با «زیررشته|||یادداشت» از stdin). راه‌اندازی: npm install → npm run build → npm run seed → pm2 start server-dist/node.mjs --name nashriyar.
+
 ## حساب‌های نمایشی (پس از seed)
 - سوپرادمین: `admin` / `admin1234` — مسئول نشریات: `officer` / `officer1234`
 - تیم نمونه: `pub1-director` / `team1234` (و `pub1-editor`، `pub1-holder`)
