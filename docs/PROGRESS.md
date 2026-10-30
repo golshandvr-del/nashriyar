@@ -60,7 +60,7 @@
   3. [x] SEO: /api/public/sitemap.xml و /robots.txt پویا + src/web/lib/meta.ts (useMeta: title/description/OG/canonical/JSON-LD) در Publication (Periodical) و Issue (PublicationIssue)
   4. [x] پیش‌بینی خطی: GET /api/analytics/forecast (termBounds + linearFit در shared/fa.ts) + تب «پیش‌بینی ترم» در admin/Analytics — تست شد
   5. [x] کارنامه: GET /api/analytics/scorecard/:id + admin/Scorecard.tsx (/admin/publications/:id/scorecard)؛ گزارش دوره‌ای: admin/Report.tsx (/admin/report، منوی پایش)؛ استایل چاپ A4 در styles.css
-  6. [ ] feature_flags در settings (سوپرادمین)
+  6. [x] feature flags: src/server/lib/features.ts (getFeatures/sanitizeFeatures/requireFeature) + POST /api/admin/settings {feature_flags} فقط سوپرادمین + features در /api/public/settings + gate روی explore/posts/recruitment/certificates/comments/redeem/physical-sales + src/web/lib/features.ts (useFeature/usePublicSettings) و پنهان‌سازی UI — تست شد (403 هنگام خاموش)
   7. [ ] حالت‌های ثبت‌نام: آزاد / فهرست مجاز CSV / کد فعال‌سازی
   8. [ ] TOTP برای سوپرادمین و مسئول
   9. [ ] پالت فرمان Ctrl+K
@@ -79,6 +79,7 @@
 - CSRF: درخواست‌های غیر GET باید هدر Origin هم‌دامنه داشته باشند.
 - @hono/node-server v2: فایل‌های تایپ `.d.mts` هستند.
 - داده‌ها در `data/` (gitignore) — `nashriyar.db` + `files/`.
+- مسیر ذخیرهٔ تنظیمات ادمین **POST** `/api/admin/settings` است (نه PUT).
 
 ## حساب‌های نمایشی (پس از seed)
 - سوپرادمین: `admin` / `admin1234` — مسئول نشریات: `officer` / `officer1234`
