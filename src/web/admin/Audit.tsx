@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronLeft, Download, ScrollText } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ScrollText } from 'lucide-react'
 import { api, qs } from '../lib/api'
 import { faDate, toFaDigits } from '../lib/format'
-import { Async, Badge, Button, Empty, PageHeader, useAsync } from '../components/ui'
-import { downloadCsv } from '../components/Chart'
+import { Async, Badge, Empty, PageHeader, useAsync } from '../components/ui'
+import { ExportButtons } from '../components/Chart'
 
 /** Action prefixes → Persian group labels (server stores dotted action names, e.g. "user.password_reset"). */
 const GROUPS: Record<string, string> = {
@@ -64,13 +64,10 @@ export default function AdminAudit() {
   const st = useAsync(() => api.get('/api/admin/audit' + qs({ action })), [action])
   const [open, setOpen] = useState<string | null>(null)
 
-  const exportCsv = (items: any[]) =>
-    downloadCsv(
-      'audit-log',
-      csvOf(
-        ['زمان', 'کاربر', 'اقدام', 'نوع موجودیت', 'شناسه', 'قبل', 'بعد'],
-        items.map((a) => [faDate(a.created_at, true), a.actor_name || a.actor_username || '—', a.action, a.entity_type || '', a.entity_id || '', a.before_json || '', a.after_json || ''])
-      )
+  const auditCsv = (items: any[]) =>
+    csvOf(
+      ['زمان', 'کاربر', 'اقدام', 'نوع موجودیت', 'شناسه', 'قبل', 'بعد'],
+      items.map((a) => [faDate(a.created_at, true), a.actor_name || a.actor_username || '—', a.action, a.entity_type || '', a.entity_id || '', a.before_json || '', a.after_json || ''])
     )
 
   return (
@@ -82,9 +79,7 @@ export default function AdminAudit() {
               title="گزارش رویدادها"
               subtitle="ثبت تغییرناپذیر اقدام‌های مدیریتی (۳۰۰ رویداد اخیر)"
               actions={
-                <Button variant="ghost" disabled={!d.items.length} onClick={() => exportCsv(d.items)}>
-                  <Download className="size-4" /> خروجی CSV
-                </Button>
+                d.items.length ? <ExportButtons name="audit-log" csv={() => auditCsv(d.items)} /> : null
               }
             />
             <div className="flex flex-wrap gap-2">
