@@ -281,6 +281,21 @@ adminRoutes.post('/users/:id/reset-password', async (c) => {
   return c.json({ ok: true, credentials: { name: target.display_name, username: target.username, password: pw } })
 })
 
+/** Recovery when a staff member lost their authenticator: turns 2FA off so they can log in and set it up again. */
+adminRoutes.post('/users/:id/reset-totp', async (c) => {
+  const u = admin(c)
+  const db = c.get('db')
+  const target = await db.first<any>('SELECT id, system_role FROM users WHERE id = ? AND deleted_at IS NULL', [c.req.param('id')])
+  if (!target) throw notFound('کاربر یافت نشد')
+  if (target.id === u.id) throw bad('رمز دومرحله‌ای خودتان را از تنظیمات حساب مدیریت کنید')
+  if ((target.system_role === 'super_admin' || target.system_role === 'pub_officer') && u.system_role !== 'super_admin')
+    throw bad('رمز دومرحله‌ای این حساب فقط توسط سوپرادمین بازنشانی می‌شود')
+  await db.run('UPDATE users SET totp_enabled = 0, totp_secret = NULL, totp_last_step = NULL WHERE id = ?', [target.id])
+  await db.run('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL', [nowIso(), target.id])
+  await audit(db, u.id, 'user.totp_reset', 'user', target.id)
+  return c.json({ ok: true })
+})
+
 // ───────── Users (system staff & students) ─────────
 adminRoutes.get('/users', async (c) => {
   admin(c)
@@ -291,7 +306,7 @@ adminRoutes.get('/users', async (c) => {
   if (role) (where.push('u.system_role = ?'), params.push(role))
   if (q) (where.push('(u.display_name LIKE ? OR u.username LIKE ? OR u.student_number LIKE ?)'), params.push(`%${q}%`, `%${q}%`, `%${q}%`))
   const rows = await c.get('db').all(
-    `SELECT u.id, u.username, u.display_name, u.student_number, u.system_role, u.status, u.scope_faculty_id, u.last_login_at, u.created_at, u.must_change_password, f.name AS faculty_name,
+    `SELECT u.id, u.username, u.display_name, u.student_number, u.system_role, u.status, u.scope_faculty_id, u.last_login_at, u.created_at, u.must_change_password, u.totp_enabled, f.name AS faculty_name,
        (SELECT GROUP_CONCAT(p.title, '، ') FROM publication_roles r JOIN publications p ON p.id = r.publication_id WHERE r.user_id = u.id AND r.ended_at IS NULL) AS publications
      FROM users u LEFT JOIN faculties f ON f.id = u.faculty_id WHERE ${where.join(' AND ')} ORDER BY u.created_at DESC LIMIT 300`,
     params
