@@ -113,7 +113,12 @@ function Trends({ q }: { q: string }) {
                 />
               </Card>
             )}
-            <Card title="بازدید بر حسب روز هفته" className="lg:col-span-2">
+            {d.newPerYear?.length > 0 && (
+            <Card title="نشریات جدید ثبت‌شده در هر سال">
+              <Chart height={220} csvName="new-publications" option={{ xAxis: { type: 'category', data: d.newPerYear.map((r: any) => toFaDigits(r.y)) }, yAxis: { type: 'value', minInterval: 1 }, series: [{ name: 'نشریهٔ جدید', type: 'bar', data: d.newPerYear.map((r: any) => r.n) }] }} />
+            </Card>
+          )}
+          <Card title="بازدید بر حسب روز هفته" className="lg:col-span-2">
               <Chart height={220} csvName="weekday" option={{ xAxis: { type: 'category', data: [6, 0, 1, 2, 3, 4, 5].map((i) => WEEKDAYS[i]) }, yAxis: { type: 'value' }, series: [{ name: 'بازدید', type: 'bar', data: [6, 0, 1, 2, 3, 4, 5].map((i) => d.weekday.find((w: any) => w.d === i)?.n ?? 0) }] }} />
             </Card>
           </div>
