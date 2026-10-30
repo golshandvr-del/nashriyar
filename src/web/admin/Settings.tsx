@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Save, Sparkles } from 'lucide-react'
 import { api } from '../lib/api'
+import { faDate, toFaDigits } from '../../shared/fa'
 import { Async, Button, Card, Input, PageHeader, useAction, useAsync } from '../components/ui'
 
 type S = Record<string, any>
@@ -123,7 +124,23 @@ function Form({ initial, isSuper, reload }: { initial: S; isSuper: boolean; relo
               />
               <span className="mt-1 block text-xs text-muted">کلید ذخیره‌شده فقط با چهار نویسهٔ آخر نمایش داده می‌شود؛ برای تغییر، کلید جدید را کامل وارد کنید.</span>
             </label>
+            <label className="block">
+              <span className="label">سقف درخواست ماهانه (۰ = نامحدود)</span>
+              <Input dir="ltr" type="number" min={0} value={s.ai_monthly_call_limit ?? 0} onChange={(e) => set({ ai_monthly_call_limit: Number(e.target.value) || 0 })} />
+            </label>
           </div>
+          {s.ai_status && (
+            <div className="rounded-xl bg-surface-2 p-3 text-sm">
+              <div className="flex flex-wrap gap-x-6 gap-y-1">
+                <span>مصرف این ماه: <b>{toFaDigits(s.ai_status.usage.calls)}</b> درخواست{s.ai_status.limit ? <> از <b>{toFaDigits(s.ai_status.limit)}</b></> : null}</span>
+                <span>توکن: <b>{toFaDigits(s.ai_status.usage.tokens)}</b></span>
+                <span>خطا: <b>{toFaDigits(s.ai_status.usage.failures)}</b></span>
+              </div>
+              {s.ai_status.breaker_open && (
+                <p className="mt-2 text-xs text-red-600 dark:text-red-400">به‌دلیل چند خطای پیاپی، فراخوانی سرویس تا {faDate(s.ai_status.breaker_open_until, true)} موقتاً متوقف است (قطع‌کنندهٔ مدار).</p>
+              )}
+            </div>
+          )}
         </Card>
       )}
 
