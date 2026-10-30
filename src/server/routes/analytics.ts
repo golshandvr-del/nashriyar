@@ -196,6 +196,65 @@ analyticsRoutes.get('/forecast', async (c) => {
   })
 })
 
+/**
+ * One-page printable scorecard of a publication for a date range (ROADMAP phase 8):
+ * identity, KPIs vs the average of all (scoped) active publications, health score breakdown,
+ * issues published in the range with cycle time, and team size. Officer/monitor roles only.
+ */
+analyticsRoutes.get('/scorecard/:id', async (c) => {
+  const db = c.get('db')
+  const s = pubScope(c)
+  const { from, to } = dateRange(c, 365)
+  const fromTs = from + 'T00:00:00.000Z'
+  const toTs = to + 'T23:59:59.999Z'
+  const pub = await db.first<any>(
+    `SELECT p.id, p.title, p.slug, p.tagline, p.frequency, p.license_number, p.founded_at, p.status, p.theme_color, p.logo_key,
+       a.name AS association_name, f.name AS faculty_name
+     FROM publications p JOIN associations a ON a.id = p.association_id LEFT JOIN faculties f ON f.id = p.faculty_id
+     WHERE p.id = ? AND p.deleted_at IS NULL${s.sql}`,
+    [c.req.param('id'), ...s.params]
+  )
+  if (!pub) return c.json({ error: 'not_found', message: 'نشریه پیدا نشد' }, 404)
+  const metric = (id: string | null) => {
+    const w = id ? 'p.id = ?' : "p.status = 'active' AND p.deleted_at IS NULL" + s.sql
+    const wp = id ? [id] : s.params
+    return db.first<any>(
+      `SELECT COUNT(*) AS n_pubs,
+         SUM((SELECT COUNT(*) FROM issues i WHERE i.publication_id = p.id AND i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?)) AS published,
+         SUM((SELECT COALESCE(SUM(page_count),0) FROM issues i WHERE i.publication_id = p.id AND i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?)) AS pages,
+         SUM((SELECT COUNT(*) FROM view_events v WHERE v.publication_id = p.id AND v.day BETWEEN ? AND ?)) AS views,
+         SUM((SELECT COUNT(*) FROM view_events v WHERE v.publication_id = p.id AND v.entity_type = 'issue_read' AND v.day BETWEEN ? AND ?)) AS reads,
+         SUM((SELECT COUNT(*) FROM follows fo WHERE fo.publication_id = p.id AND fo.created_at BETWEEN ? AND ?)) AS new_followers,
+         SUM((SELECT COUNT(*) FROM posts po WHERE po.publication_id = p.id AND po.published_at BETWEEN ? AND ?)) AS posts,
+         SUM((SELECT COUNT(*) FROM access_codes ac WHERE ac.publication_id = p.id AND ac.redeemed_at BETWEEN ? AND ?)) AS digital_sold,
+         SUM((SELECT COALESCE(SUM(quantity),0) FROM physical_sales ps WHERE ps.publication_id = p.id AND ps.sold_at BETWEEN ? AND ?)) AS print_sold,
+         SUM((SELECT COUNT(*) FROM team_members tm WHERE tm.publication_id = p.id AND tm.is_active = 1)) AS members
+       FROM publications p WHERE ${w}`,
+      [fromTs, toTs, fromTs, toTs, from, to, from, to, fromTs, toTs, fromTs, toTs, fromTs, toTs, from, to, ...wp]
+    )
+  }
+  const mine = await metric(pub.id)
+  const all = await metric(null)
+  const n = Math.max(1, Number(all?.n_pubs || 1))
+  const keys = ['published', 'pages', 'views', 'reads', 'new_followers', 'posts', 'digital_sold', 'print_sold', 'members']
+  const kpis = keys.map((k) => ({ key: k, value: Number(mine?.[k] || 0), average: Math.round((Number(all?.[k] || 0) / n) * 10) / 10 }))
+  const issues = await db.all<any>(
+    `SELECT i.id, i.number, i.title, i.page_count, i.created_at, i.published_at, i.planned_publish_at,
+       (SELECT COUNT(*) FROM view_events v WHERE v.issue_id = i.id AND v.entity_type = 'issue_read') AS reads
+     FROM issues i WHERE i.publication_id = ? AND i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ? ORDER BY i.published_at`,
+    [pub.id, fromTs, toTs]
+  )
+  const roles = await db.all<any>(
+    `SELECT r.role, u.display_name FROM publication_roles r JOIN users u ON u.id = r.user_id WHERE r.publication_id = ? AND r.ended_at IS NULL`,
+    [pub.id]
+  )
+  const health = (await healthScores(db, [pub.id]))[pub.id] ?? null
+  return c.json({
+    from, to, generated_at: nowIso(), publication: pub, roles, health, kpis, n_publications: n,
+    issues: issues.map((i) => ({ ...i, cycle_days: i.published_at ? Math.round((new Date(i.published_at).getTime() - new Date(i.created_at).getTime()) / DAY) : null, late: !!(i.planned_publish_at && i.published_at && i.published_at.slice(0, 10) > i.planned_publish_at.slice(0, 10)) }))
+  })
+})
+
 /** Ranking table of publications on many metrics (officer only sees this — never teams). */
 analyticsRoutes.get('/ranking', async (c) => {
   const db = c.get('db')
