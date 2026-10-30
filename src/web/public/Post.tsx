@@ -141,6 +141,14 @@ export default function Post() {
               </div>
               <span className="text-xs text-brand">مشاهدهٔ شماره</span>
             </Link>
+            {/* ROADMAP phase 6: "read full" jumps straight to the source section in the reader (paywall/preview handled there) */}
+            <Link
+              to={`/read/${p.source_issue_id}${p.source_page ? `?page=${p.source_page}` : ''}`}
+              onClick={() => api.post('/api/public/track', { type: 'read_full', id: p.id }).catch(() => {})}
+              className="btn mt-2 w-full justify-center"
+            >
+              <BookOpen className="size-4" /> خواندن کامل
+            </Link>
 
             <section className="mt-6" aria-label="نظرها">
               <h2 className="mb-3 flex items-center gap-2 font-bold">
