@@ -62,6 +62,20 @@ export default function IssueNew() {
   }, [pubId])
 
   const keywords = useMemo(() => info.keywords.split(/[,،\n]/).map((s) => s.trim()).filter(Boolean), [info.keywords])
+  const [kwBusy, setKwBusy] = useState(false)
+  /** Suggest keywords from this issue's own text (AI when enabled, frequency fallback otherwise). */
+  const suggestFromText = async () => {
+    const text = [info.title, info.summary, ...toc.map((t) => t.title)].join('\n')
+    setKwBusy(true)
+    try {
+      const r = await api.post<{ keywords: string[] }>(`/api/team/${pubId}/keywords/suggest`, { text })
+      setKwSuggest((old) => [...new Set([...(r.keywords || []), ...old])])
+    } catch {
+      /* suggestions are optional */
+    } finally {
+      setKwBusy(false)
+    }
+  }
 
   const addPasted = () => {
     const lines = paste.split('\n').map((l) => l.replace(/^[\s\d۰-۹\-–—.)•*]+/, '').trim()).filter(Boolean)
@@ -150,6 +164,9 @@ export default function IssueNew() {
             <Field label="کلیدواژه‌ها" hint="با ویرگول جدا کنید">
               <Input value={info.keywords} onChange={(e) => setInfo({ ...info, keywords: e.target.value })} />
             </Field>
+            <button type="button" className="mt-1 text-xs text-brand hover:underline disabled:opacity-50" disabled={kwBusy || (!info.title && !info.summary)} onClick={suggestFromText}>
+              {kwBusy ? 'در حال پیشنهاد…' : 'پیشنهاد کلیدواژه از عنوان و خلاصه'}
+            </button>
             {kwSuggest.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {kwSuggest.filter((k) => !keywords.includes(k)).slice(0, 14).map((k) => (
