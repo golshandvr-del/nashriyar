@@ -130,6 +130,7 @@ function App() {
           <Route path="categories" element={<Categories />} />
           <Route path="c/:slug" element={<Category />} />
           <Route path="faculty/:id" element={<Category kind="faculty" />} />
+          <Route path="association/:id" element={<Category kind="association" />} />
           <Route path="search" element={<Search />} />
           <Route path="p/:slug" element={<Publication />} />
           <Route path="issue/:id" element={<Issue />} />
