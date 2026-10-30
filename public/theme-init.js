@@ -5,6 +5,6 @@
     var t = localStorage.getItem('nsh_theme') || 'system'
     var dark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     if (dark) document.documentElement.classList.add('dark')
-    if (localStorage.getItem('nsh_large_text') === '1') document.documentElement.classList.add('large-text')
+    if (localStorage.getItem('nsh_large_text') === '1') document.documentElement.classList.add('text-lg-mode')
   } catch (e) {}
 })()
