@@ -258,6 +258,7 @@ const RANK_COLS: { key: string; label: string; money?: boolean }[] = [
 
 function Ranking({ q }: { q: string }) {
   const st = useAsync(() => api.get(`/api/analytics/ranking${q}`), [q])
+  const { role } = useAdminRole()
   const [sort, setSort] = useState('health')
   return (
     <Async state={st}>
