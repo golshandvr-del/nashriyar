@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Award, CheckCircle2, QrCode, Send, ShieldOff, Undo2, XCircle } from 'lucide-react'
+import { Award, CheckCircle2, Fingerprint, QrCode, Send, ShieldOff, Undo2, XCircle } from 'lucide-react'
 import { api } from '../../lib/api'
 import { faDate, formatNumber, formatToman, relativeFa, toEnDigits } from '../../lib/format'
 import { Badge, Button, Card, Field, Input, Select, Textarea, useAction, useToast } from '../../components/ui'
@@ -222,6 +222,7 @@ export default function PublishTab({ d, reload, pubId }: RoomProps) {
               </div>
             </Card>
           )}
+          {i.pricing === 'paid' && <TraceCard pubId={pubId} issueId={i.id} />}
           <PrintQr issueId={i.id} number={i.number} />
           <p className="text-center text-xs text-muted">منتشرشده در {faDate(i.published_at)} · {formatNumber(i.page_count || 0)} صفحه</p>
         </>
@@ -251,6 +252,45 @@ function PrintQr({ issueId, number }: { issueId: string; number: number }) {
           <Button variant="ghost" onClick={download}>دریافت SVG برای چاپ</Button>
         </div>
       </div>
+    </Card>
+  )
+}
+
+/** Resolve an invisible-watermark code from a leaked page image (ROADMAP phase 5). */
+function TraceCard({ pubId, issueId }: { pubId: string; issueId: string }) {
+  const [code, setCode] = useState('')
+  const [res, setRes] = useState<{ checked: number; match: { student_number: string | null; username: string; display_name: string | null } | null } | null>(null)
+  const { busy, run } = useAction()
+  return (
+    <Card title={<span className="flex items-center gap-2"><Fingerprint className="size-5" /> ردیابی تصویر نشت‌کرده</span>}>
+      <p className="mb-3 text-xs text-muted">
+        هر صفحهٔ پولی یک کد ۸ نویسه‌ای نامرئی دارد. کد استخراج‌شده از تصویر (طبق docs/SECURITY.md) را وارد کنید تا خوانندهٔ آن مشخص شود.
+      </p>
+      <div className="flex gap-2">
+        <Input dir="ltr" className="font-mono" placeholder="مثلاً 3fa91c0e" value={code} maxLength={16} onChange={(e) => setCode(e.target.value)} />
+        <Button
+          loading={busy}
+          disabled={code.trim().length < 8}
+          onClick={async () => {
+            const r = await run(() => api.post(`/api/team/${pubId}/issues/${issueId}/trace`, { code: code.trim() }))
+            if (r) setRes(r as any)
+          }}
+        >
+          ردیابی
+        </Button>
+      </div>
+      {res && (
+        <p className="mt-3 text-sm">
+          {res.match ? (
+            <>
+              متعلق به <b>{res.match.display_name || res.match.username}</b>
+              {res.match.student_number && <span dir="ltr"> ({res.match.student_number})</span>} — می‌توانید از کارت بالا دسترسی او را باطل کنید.
+            </>
+          ) : (
+            <span className="text-muted">در میان {formatNumber(res.checked)} خوانندهٔ این شماره، کدی منطبق پیدا نشد.</span>
+          )}
+        </p>
+      )}
     </Card>
   )
 }
