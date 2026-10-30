@@ -392,6 +392,15 @@ publicRoutes.get('/posts/:id', async (c) => {
   )
   const u = c.get('user')
   const saved = u ? !!(await db.first('SELECT 1 FROM saved_posts WHERE user_id = ? AND post_id = ?', [u.id, po.id])) : false
+  // ROADMAP phase 6: the author sees their own not-yet-approved comments (marked pending); nobody else does
+  if (u) {
+    const mine = await db.all<any>(
+      `SELECT cm.id, cm.body, cm.created_at, cm.parent_id, 0 AS is_team_reply, ? AS author, 1 AS pending
+       FROM comments cm WHERE cm.post_id = ? AND cm.user_id = ? AND cm.status = 'pending' ORDER BY cm.created_at LIMIT 20`,
+      [u.display_name, po.id, u.id]
+    )
+    comments.push(...mine)
+  }
   await trackView(c, 'post', po.id, po.publication_id)
   return c.json({ post: { ...po, images: parseJson(po.images_json, []), alts: parseJson(po.alt_json, []), images_json: undefined, alt_json: undefined }, comments, saved })
 })
