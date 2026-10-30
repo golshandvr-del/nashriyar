@@ -24,7 +24,7 @@ interface PostData {
     source_toc_title: string | null
     source_page: number | null
   }
-  comments: { id: string; body: string; created_at: string; parent_id: string | null; is_team_reply: number; author: string }[]
+  comments: { id: string; body: string; created_at: string; parent_id: string | null; is_team_reply: number; author: string; pending?: number }[]
   saved: boolean
 }
 
@@ -162,7 +162,8 @@ export default function Post() {
                       <div className="mb-1 flex items-center gap-2 text-xs">
                         <b>{c.author}</b>
                         <span className="text-muted">{relativeFa(c.created_at)}</span>
-                        {user && commentsOn && (
+                        {c.pending ? <span className="rounded bg-amber-100 px-1.5 text-[10px] text-amber-800">در انتظار تأیید — فقط شما می‌بینید</span> : null}
+                        {user && commentsOn && !c.pending && (
                           <button className="ms-auto text-brand" onClick={() => setReplyTo(c.id)}>
                             پاسخ
                           </button>
@@ -177,6 +178,7 @@ export default function Post() {
                           <div className="mb-1 flex gap-2 text-xs">
                             <b>{r.author}</b>
                             <span className="text-muted">{relativeFa(r.created_at)}</span>
+                            {r.pending ? <span className="rounded bg-amber-100 px-1.5 text-[10px] text-amber-800">در انتظار تأیید</span> : null}
                           </div>
                           <p className="whitespace-pre-line">{r.body}</p>
                         </div>
