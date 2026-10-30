@@ -161,7 +161,7 @@ meRoutes.get('/feed', async (c) => {
   const rows = await c.get('db').all<any>(
     `SELECT po.id, po.caption, po.images_json, po.published_at, p.slug AS publication_slug, p.title AS publication_title, p.logo_key, p.theme_color
      FROM posts po JOIN publications p ON p.id = po.publication_id JOIN follows f ON f.publication_id = po.publication_id AND f.user_id = ? AND f.unfollowed_at IS NULL
-     WHERE po.status = 'published' AND po.is_story = 0 ORDER BY po.published_at DESC LIMIT 60`,
+     WHERE po.status = 'published' AND po.published_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now') AND po.is_story = 0 ORDER BY po.published_at DESC LIMIT 60`,
     [u.id]
   )
   return c.json({ posts: rows.map((x) => ({ ...x, images: parseJson(x.images_json, []), images_json: undefined })) })
@@ -173,7 +173,7 @@ meRoutes.get('/saved', async (c) => {
   const rows = await c.get('db').all<any>(
     `SELECT po.id, po.caption, po.images_json, po.published_at, p.slug AS publication_slug, p.title AS publication_title
      FROM saved_posts s JOIN posts po ON po.id = s.post_id JOIN publications p ON p.id = po.publication_id
-     WHERE s.user_id = ? AND po.status = 'published' ORDER BY s.created_at DESC`,
+     WHERE s.user_id = ? AND po.status = 'published' AND po.published_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now') ORDER BY s.created_at DESC`,
     [u.id]
   )
   return c.json({ posts: rows.map((x) => ({ ...x, images: parseJson(x.images_json, []), images_json: undefined })) })
@@ -200,7 +200,7 @@ meRoutes.post('/posts/:postId/comments', async (c) => {
   await checkRateLimit(c, key)
   const b = await body<{ body?: string; parent_id?: string }>(c)
   const text = str(b.body, 'متن نظر', { min: 2, max: 1000 })
-  const po = await db.first<{ id: string; publication_id: string }>("SELECT id, publication_id FROM posts WHERE id = ? AND status = 'published'", [c.req.param('postId')])
+  const po = await db.first<{ id: string; publication_id: string }>("SELECT id, publication_id FROM posts WHERE id = ? AND status = 'published' AND published_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now')", [c.req.param('postId')])
   if (!po) throw notFound('پست یافت نشد')
   // simple flood control: max 10 comments / 10 minutes
   const recent = await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM comments WHERE user_id = ? AND created_at > ?', [u.id, new Date(Date.now() - 600_000).toISOString()])
