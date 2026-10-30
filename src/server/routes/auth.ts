@@ -192,6 +192,52 @@ authRoutes.post('/logout-all', async (c) => {
   return c.json({ ok: true })
 })
 
+// ---- Self-service password recovery with a one-time recovery code (ROADMAP phase 5; SMS later) ----
+authRoutes.get('/recovery-code', async (c) => {
+  const u = requireUser(c)
+  const row = await c.get('db').first<{ recovery_hash: string | null }>('SELECT recovery_hash FROM users WHERE id = ?', [u.id])
+  return c.json({ has_code: !!row?.recovery_hash })
+})
+
+/** Generates (or replaces) the recovery code. Requires the current password; the code is shown ONCE. */
+authRoutes.post('/recovery-code', async (c) => {
+  const u = requireUser(c)
+  const b = await body<{ password?: string }>(c)
+  const db = c.get('db')
+  const row = await db.first<{ password_hash: string }>('SELECT password_hash FROM users WHERE id = ?', [u.id])
+  if (!row || !(await verifyPassword(str(b.password, 'رمز فعلی', { max: 200 }), row.password_hash))) throw bad('رمز فعلی نادرست است')
+  const raw = Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => '23456789ABCDEFGHJKMNPQRSTUVWXYZ'[x % 31]).join('')
+  const code = raw.match(/.{4}/g)!.join('-')
+  await db.run('UPDATE users SET recovery_hash = ? WHERE id = ?', [await sha256(normalizeSecret(code)), u.id])
+  await audit(db, u.id, 'user.recovery_code', 'user', u.id)
+  return c.json({ ok: true, code })
+})
+
+/** POST /api/auth/recover { username, code, next } — sets a new password; the code is consumed. */
+authRoutes.post('/recover', async (c) => {
+  const b = await body<{ username?: string; code?: string; next?: string }>(c)
+  const username = toEnDigits(str(b.username, 'نام کاربری یا شماره دانشجویی', { max: 64 })).toLowerCase()
+  const next = str(b.next, 'رمز جدید', { min: 8, max: 200 })
+  const key = `recover:${clientIp(c)}:${username}`
+  await checkRateLimit(c, key)
+  const db = c.get('db')
+  const u = await db.first<{ id: string; recovery_hash: string | null; status: string }>(
+    'SELECT id, recovery_hash, status FROM users WHERE (username = ? OR student_number = ?) AND deleted_at IS NULL',
+    [username, username]
+  )
+  const hash = await sha256(normalizeSecret(str(b.code, 'کد بازیابی', { max: 40 })))
+  if (!u || !u.recovery_hash || u.recovery_hash !== hash) {
+    await recordFailure(c, key)
+    throw new HttpError(400, 'نام کاربری یا کد بازیابی نادرست است؛ اگر کد ندارید از مسئول نشریات بخواهید رمز را بازنشانی کند', 'bad_recovery')
+  }
+  if (u.status !== 'active') throw new HttpError(403, 'حساب شما غیرفعال شده است')
+  await db.run('UPDATE users SET password_hash = ?, recovery_hash = NULL, must_change_password = 0 WHERE id = ?', [await hashPassword(next), u.id])
+  await db.run('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL', [nowIso(), u.id])
+  await clearFailures(c, key)
+  await audit(db, u.id, 'user.password_recover', 'user', u.id)
+  return c.json({ ok: true })
+})
+
 authRoutes.post('/theme', async (c) => {
   const u = requireUser(c)
   const b = await body<{ theme?: string }>(c)
