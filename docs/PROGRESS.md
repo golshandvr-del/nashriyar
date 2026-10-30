@@ -59,7 +59,7 @@
   2. [x] فیلتر کامنت: src/server/lib/moderation.ts (flagComment) در me.ts — تست شد
   3. [x] SEO: /api/public/sitemap.xml و /robots.txt پویا + src/web/lib/meta.ts (useMeta: title/description/OG/canonical/JSON-LD) در Publication (Periodical) و Issue (PublicationIssue)
   4. [x] پیش‌بینی خطی: GET /api/analytics/forecast (termBounds + linearFit در shared/fa.ts) + تب «پیش‌بینی ترم» در admin/Analytics — تست شد
-  5. [ ] کارنامهٔ یک‌صفحه‌ای قابل چاپ هر نشریه + گزارش دوره‌ای قابل چاپ
+  5. [x] کارنامه: GET /api/analytics/scorecard/:id + admin/Scorecard.tsx (/admin/publications/:id/scorecard)؛ گزارش دوره‌ای: admin/Report.tsx (/admin/report، منوی پایش)؛ استایل چاپ A4 در styles.css
   6. [ ] feature_flags در settings (سوپرادمین)
   7. [ ] حالت‌های ثبت‌نام: آزاد / فهرست مجاز CSV / کد فعال‌سازی
   8. [ ] TOTP برای سوپرادمین و مسئول
