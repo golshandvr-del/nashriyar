@@ -690,7 +690,61 @@ analyticsRoutes.get('/sales', async (c) => {
     `SELECT COALESCE(ac.channel,'other') AS channel, COUNT(*) AS n FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql} GROUP BY channel`,
     [fromTs, toTs, ...s.params]
   )
-  return c.json({ from, to, byIssue, channels })
+  // Totals, breakdowns and monthly trend (ROADMAP phase 7 sales)
+  const now = nowIso()
+  const codes = await db.first<any>(
+    `SELECT COUNT(*) AS created,
+       SUM(CASE WHEN ac.redeemed_at IS NOT NULL THEN 1 ELSE 0 END) AS redeemed,
+       SUM(CASE WHEN ac.redeemed_at IS NULL AND ac.revoked_at IS NULL AND ac.expires_at < ? THEN 1 ELSE 0 END) AS expired,
+       SUM(CASE WHEN ac.revoked_at IS NOT NULL THEN 1 ELSE 0 END) AS revoked
+     FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.created_at BETWEEN ? AND ?${s.sql}`,
+    [now, fromTs, toTs, ...s.params]
+  )
+  const revenue = await db.first<any>(
+    `SELECT COALESCE(SUM(ac.price_paid),0) AS digital FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql}`,
+    [fromTs, toTs, ...s.params]
+  )
+  const print = await db.first<any>(
+    `SELECT COALESCE(SUM(ps.quantity),0) AS qty, COALESCE(SUM(ps.quantity * COALESCE(ps.unit_price,0)),0) AS revenue
+     FROM physical_sales ps JOIN publications p ON p.id = ps.publication_id WHERE ps.sold_at BETWEEN ? AND ?${s.sql}`,
+    [from, to + 'T23:59:59', ...s.params]
+  )
+  const created = Number(codes?.created || 0)
+  const totals = {
+    codes_created: created,
+    codes_redeemed: Number(codes?.redeemed || 0),
+    codes_expired: Number(codes?.expired || 0),
+    codes_revoked: Number(codes?.revoked || 0),
+    use_rate: created ? Math.round((Number(codes?.redeemed || 0) / created) * 1000) / 10 : 0,
+    revenue_digital: Number(revenue?.digital || 0),
+    print_sold: Number(print?.qty || 0),
+    revenue_print: Number(print?.revenue || 0)
+  }
+  const byPublication = await db.all(
+    `SELECT p.id, p.title, COUNT(ac.id) AS sold, COALESCE(SUM(ac.price_paid),0) AS revenue,
+       (SELECT COALESCE(SUM(quantity),0) FROM physical_sales ps WHERE ps.publication_id = p.id AND ps.sold_at BETWEEN ? AND ?) AS print_sold
+     FROM publications p LEFT JOIN access_codes ac ON ac.publication_id = p.id AND ac.redeemed_at BETWEEN ? AND ?
+     WHERE p.deleted_at IS NULL${s.sql} GROUP BY p.id HAVING sold > 0 OR print_sold > 0 ORDER BY revenue DESC`,
+    [from, to + 'T23:59:59', fromTs, toTs, ...s.params]
+  )
+  const byFaculty = await db.all(
+    `SELECT f.id, COALESCE(f.name, 'بدون دانشکده') AS name, COUNT(ac.id) AS sold, COALESCE(SUM(ac.price_paid),0) AS revenue
+     FROM access_codes ac JOIN publications p ON p.id = ac.publication_id LEFT JOIN faculties f ON f.id = p.faculty_id
+     WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql} GROUP BY f.id ORDER BY revenue DESC`,
+    [fromTs, toTs, ...s.params]
+  )
+  const byCategory = await db.all(
+    `SELECT cat.id, cat.name, COUNT(DISTINCT ac.id) AS sold, COALESCE(SUM(ac.price_paid),0) AS revenue
+     FROM access_codes ac JOIN publications p ON p.id = ac.publication_id JOIN publication_categories pc ON pc.publication_id = p.id JOIN categories cat ON cat.id = pc.category_id
+     WHERE cat.type = 'subject' AND ac.redeemed_at BETWEEN ? AND ?${s.sql} GROUP BY cat.id ORDER BY revenue DESC LIMIT 12`,
+    [fromTs, toTs, ...s.params]
+  )
+  const monthly = await db.all(
+    `SELECT substr(ac.redeemed_at,1,7) AS m, COUNT(*) AS sold, COALESCE(SUM(ac.price_paid),0) AS revenue
+     FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql} GROUP BY m ORDER BY m`,
+    [fromTs, toTs, ...s.params]
+  )
+  return c.json({ from, to, totals, byIssue, channels, byPublication, byFaculty, byCategory, monthly })
 })
 
 /** Rule-based insights (Phase 8). */
