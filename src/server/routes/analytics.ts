@@ -133,7 +133,21 @@ analyticsRoutes.get('/trends', async (c) => {
     `SELECT CAST(strftime('%w', v.day) AS INTEGER) AS d, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY d ORDER BY d`,
     [from, to, ...s.params]
   )
-  return c.json({ from, to, published, views, sales, followers, byFaculty, byCategory, weekday })
+  // Year-over-year (ROADMAP phase 8): the same window one year earlier, month keys shifted +1 year so they align.
+  const shift = (d: string) => `${Number(d.slice(0, 4)) - 1}${d.slice(4)}`
+  const bump = (rows: any[]) => rows.map((r) => ({ ...r, m: `${Number(String(r.m).slice(0, 4)) + 1}${String(r.m).slice(4)}` }))
+  const yFrom = shift(from)
+  const yTo = shift(to)
+  const yoyPublished = bump(await db.all(
+    `SELECT substr(i.published_at,1,7) AS m, COUNT(*) AS n FROM issues i JOIN publications p ON p.id = i.publication_id
+     WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY m ORDER BY m`,
+    [yFrom + 'T00:00:00.000Z', yTo + 'T23:59:59.999Z', ...s.params]
+  ))
+  const yoyViews = bump(await db.all(
+    `SELECT substr(v.day,1,7) AS m, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY m ORDER BY m`,
+    [yFrom, yTo, ...s.params]
+  ))
+  return c.json({ from, to, published, views, sales, followers, byFaculty, byCategory, weekday, yoy: { published: yoyPublished, views: yoyViews } })
 })
 
 /**
