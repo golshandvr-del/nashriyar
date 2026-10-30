@@ -12,6 +12,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
     "test": "node scripts/test-e2e.mjs",
+    "test:unit": "node tests/unit.mjs",
     "test:load": "node tests/load.mjs",
     "test:cf": "node tests/smoke-cf.mjs",
     "backup": "node server-dist/node.mjs --backup",
