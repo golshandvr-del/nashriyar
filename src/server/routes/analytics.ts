@@ -579,6 +579,9 @@ analyticsRoutes.get('/gaps', async (c) => {
       gap_window: win, factors,
       id: p.id, title: p.title, frequency: p.frequency, expected_days: expected[p.frequency] ?? 120, issues: dates.length,
       avg_gap: gaps.length ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null, max_gap: gaps.length ? Math.max(...gaps) : null,
+      // ROADMAP phase 7: sequential intervals (1→2, 2→3, …), coefficient of variation, abnormal flags (> 1.5× expected)
+      intervals: gaps.map((g, k) => ({ from: k + 1, to: k + 2, days: g, abnormal: g > exp * 1.5 })),
+      cv: gaps.length > 1 ? (() => { const m = gaps.reduce((a, b) => a + b, 0) / gaps.length; const sd = Math.sqrt(gaps.reduce((a, b) => a + (b - m) ** 2, 0) / gaps.length); return m ? Math.round((sd / m) * 100) / 100 : null })() : null,
       days_since_last: since, last_published_at: last, overdue: since != null && since > (expected[p.frequency] ?? 120)
     })
   }
