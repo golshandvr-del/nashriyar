@@ -41,16 +41,19 @@
   - [x] src/web/lib/api.ts (api.get/post/put/del، qs، upload با XHR، mediaUrl) ؛ lib/auth.tsx (AuthProvider/useAuth، ROLE_LABEL، isAdmin/isMonitor) ؛ lib/theme.ts ؛ lib/format.ts (برچسب‌ها + cx + fileSize)
   - [x] src/web/components/ui.tsx (useAsync، Async، Button، Card، Field، Input/Textarea/Select، Badge، Modal، ToastProvider/useToast(toast, confirm)، useAction، Tabs، PageHeader، Stat، Progress، Avatar، Empty، ErrorBox) ؛ components/cards.tsx (Cover، IssueCard، IssueGrid، Shelf، PubCard، PostTile، PostGrid، PostCard)
   - مسیرهای SPA: / ، /explore ، /post/:id ، /categories ، /c/:slug ، /faculty/:id ، /search ، /p/:slug ، /issue/:id ، /read/:id ، /library ، /redeem ، /following ، /notifications ، /login ، /register ، /settings ، /verify/:code ، /recruitment ، /team/* ، /admin/*
-  - [x] src/web/main.tsx (Router + lazy؛ /read/:id خارج از Layout) — مسیرهای team/admin هنوز اضافه نشده‌اند
+  - [x] src/web/main.tsx (Router + lazy؛ /read/:id خارج از Layout؛ /team/* و /admin/* وصل شده‌اند)
   - [x] src/web/public/*: Layout Home Explore Post Categories Category(+faculty) Search Publication Issue Reader Library Redeem Following Notifications Login Register Settings Verify Recruitment Static(NotFound, Terms)
   - [x] src/web/team/*: Layout(+TeamSelect) Dashboard Members Issues IssueNew IssueRoom(+room/TocTab ProgressTab MediaTab PublishTab) Posts(+highlights) Comments Sales(codes+print) Stats(+RangePicker/defaultRange صادرشده) Profile Recruit — مسیرها در main.tsx وصل شد (commit 124)
   - [x] src/web/lib/pdf.ts (pdf.js→WebP) ؛ lib/image.ts (برش/فشرده‌سازی/حذف EXIF) ؛ components/Chart.tsx (ECharts tree-shaken، تم، CSV؛ downloadCsv صادرشده)
-  - [ ] src/web/admin/*: Layout Overview Live Approvals Publications PublicationNew PublicationDetail People Structure Categories Analytics(Charts با echarts) Insights Moderation Storefront Announcements Users Audit Settings
+  - [x] src/web/admin/*: Layout(+RequireAccess, useAdminRole, canAccess) Overview(+DeltaBadge, SEVERITY_*) Live Approvals Publications PublicationNew(+CredentialsSheet صادرشده) PublicationDetail IssueDetail People(+AdminPerson) Structure Categories Analytics Insights(+AI) Moderation Storefront Announcements(+مهلت‌ها) Users Audit Settings — مسیرهای /admin/* با Guard در main.tsx وصل شد (commit ~149)؛ tsc و vite build سبز
 - [ ] ecosystem.config.cjs ؛ Dockerfile ؛ deploy/ ؛ .github/workflows/ci.yml ؛ tests/
 
 ## نکات کشف‌شده (برای جلوگیری از تکرار)
 - pdfjs-dist v6: `destroy()` روی loadingTask است نه PDFDocumentProxy.
-- گام بعدی: پنل admin (src/web/admin/*) → سپس PWA/Docker/CI/OPERATIONS.
+- گام بعدی: تست دود سرتاسری پنل admin ← PWA (manifest + service worker) ← Dockerfile/compose ← .github/workflows/ci.yml ← docs/OPERATIONS.md ← تیک‌زدن ROADMAP.
+- `downloadCsv(name, csv)` فقط دو آرگومان می‌گیرد و خودش `.csv` اضافه می‌کند؛ `csvOf` در Analytics محلی است (صادر نشده).
+- مسیر شمارهٔ admin: `issues/:id` (IssueDetail از `useParams().id` می‌خواند).
+- Button فقط variant های primary | ghost | danger دارد.
 - Tailwind 4: نمی‌توان کلاس سفارشی (مثل btn) را @apply کرد؛ یوتیلیتی‌ها را مستقیم بنویس.
 - `npx vite build` (~۱ ثانیه) و `npx tsc --noEmit` هر دو پاس (۱۴۰۵/۰۸/۰۸، commit 103).
 - برای db.first روی `c: any` آرگومان نوع (<any>) نگذار (TS2347).
