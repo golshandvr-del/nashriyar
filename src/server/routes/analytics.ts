@@ -392,7 +392,17 @@ analyticsRoutes.get('/explore', async (c) => {
      FROM comments cm JOIN posts po ON po.id = cm.post_id JOIN publications p ON p.id = po.publication_id WHERE cm.is_team_reply = 0 AND cm.created_at BETWEEN ? AND ?${s.sql}`,
     [fromTs, toTs, ...s.params]
   )
-  return c.json({ from, to, top: top.map((r) => ({ ...r, image: parseJson<string[]>(r.images_json, [])[0] || null, images_json: undefined })), byPub, moderation })
+  // Funnel (ROADMAP phase 6/8): explore post view -> issue page -> reading -> purchase (unique viewers per step)
+  const uniq = async (type: string) =>
+    Number((await db.first<{ n: number }>(`SELECT COUNT(DISTINCT v.viewer_hash) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.entity_type = ? AND v.day BETWEEN ? AND ?${s.sql}`, [type, from, to, ...s.params]))?.n ?? 0)
+  const bought = Number((await db.first<{ n: number }>(`SELECT COUNT(DISTINCT ac.redeemed_by) AS n FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql}`, [fromTs, toTs, ...s.params]))?.n ?? 0)
+  const funnel = [
+    { key: 'post', label: 'دیدن پست اکسپلور', n: await uniq('post') },
+    { key: 'issue', label: 'ورود به صفحهٔ شماره', n: await uniq('issue') },
+    { key: 'issue_read', label: 'شروع خواندن', n: await uniq('issue_read') },
+    { key: 'purchase', label: 'خرید (بازخرید کد)', n: bought }
+  ]
+  return c.json({ from, to, top: top.map((r) => ({ ...r, image: parseJson<string[]>(r.images_json, [])[0] || null, images_json: undefined })), byPub, moderation, funnel })
 })
 
 /** Sales: digital codes and print, by publication and issue. */
