@@ -521,7 +521,21 @@ analyticsRoutes.get('/production', async (c) => {
     publication: pub,
     cells: Object.fromEntries(Object.entries(cells).map(([k, v]) => [k, Math.round((v.sum / v.n) * 10) / 10]))
   }))
-  return c.json({ from, to, stages: stagesOut, cycle, approvals, bottlenecks })
+  // Production output and active people (ROADMAP phase 7): published vs in progress, who is doing the work
+  const output = await db.first<any>(
+    `SELECT SUM(CASE WHEN i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS published,
+       SUM(CASE WHEN i.status IN ('planning','in_production','changes_requested','awaiting_approval') THEN 1 ELSE 0 END) AS in_progress
+     FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.deleted_at IS NULL${s.sql}`,
+    [fromTs, toTs, ...s.params]
+  )
+  const people = await db.all(
+    `SELECT u.id, u.display_name, p.title AS publication_title, COUNT(*) AS actions, MAX(a.created_at) AS last_at
+     FROM activity_events a JOIN users u ON u.id = a.actor_user_id JOIN publications p ON p.id = a.publication_id
+     WHERE a.created_at BETWEEN ? AND ? AND a.type NOT IN ('follow','unfollow','library.add_free','comment.created','code.redeemed')${s.sql}
+     GROUP BY u.id, p.id ORDER BY actions DESC LIMIT 30`,
+    [fromTs, toTs, ...s.params]
+  )
+  return c.json({ from, to, stages: stagesOut, cycle, approvals, bottlenecks, output, people })
 })
 
 /** Publishing gaps: days between consecutive issues vs. declared frequency. */
