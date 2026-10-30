@@ -5,6 +5,7 @@ import { newId, normalizePurchaseCode, sha256 } from '../lib/crypto'
 import { activity, bad, body, HttpError, notFound, nowIso, parseJson, str } from '../lib/util'
 import { toEnDigits } from '../../shared/fa'
 import { flagComment } from '../lib/moderation'
+import { requireFeature } from '../lib/features'
 
 export const meRoutes = new Hono<AppEnv>()
 
@@ -94,6 +95,7 @@ meRoutes.post('/codes/check', async (c) => {
 
 /** Step 2: redeem atomically — concurrent attempts with the same code: exactly one succeeds. */
 meRoutes.post('/codes/redeem', async (c) => {
+  await requireFeature(c.get('db'), 'paid_content')
   const u = requireUser(c)
   const db = c.get('db')
   const key = `code:${u.id}:${clientIp(c)}`
@@ -191,6 +193,7 @@ meRoutes.delete('/saved/:postId', async (c) => {
 
 // ───────── Comments & reports ─────────
 meRoutes.post('/posts/:postId/comments', async (c) => {
+  await requireFeature(c.get('db'), 'comments')
   const u = requireUser(c)
   const db = c.get('db')
   const key = `comment:${u.id}`

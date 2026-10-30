@@ -7,6 +7,7 @@ import {
   activity, addHours, audit, bad, body, dateRange, getSetting, HttpError, inList, int, keywordsCsv, notFound, notify, nowIso, oneOf, parseJson, str
 } from '../lib/util'
 import { normalizeFa, toEnDigits } from '../../shared/fa'
+import { requireFeature } from '../lib/features'
 
 export const teamRoutes = new Hono<AppEnv>()
 
@@ -632,6 +633,7 @@ teamRoutes.get('/:pubId/physical-sales', async (c) => {
 })
 
 teamRoutes.post('/:pubId/physical-sales', async (c) => {
+  await requireFeature(c.get('db'), 'physical_sales')
   const { pub: p, user } = await pub(c, true)
   const b = await body<any>(c)
   const i = await issueOf(c, p.id, str(b.issue_id, 'شماره', { max: 40 }))
