@@ -1,4 +1,5 @@
 import { CheckCircle2, Circle, CircleDot, SkipForward } from 'lucide-react'
+import { useState } from 'react'
 import { api } from '../../lib/api'
 import { STAGE_STATUS, TOC_STATUS, cx, faDate, formatNumber, relativeFa } from '../../lib/format'
 import { Badge, Card, Input, Progress, Select, useAction } from '../../components/ui'
@@ -41,7 +42,14 @@ export default function ProgressTab({ d, reload, pubId }: RoomProps) {
   const tocDone = d.toc.filter((t: any) => t.status === 'done').length
   const locked = ['awaiting_approval', 'published', 'archived'].includes(d.issue.status)
 
-  const setStage = (s: any, status: string) => run(() => api.post(`/api/team/${pubId}/issues/${issueId}/stages/${s.id}`, { status })).then((r) => r && reload())
+  const [note, setNote] = useState('')
+  const setStage = (s: any, status: string) =>
+    run(() => api.post(`/api/team/${pubId}/issues/${issueId}/stages/${s.id}`, { status, note: note.trim() || undefined })).then((r) => {
+      if (r) {
+        setNote('')
+        reload()
+      }
+    })
   const setDue = (s: any, due_at: string) => run(() => api.post(`/api/team/${pubId}/issues/${issueId}/stages/${s.id}`, { due_at: due_at || null })).then((r) => r && reload())
 
   return (
@@ -60,6 +68,7 @@ export default function ProgressTab({ d, reload, pubId }: RoomProps) {
       </div>
 
       <Card title="مراحل">
+        <Input className="mb-4" value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} disabled={locked} placeholder="یادداشت کوتاه برای تغییر وضعیت بعدی (اختیاری)" aria-label="یادداشت تغییر وضعیت" />
         <ol className="relative space-y-4 border-s-2 border-line ps-5">
           {stages.map((s) => {
             const Icon = ICON[s.status] || Circle
