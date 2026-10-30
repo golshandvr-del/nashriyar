@@ -96,6 +96,62 @@ authRoutes.post('/change-password', async (c) => {
   return c.json({ ok: true })
 })
 
+// ---- Two-factor authentication (TOTP) — staff accounts only (SECURITY.md §1) ----
+const staffOnly = (role: string) => {
+  if (role === 'student') throw new HttpError(403, 'رمز دومرحله‌ای فقط برای حساب‌های تیم و مدیریت است')
+}
+
+authRoutes.get('/totp', async (c) => {
+  const u = requireUser(c)
+  const r = await c.get('db').first<{ totp_enabled: number }>('SELECT totp_enabled FROM users WHERE id = ?', [u.id])
+  return c.json({ enabled: !!r?.totp_enabled, available: u.system_role !== 'student', recommended: u.system_role === 'super_admin' || u.system_role === 'pub_officer' })
+})
+
+/** Step 1: create a fresh (not yet active) secret and return it for the authenticator app. */
+authRoutes.post('/totp/setup', async (c) => {
+  const u = requireUser(c)
+  staffOnly(u.system_role)
+  const db = c.get('db')
+  const r = await db.first<{ totp_enabled: number }>('SELECT totp_enabled FROM users WHERE id = ?', [u.id])
+  if (r?.totp_enabled) throw bad('رمز دومرحله‌ای از قبل فعال است؛ برای تعویض ابتدا آن را غیرفعال کنید')
+  const secret = generateTotpSecret()
+  await db.run('UPDATE users SET totp_secret = ?, totp_enabled = 0, totp_last_step = NULL WHERE id = ?', [secret, u.id])
+  return c.json({ secret, uri: otpauthUri(secret, u.username) })
+})
+
+/** Step 2: confirm with a code from the app; only then 2FA becomes mandatory at login. */
+authRoutes.post('/totp/enable', async (c) => {
+  const u = requireUser(c)
+  staffOnly(u.system_role)
+  const b = await body<{ code?: string }>(c)
+  const db = c.get('db')
+  const r = await db.first<{ totp_secret: string | null; totp_enabled: number }>('SELECT totp_secret, totp_enabled FROM users WHERE id = ?', [u.id])
+  if (!r?.totp_secret) throw bad('ابتدا راه‌اندازی را شروع کنید')
+  if (r.totp_enabled) return c.json({ ok: true })
+  const step = await verifyTotp(r.totp_secret, String(b.code || ''))
+  if (step == null) throw bad('کد نادرست است؛ ساعت گوشی را بررسی و دوباره تلاش کنید')
+  await db.run('UPDATE users SET totp_enabled = 1, totp_last_step = ? WHERE id = ?', [step, u.id])
+  await audit(db, u.id, 'user.totp_enable', 'user', u.id)
+  return c.json({ ok: true })
+})
+
+/** Disable requires the current password and a valid code. */
+authRoutes.post('/totp/disable', async (c) => {
+  const u = requireUser(c)
+  const b = await body<{ password?: string; code?: string }>(c)
+  const db = c.get('db')
+  const r = await db.first<{ password_hash: string; totp_secret: string | null; totp_enabled: number; totp_last_step: number | null }>(
+    'SELECT password_hash, totp_secret, totp_enabled, totp_last_step FROM users WHERE id = ?',
+    [u.id]
+  )
+  if (!r?.totp_enabled || !r.totp_secret) return c.json({ ok: true })
+  if (!(await verifyPassword(String(b.password || ''), r.password_hash))) throw bad('رمز عبور نادرست است')
+  if ((await verifyTotp(r.totp_secret, String(b.code || ''), r.totp_last_step)) == null) throw bad('کد دومرحله‌ای نادرست است')
+  await db.run('UPDATE users SET totp_enabled = 0, totp_secret = NULL, totp_last_step = NULL WHERE id = ?', [u.id])
+  await audit(db, u.id, 'user.totp_disable', 'user', u.id)
+  return c.json({ ok: true })
+})
+
 authRoutes.get('/sessions', async (c) => {
   const u = requireUser(c)
   const rows = await c
