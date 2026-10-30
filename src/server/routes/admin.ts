@@ -132,7 +132,21 @@ adminRoutes.get('/publications/:id/followers', async (c) => {
     `SELECT substr(created_at, 1, 7) AS month, COUNT(*) AS n FROM follows WHERE publication_id = ? GROUP BY month ORDER BY month`,
     [p.id]
   )
-  return c.json({ followers: list, monthly })
+  // ROADMAP phase 7: current / new / unfollowed + monthly unfollow trend (officer-only page)
+  const unfollowMonthly = await db.all<{ month: string; n: number }>(
+    `SELECT substr(unfollowed_at, 1, 7) AS month, COUNT(*) AS n FROM follows WHERE publication_id = ? AND unfollowed_at IS NOT NULL GROUP BY month ORDER BY month`,
+    [p.id]
+  )
+  const d30 = new Date(Date.now() - 30 * 86400000).toISOString()
+  const summary = await db.first<any>(
+    `SELECT SUM(CASE WHEN unfollowed_at IS NULL THEN 1 ELSE 0 END) AS current,
+       SUM(CASE WHEN created_at > ? THEN 1 ELSE 0 END) AS new_30d,
+       SUM(CASE WHEN unfollowed_at > ? THEN 1 ELSE 0 END) AS unfollowed_30d,
+       SUM(CASE WHEN unfollowed_at IS NOT NULL THEN 1 ELSE 0 END) AS unfollowed_total
+     FROM follows WHERE publication_id = ?`,
+    [d30, d30, p.id]
+  )
+  return c.json({ followers: list, monthly, unfollowMonthly, summary })
 })
 
 /** Create publication + its three main accounts with temporary passwords (printable credentials sheet). */
