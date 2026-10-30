@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowRight, Bookmark, ChevronLeft, ChevronRight, KeyRound, List, Maximize, Trash2, ZoomIn, ZoomOut } from 'lucide-react'
+import { ArrowRight, Bookmark, ChevronLeft, ChevronRight, Columns2, KeyRound, List, Maximize, Trash2, ZoomIn, ZoomOut } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useFeature } from '../lib/features'
@@ -79,6 +79,24 @@ export default function Reader() {
   const [zoom, setZoom] = useState(100)
   const [tocOpen, setTocOpen] = useState(false)
   const [hidden, setHidden] = useState(false)
+  // Two-page spread (ROADMAP phase 5): remembered per device, only meaningful on wide screens.
+  const [spreadPref, setSpreadPref] = useState(() => localStorage.getItem('nsh-reader-spread') === '1')
+  const [wide, setWide] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const on = () => setWide(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  const spread = spreadPref && wide
+  const step = spread ? 2 : 1
+  const stepRef = useRef(step)
+  stepRef.current = step
+  const toggleSpread = () => {
+    const v = !spreadPref
+    setSpreadPref(v)
+    localStorage.setItem('nsh-reader-spread', v ? '1' : '0')
+  }
   const touch = useRef<number | null>(null)
 
   const load = useCallback(async () => {
@@ -122,8 +140,8 @@ export default function Reader() {
   useEffect(() => {
     const signal = (kind: string) => api.post(`/api/reader/${id}/signal`, { kind }).catch(() => {})
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') setPage((p) => p + 1)
-      else if (e.key === 'ArrowRight') setPage((p) => p - 1)
+      if (e.key === 'ArrowLeft') setPage((p) => p + stepRef.current)
+      else if (e.key === 'ArrowRight') setPage((p) => Math.max(1, p - stepRef.current))
       else if (e.key === 'PrintScreen') {
         setHidden(true)
         signal('printscreen')
@@ -154,6 +172,7 @@ export default function Reader() {
   const locked = !m.full && cur >= m.allowed
   const go = (n: number) => setPage(Math.min(Math.max(1, n), Math.max(1, m.allowed)))
   const bm = m.bookmarks.find((b) => b.page === cur)
+  const p2 = spread ? m.pages.find((x) => x.n === cur + 1) : undefined
 
   const toggleBookmark = async () => {
     if (!user) return toast('برای نشانک‌گذاری وارد شوید', 'info')
@@ -184,6 +203,9 @@ export default function Reader() {
         <button className="rounded-lg p-2 hover:bg-surface-2" onClick={() => setZoom((z) => Math.min(250, z + 15))} aria-label="بزرگ‌نمایی">
           <ZoomIn className="size-5" />
         </button>
+        <button className={cx('hidden rounded-lg p-2 hover:bg-surface-2 lg:block', spread && 'bg-surface-2 text-brand')} onClick={toggleSpread} aria-label="نمای دوصفحه‌ای" aria-pressed={spread}>
+          <Columns2 className="size-5" />
+        </button>
         <button className="hidden rounded-lg p-2 hover:bg-surface-2 sm:block" onClick={() => document.documentElement.requestFullscreen?.()} aria-label="تمام‌صفحه">
           <Maximize className="size-5" />
         </button>
@@ -201,12 +223,22 @@ export default function Reader() {
         onTouchEnd={(e) => {
           if (touch.current == null || zoom > 100) return
           const dx = e.changedTouches[0].clientX - touch.current
-          if (Math.abs(dx) > 60) go(dx > 0 ? cur + 1 : cur - 1) // RTL: swipe right = next
+          if (Math.abs(dx) > 60) go(dx > 0 ? cur + step : cur - step) // RTL: swipe right = next
           touch.current = null
         }}
       >
         {m.allowed === 0 ? (
           <Locked m={m} />
+        ) : p && p2 ? (
+          // RTL: the first page of the spread sits on the right, like a printed magazine.
+          <div className="mx-auto flex gap-1" style={{ width: `${zoom}%`, maxWidth: zoom > 100 ? 'none' : 1600 }}>
+            <div className="flex-1">
+              <PageCanvas key={p.url} url={p.url} watermark={m.watermark} zoom={100} onError={load} />
+            </div>
+            <div className="flex-1">
+              <PageCanvas key={p2.url} url={p2.url} watermark={m.watermark} zoom={100} onError={load} />
+            </div>
+          </div>
         ) : p ? (
           <PageCanvas key={p.url} url={p.url} watermark={m.watermark} zoom={zoom} onError={load} />
         ) : (
@@ -220,14 +252,14 @@ export default function Reader() {
       </main>
 
       <footer className="no-print sticky bottom-0 z-30 flex items-center gap-3 border-t border-line bg-surface/95 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        <button className="btn-ghost px-3" disabled={cur <= 1} onClick={() => go(cur - 1)} aria-label="صفحهٔ قبل">
+        <button className="btn-ghost px-3" disabled={cur <= 1} onClick={() => go(cur - step)} aria-label="صفحهٔ قبل">
           <ChevronRight className="size-5" />
         </button>
         <input type="range" min={1} max={Math.max(1, m.allowed)} value={cur} onChange={(e) => go(Number(e.target.value))} className="flex-1 accent-[var(--brand)]" aria-label="انتخاب صفحه" dir="rtl" />
         <span className="w-20 shrink-0 text-center text-xs text-muted">
-          {toFaDigits(cur)} / {toFaDigits(total)}
+          {toFaDigits(cur)}{p2 ? `–${toFaDigits(cur + 1)}` : ''} / {toFaDigits(total)}
         </span>
-        <button className="btn-ghost px-3" disabled={cur >= m.allowed} onClick={() => go(cur + 1)} aria-label="صفحهٔ بعد">
+        <button className="btn-ghost px-3" disabled={cur + (p2 ? 1 : 0) >= m.allowed} onClick={() => go(cur + step)} aria-label="صفحهٔ بعد">
           <ChevronLeft className="size-5" />
         </button>
       </footer>
