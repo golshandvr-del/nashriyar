@@ -443,11 +443,36 @@ function Production({ q }: { q: string }) {
     <Async state={st}>
       {(d: any) => (
         <div className="space-y-4">
+          {d.output && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="card p-3"><div className="text-xs text-muted">منتشرشده در بازه</div><div className="text-xl font-extrabold">{formatNumber(Number(d.output.published || 0))}</div></div>
+              <div className="card p-3"><div className="text-xs text-muted">در دست انتشار (اکنون)</div><div className="text-xl font-extrabold">{formatNumber(Number(d.output.in_progress || 0))}</div></div>
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-3">
             <div className="card p-3"><div className="text-xs text-muted">درخواست تأیید</div><div className="text-xl font-extrabold">{formatNumber(d.approvals?.n || 0)}</div></div>
             <div className="card p-3"><div className="text-xs text-muted">میانگین زمان تأیید</div><div className="text-xl font-extrabold">{toFaDigits(Math.round((d.approvals?.avg_days || 0) * 10) / 10)} روز</div></div>
             <div className="card p-3"><div className="text-xs text-muted">درخواست اصلاح</div><div className="text-xl font-extrabold">{formatNumber(d.approvals?.changes || 0)}</div></div>
           </div>
+          {!!d.people?.length && (
+            <Card title="افراد فعال و فعالیتشان" action={<button className="btn-ghost !px-2 !py-1" onClick={() => downloadCsv('active-people', csvOf(['نام', 'نشریه', 'فعالیت', 'آخرین فعالیت'], d.people.map((r: any) => [r.display_name, r.publication_title, r.actions, r.last_at])))}><Download className="size-4" /></button>}>
+              <div className="max-h-80 overflow-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs text-muted"><tr><th className="p-2 text-right">نام</th><th className="p-2 text-right">نشریه</th><th className="p-2 text-center">فعالیت</th><th className="p-2 text-right">آخرین</th></tr></thead>
+                  <tbody>
+                    {d.people.map((r: any) => (
+                      <tr key={`${r.id}-${r.publication_title}`} className="border-t border-line">
+                        <td className="p-2">{r.display_name}</td>
+                        <td className="p-2 text-xs">{r.publication_title}</td>
+                        <td className="p-2 text-center">{formatNumber(r.actions)}</td>
+                        <td className="p-2 text-xs text-muted">{faDate(r.last_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
           <Card title="میانگین مدت هر مرحلهٔ تولید (روز)">
             {!d.stages.length ? <Empty title="داده‌ای نیست" /> : (
               <Chart csvName="stage-durations" option={{ grid: { left: 110 }, xAxis: { type: 'value' }, yAxis: { type: 'category', inverse: true, data: d.stages.map((s: any) => s.title) }, legend: {}, series: [{ name: 'میانگین روز', type: 'bar', data: d.stages.map((s: any) => Math.round((s.avg_days || 0) * 10) / 10) }, { name: 'میانه روز', type: 'bar', data: d.stages.map((s: any) => Math.round((s.median_days || 0) * 10) / 10) }] }} />
