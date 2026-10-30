@@ -768,6 +768,11 @@ teamRoutes.post('/:pubId/posts', async (c) => {
       isStory ? addHours(24) : null, status, status === 'published' ? publishAt : null, user.id, now]
   )
   await activity(db, user.id, isStory ? 'story.published' : 'post.published', p.id, src.id, { id, scheduled: publishAt !== now ? publishAt : undefined })
+  // in-app notification to followers for immediately-published posts (ROADMAP phase 6); identities never exposed to the team
+  if (status === 'published' && publishAt === now && !isStory) {
+    const followers = await db.all<{ user_id: string }>('SELECT user_id FROM follows WHERE publication_id = ? AND unfollowed_at IS NULL LIMIT 2000', [p.id])
+    for (const f of followers) await notify(db, f.user_id, 'post.published', `پست تازه از ${p.title}`, `/post/${id}`)
+  }
   return c.json({ ok: true, id, published_at: status === 'published' ? publishAt : null })
 })
 
