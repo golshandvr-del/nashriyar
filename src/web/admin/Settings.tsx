@@ -3,6 +3,7 @@ import { Save, Sparkles } from 'lucide-react'
 import { api } from '../lib/api'
 import { faDate, toFaDigits } from '../../shared/fa'
 import { Async, Button, Card, Input, PageHeader, Select, useAction, useAsync } from '../components/ui'
+import AllowlistCard from './AllowlistCard'
 
 type S = Record<string, any>
 
@@ -52,6 +53,7 @@ export default function AdminSettings() {
     <div className="space-y-6">
       <PageHeader title="تنظیمات" subtitle="تنظیمات عمومی سامانه و لایهٔ اختیاری هوش مصنوعی" />
       <Async state={st}>{(d: any) => <Form initial={d.settings} isSuper={d.is_super} reload={st.reload} />}</Async>
+      <AllowlistCard />
     </div>
   )
 }
