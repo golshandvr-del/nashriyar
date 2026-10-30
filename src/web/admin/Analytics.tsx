@@ -296,9 +296,30 @@ function Production({ q }: { q: string }) {
           </div>
           <Card title="میانگین مدت هر مرحلهٔ تولید (روز)">
             {!d.stages.length ? <Empty title="داده‌ای نیست" /> : (
-              <Chart csvName="stage-durations" option={{ grid: { left: 110 }, xAxis: { type: 'value' }, yAxis: { type: 'category', inverse: true, data: d.stages.map((s: any) => s.title) }, series: [{ name: 'میانگین روز', type: 'bar', data: d.stages.map((s: any) => Math.round((s.avg_days || 0) * 10) / 10) }] }} />
+              <Chart csvName="stage-durations" option={{ grid: { left: 110 }, xAxis: { type: 'value' }, yAxis: { type: 'category', inverse: true, data: d.stages.map((s: any) => s.title) }, legend: {}, series: [{ name: 'میانگین روز', type: 'bar', data: d.stages.map((s: any) => Math.round((s.avg_days || 0) * 10) / 10) }, { name: 'میانه روز', type: 'bar', data: d.stages.map((s: any) => Math.round((s.median_days || 0) * 10) / 10) }] }} />
             )}
           </Card>
+          {d.bottlenecks?.length > 0 && (
+            <Card title="نقشهٔ حرارتی گلوگاه‌ها (میانگین روز هر مرحله در هر نشریه)">
+              <Chart
+                height={Math.max(240, d.bottlenecks.length * 26 + 80)}
+                csvName="bottlenecks"
+                option={{
+                  grid: { left: 120, bottom: 60 },
+                  tooltip: { position: 'top' },
+                  xAxis: { type: 'category', data: d.stages.map((s: any) => s.title), splitArea: { show: true } },
+                  yAxis: { type: 'category', data: d.bottlenecks.map((b: any) => b.publication), splitArea: { show: true } },
+                  visualMap: { min: 0, max: Math.max(1, ...d.bottlenecks.flatMap((b: any) => Object.values(b.cells) as number[])), calculable: true, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['#e0f2fe', '#f59e0b', '#dc2626'] } },
+                  series: [{
+                    name: 'روز',
+                    type: 'heatmap',
+                    label: { show: true },
+                    data: d.bottlenecks.flatMap((b: any, y: number) => d.stages.map((s: any, x: number) => [x, y, b.cells[s.key] ?? '-']))
+                  }]
+                }}
+              />
+            </Card>
+          )}
           <Card title="چرخهٔ تولید هر نشریه">
             {!d.cycle.length ? <Empty title="داده‌ای نیست" /> : (
               <div className="overflow-x-auto">
