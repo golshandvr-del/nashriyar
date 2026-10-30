@@ -133,8 +133,17 @@ export default function TocTab({ d, reload, pubId }: RoomProps) {
     const hits = (r.suggestions as any[]).filter((x) => x.page_start != null && (x.page_start !== x.current_start || x.page_end !== x.current_end))
     if (!r.with_text) return void (await confirm('متن صفحات هنوز استخراج نشده است؛ ابتدا PDF را در تب «رسانه» پردازش کنید.', { okLabel: 'باشه' }))
     if (!hits.length) return void (await confirm('پیشنهاد تازه‌ای پیدا نشد (عنوان بخش‌ها در متن صفحات یافت نشد یا شماره‌ها از قبل درست است).', { okLabel: 'باشه' }))
-    const list = hits.map((x) => `• ${x.title}: ص ${formatNumber(x.page_start)}${x.page_end ? '–' + formatNumber(x.page_end) : ''}`).join('\n')
-    if (!(await confirm(`این شماره صفحه‌ها اعمال شود؟\n${list}`, { okLabel: 'اعمال' }))) return
+    const list = (
+      <div>
+        <p className="mb-2">این شماره صفحه‌ها اعمال شود؟</p>
+        <ul className="max-h-64 list-disc space-y-1 overflow-y-auto ps-5 text-sm">
+          {hits.map((x) => (
+            <li key={x.id}>{x.title}: ص {formatNumber(x.page_start)}{x.page_end ? '–' + formatNumber(x.page_end) : ''}</li>
+          ))}
+        </ul>
+      </div>
+    )
+    if (!(await confirm(list, { okLabel: 'اعمال' }))) return
     for (const x of hits) await api.put(`/api/team/${pubId}/issues/${issueId}/toc/${x.id}`, { page_start: x.page_start, page_end: x.page_end })
     reload()
   }
