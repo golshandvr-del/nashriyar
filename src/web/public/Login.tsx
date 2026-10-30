@@ -16,6 +16,9 @@ export default function Login() {
   const nav = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  // Second step: shown after the server answers `totp_required` for a staff account with 2FA enabled.
+  const [needTotp, setNeedTotp] = useState(false)
+  const [totp, setTotp] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -26,9 +29,15 @@ export default function Login() {
     setBusy(true)
     setError(null)
     try {
-      const h = await login(username.trim(), password)
+      const h = await login(username.trim(), password, needTotp ? totp.trim() : undefined)
       nav(safeNext(sp.get('next'), h), { replace: true })
     } catch (err: any) {
+      if (err?.code === 'totp_required') {
+        setNeedTotp(true)
+        setError(null)
+        return
+      }
+      if (err?.code === 'totp_invalid') setTotp('')
       setError(err.message)
     } finally {
       setBusy(false)
@@ -49,6 +58,21 @@ export default function Login() {
           <Field label="رمز عبور">
             <Input dir="ltr" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </Field>
+          {needTotp && (
+            <Field label="کد شش‌رقمی برنامهٔ احراز هویت" hint="کد فعلی را از Google Authenticator یا برنامهٔ مشابه وارد کنید.">
+              <Input
+                dir="ltr"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                pattern="[0-9۰-۹]{6}"
+                value={totp}
+                onChange={(e) => setTotp(e.target.value)}
+                required
+                autoFocus
+              />
+            </Field>
+          )}
           {error && <ErrorBox error={error} />}
           <Button type="submit" className="w-full" loading={busy}>
             ورود
