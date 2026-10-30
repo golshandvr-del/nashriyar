@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, UserPlus } from 'lucide-react'
+import { ArrowDown, ArrowUp, IndentDecrease, IndentIncrease, Pencil, Plus, Trash2, UserPlus } from 'lucide-react'
 import { api } from '../../lib/api'
 import { TOC_STATUS, cx, faDate, formatNumber } from '../../lib/format'
 import { Badge, Button, Card, Field, Input, Modal, Select, Textarea, useAction, useToast } from '../../components/ui'
@@ -126,6 +126,17 @@ export default function TocTab({ d, reload, pubId }: RoomProps) {
     const r = await run(() => api.post(`/api/team/${pubId}/issues/${issueId}/toc-order`, { order: a.map((x) => ({ id: x.id, parent_id: x.parent_id })) }))
     if (r) reload()
   }
+  /** Tree: indent makes the item a child of the nearest top-level item above it; outdent makes it top-level again. */
+  const setParent = async (idx: number, indent: boolean) => {
+    let parent: string | null = null
+    if (indent) {
+      for (let j = idx - 1; j >= 0; j--) if (!toc[j].parent_id) { parent = toc[j].id; break }
+      if (!parent) return
+    }
+    const order = toc.map((x, j) => ({ id: x.id, parent_id: j === idx ? parent : x.parent_id === toc[idx].id && indent ? parent : x.parent_id }))
+    const r = await run(() => api.post(`/api/team/${pubId}/issues/${issueId}/toc-order`, { order }))
+    if (r) reload()
+  }
 
   return (
     <div className="space-y-4">
@@ -146,6 +157,11 @@ export default function TocTab({ d, reload, pubId }: RoomProps) {
                         <>
                           <button className="rounded p-1 hover:bg-surface-2" onClick={() => move(idx, -1)} aria-label="بالا"><ArrowUp className="size-4" /></button>
                           <button className="rounded p-1 hover:bg-surface-2" onClick={() => move(idx, 1)} aria-label="پایین"><ArrowDown className="size-4" /></button>
+                          {t.parent_id ? (
+                            <button className="rounded p-1 hover:bg-surface-2" onClick={() => setParent(idx, false)} aria-label="خروج از زیربخش" title="خروج از زیربخش"><IndentDecrease className="size-4" /></button>
+                          ) : (
+                            idx > 0 && <button className="rounded p-1 hover:bg-surface-2" onClick={() => setParent(idx, true)} aria-label="زیربخشِ بخش بالا" title="زیربخشِ بخش بالا"><IndentIncrease className="size-4" /></button>
+                          )}
                         </>
                       )}
                       <button className="rounded p-1 hover:bg-surface-2" onClick={() => setAssignFor(t)} aria-label="واگذاری"><UserPlus className="size-4" /></button>
