@@ -116,7 +116,7 @@ adminRoutes.get('/publications/:id', async (c) => {
   )
   // Dossier completion (ROADMAP phase 7): sales, explore and audit trail for this publication
   const sales = await db.first<any>(
-    `SELECT COUNT(*) AS codes_created, SUM(CASE WHEN redeemed_at IS NOT NULL THEN 1 ELSE 0 END) AS codes_redeemed,
+    `SELECT COUNT(*) AS codes_created, COALESCE(SUM(CASE WHEN redeemed_at IS NOT NULL THEN 1 ELSE 0 END),0) AS codes_redeemed,
        COALESCE(SUM(CASE WHEN redeemed_at IS NOT NULL THEN price_paid END),0) AS revenue_digital,
        (SELECT COALESCE(SUM(quantity),0) FROM physical_sales WHERE publication_id = ?) AS print_sold,
        (SELECT COALESCE(SUM(quantity * COALESCE(unit_price,0)),0) FROM physical_sales WHERE publication_id = ?) AS revenue_print
