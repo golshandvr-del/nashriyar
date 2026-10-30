@@ -394,6 +394,38 @@ teamRoutes.put('/:pubId/issues/:issueId/toc/:tocId', async (c) => {
   return c.json({ ok: true })
 })
 
+/**
+ * GET /:pubId/issues/:issueId/toc/page-suggestions — ROADMAP phase 3: suggest page_start/page_end for each TOC item
+ * by finding the first page (after the previous item's page) whose extracted text contains the item's normalised title.
+ */
+teamRoutes.get('/:pubId/issues/:issueId/toc/page-suggestions', async (c) => {
+  const { pub: p } = await pub(c)
+  const i = await issueOf(c, p.id, c.req.param('issueId'))
+  const db = c.get('db')
+  const toc = await db.all<{ id: string; title: string; page_start: number | null; page_end: number | null }>('SELECT id, title, page_start, page_end FROM issue_toc_items WHERE issue_id = ? ORDER BY sort_order', [i.id])
+  const pages = await db.all<{ page_number: number; text_content: string | null }>('SELECT page_number, text_content FROM issue_pages WHERE issue_id = ? ORDER BY page_number', [i.id])
+  const norm = (x: string) => normalizeFa(x).replace(/\s+/g, ' ').trim()
+  const texts = pages.map((pg) => ({ n: pg.page_number, t: norm(pg.text_content || '') }))
+  const found: { id: string; page_start: number | null }[] = []
+  let from = 0
+  for (const t of toc) {
+    const key = norm(t.title)
+    // titles are often split across lines in PDFs: match the first ~4 words, at least 4 letters long
+    const probe = key.split(' ').slice(0, 4).join(' ')
+    let hit: number | null = null
+    if (probe.length >= 4) for (let k = from; k < texts.length; k++) if (texts[k].t.includes(probe)) { hit = texts[k].n; from = k; break }
+    found.push({ id: t.id, page_start: hit })
+  }
+  const last = pages.length ? pages[pages.length - 1].page_number : null
+  const suggestions = found.map((f, k) => {
+    const next = found.slice(k + 1).find((x) => x.page_start != null)?.page_start ?? null
+    const end = f.page_start == null ? null : next != null ? Math.max(f.page_start, next - 1) : last
+    const cur = toc[k]
+    return { id: f.id, title: cur.title, page_start: f.page_start, page_end: end, current_start: cur.page_start, current_end: cur.page_end }
+  })
+  return c.json({ pages: pages.length, with_text: texts.filter((x) => x.t).length, suggestions })
+})
+
 teamRoutes.post('/:pubId/issues/:issueId/toc-order', async (c) => {
   const { pub: p } = await pub(c, true)
   const i = await issueOf(c, p.id, c.req.param('issueId'))
