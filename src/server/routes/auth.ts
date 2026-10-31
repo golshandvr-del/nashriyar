@@ -4,7 +4,8 @@ import { checkRateLimit, clearFailures, clientIp, createSession, destroySession,
 import { hashPassword, needsRehash, newId, sha256, verifyPassword } from '../lib/crypto'
 import { audit, bad, body, getSetting, HttpError, nowIso, str } from '../lib/util'
 import { createMembershipRequest } from './membership'
-import { activeMemberships, getMemberDesk } from '../lib/memberDesk'
+import { activeMemberships, getMemberDesk, linkMemberRecords } from '../lib/memberDesk'
+import { PROFILE_COLS, profileComplete } from './me'
 import { toEnDigits } from '../../shared/fa'
 import { generateTotpSecret, otpauthUri, verifyTotp } from '../lib/totp'
 
@@ -22,9 +23,14 @@ const homeFor = (role: string) =>
 async function homeForUser(db: any, id: string, role: string): Promise<{ home: string; desk: boolean }> {
   if (role !== 'student' && role !== 'team') return { home: homeFor(role), desk: false }
   const cfg = await getMemberDesk(db)
-  const sn = (await db.first('SELECT student_number FROM users WHERE id = ?', [id]))?.student_number ?? null
+  const me = await db.first(`SELECT ${PROFILE_COLS} FROM users WHERE id = ?`, [id])
+  const sn = me?.student_number ?? null
+  // legacy team records (added by student number before accounts existed) are linked on sign-in
+  await linkMemberRecords(db, id, sn)
   const desk = cfg.enabled && (await activeMemberships(db, id, sn)).length > 0
   if (role === 'team') return { home: '/team', desk }
+  // a team member with an incomplete profile completes it first (ROADMAP phase 15: «تکمیل پروفایل در اولین ورود»)
+  if (desk && !profileComplete(me)) return { home: '/settings?complete=1', desk }
   return { home: desk ? '/desk' : '/', desk }
 }
 
