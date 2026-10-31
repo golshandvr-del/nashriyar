@@ -13,6 +13,8 @@ import { NotificationBell } from '../components/NotificationBell'
 import type { PaletteItem } from '../components/CommandPalette'
 import { api } from '../lib/api'
 import { ErrorBoundary } from '../public/Static'
+import { PageHelpButton, Tour } from '../components/Tour'
+import { ADMIN_HELP, ADMIN_TOUR } from './help'
 
 type Access = 'monitor' | 'admin' | 'approver' | 'super'
 interface NavItem { to: string; label: string; icon: LucideIcon; access: Access; end?: boolean }
@@ -132,6 +134,7 @@ export default function AdminLayout() {
           <div className="text-[11px] leading-4 text-muted">پنل مدیریت</div>
           <div className="truncate text-sm font-bold leading-5">{current?.label || 'پنل مدیریت'}</div>
         </div>
+        <PageHelpButton base="/admin" help={ADMIN_HELP} compact />
         <NotificationBell />
         <Link to="/" className="rounded-xl p-2 hover:bg-surface-2" aria-label="سایت">
           <House className="size-5" />
@@ -190,6 +193,9 @@ export default function AdminLayout() {
             )
           })}
         </nav>
+        <div className="hidden border-t border-line p-2 md:block">
+          <PageHelpButton base="/admin" help={ADMIN_HELP} />
+        </div>
       </aside>
       <main id="main" className="min-w-0 flex-1 p-4 md:p-6">
         {!!user.must_change_password && (
@@ -202,6 +208,7 @@ export default function AdminLayout() {
         </ErrorBoundary>
       </main>
       <CommandPalette items={paletteItems} source={searchPublications} />
+      <Tour scope="admin" userId={user.id} steps={ADMIN_TOUR} />
     </div>
   )
 }
