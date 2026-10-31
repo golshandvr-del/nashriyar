@@ -279,6 +279,18 @@ await call(sa, 'POST', '/api/admin/settings', { site_name: s0.settings.site_name
   await call(nu, 'GET', '/api/me/sections', undefined, 403)
   await call(of, 'POST', '/api/desk/config', { enabled: true, certificates: true })
   ok((await call(nu, 'GET', '/api/desk')).enabled === true, 'desk back on')
+
+  // users tab filters (team category, publication role, production role, publication, faculty, degree, entry year)
+  const uTeam = await call(of, 'GET', '/api/admin/users?category=team')
+  ok(uTeam.users.some((x) => x.student_number === sn) && Array.isArray(uTeam.production_roles), 'team category includes linked members')
+  const uPub = await call(of, 'GET', `/api/admin/users?publication_id=${pubId}`)
+  ok(uPub.users.some((x) => x.student_number === sn) && !uPub.users.some((x) => x.system_role === 'pub_officer'), 'publication filter')
+  const uMd = await call(of, 'GET', '/api/admin/users?pub_role=managing_director')
+  ok(uMd.users.length > 0 && uMd.users.every((x) => String(x.pub_roles).includes('managing_director')), 'publication role filter')
+  const uDeg = await call(of, 'GET', '/api/admin/users?degree=bachelor&entry_year=1402')
+  ok(uDeg.users.some((x) => x.student_number === sn), 'degree + entry year filter')
+  await call(of, 'GET', '/api/admin/users?pub_role=nope', undefined, 400)
+  await call(of, 'GET', '/api/admin/users?entry_year=99', undefined, 400)
   const pr2 = await call(nu, 'GET', '/api/me/profile')
   ok(pr2.user.phone === null && pr2.user.gender === null, 'withdrawing consent erases sensitive fields')
 }
