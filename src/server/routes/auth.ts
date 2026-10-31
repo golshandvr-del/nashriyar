@@ -4,6 +4,7 @@ import { checkRateLimit, clearFailures, clientIp, createSession, destroySession,
 import { hashPassword, needsRehash, newId, sha256, verifyPassword } from '../lib/crypto'
 import { audit, bad, body, getSetting, HttpError, nowIso, str } from '../lib/util'
 import { createMembershipRequest } from './membership'
+import { activeMemberships, getMemberDesk } from '../lib/memberDesk'
 import { toEnDigits } from '../../shared/fa'
 import { generateTotpSecret, otpauthUri, verifyTotp } from '../lib/totp'
 
@@ -16,6 +17,16 @@ export function normalizeSecret(s: string): string {
 
 const homeFor = (role: string) =>
   role === 'student' ? '/' : role === 'team' ? '/team' : role === 'developer' ? '/system' : '/admin'
+
+/** ROADMAP phase 15 access matrix: a student account linked to an active team membership lands on «میز کار عضو». */
+async function homeForUser(db: any, id: string, role: string): Promise<{ home: string; desk: boolean }> {
+  if (role !== 'student' && role !== 'team') return { home: homeFor(role), desk: false }
+  const cfg = await getMemberDesk(db)
+  const sn = (await db.first('SELECT student_number FROM users WHERE id = ?', [id]))?.student_number ?? null
+  const desk = cfg.enabled && (await activeMemberships(db, id, sn)).length > 0
+  if (role === 'team') return { home: '/team', desk }
+  return { home: desk ? '/desk' : '/', desk }
+}
 
 authRoutes.post('/login', async (c) => {
   const b = await body<{ username?: string; password?: string; totp?: string }>(c)
@@ -47,7 +58,8 @@ authRoutes.post('/login', async (c) => {
   }
   await clearFailures(c, key)
   await createSession(c, u.id)
-  return c.json({ ok: true, home: homeFor(u.system_role) })
+  const h = await homeForUser(db, u.id, u.system_role)
+  return c.json({ ok: true, home: h.home, desk: h.desk })
 })
 
 authRoutes.post('/register', async (c) => {
@@ -111,7 +123,8 @@ authRoutes.get('/me', async (c) => {
   const u = c.get('user')
   if (!u) return c.json({ user: null, publications: [] })
   const publications = await userPubRoles(c, u.id)
-  return c.json({ user: u, publications, home: homeFor(u.system_role) })
+  const h = await homeForUser(c.get('db'), u.id, u.system_role)
+  return c.json({ user: u, publications, home: h.home, desk: h.desk })
 })
 
 authRoutes.post('/change-password', async (c) => {
