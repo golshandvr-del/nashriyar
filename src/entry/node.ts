@@ -5,6 +5,8 @@
 //   node server-dist/node.mjs --migrate    apply migrations, then exit
 //   node server-dist/node.mjs --create-admin [username]   create (or reset, incl. 2FA) a super admin with a random one-time password
 //   PDF_RENDERER=browser                    disable server-side PDF conversion (default: pdftoppm when installed)
+//   node server-dist/node.mjs --maintenance  run the periodic job once (rollup, reminders, purges), then exit
+//   CRON=off / BACKUP_HOUR=3                 in-process scheduler: maintenance every 15 min, daily backup at BACKUP_HOUR (-1 = off)
 //   node server-dist/node.mjs --backup     consistent DB snapshot to DATA_DIR/backups (VACUUM INTO), prune > BACKUP_KEEP_DAYS (30)
 import fs from 'node:fs'
 import path from 'node:path'
@@ -17,6 +19,7 @@ import { nodeSqliteDb } from '../server/adapters/db'
 import { diskStorage } from '../server/adapters/storage'
 import { ensureMigrated } from '../server/migrate'
 import { popplerRenderer } from '../server/adapters/pdf-poppler'
+import { runMaintenance } from '../server/lib/maintenance'
 import { resolveSecret } from '../server/secret'
 import type { Deps } from '../server/context'
 import { hashPassword, newId, randomId } from '../server/lib/crypto'
@@ -29,6 +32,22 @@ const HOST = process.env.HOST || '0.0.0.0'
 const DB_FILE = path.join(DATA_DIR, 'nashriyar.db')
 
 fs.mkdirSync(DATA_DIR, { recursive: true })
+
+/** Consistent DB snapshot (VACUUM INTO works while the server is running in WAL mode) + retention pruning. */
+function backupDb(sqlite: DatabaseSync): string {
+  const dir = path.join(DATA_DIR, 'backups')
+  fs.mkdirSync(dir, { recursive: true })
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  const out = path.join(dir, `nashriyar-${stamp}.db`)
+  sqlite.exec(`VACUUM INTO '${out.replace(/'/g, "''")}'`)
+  const keepDays = Number(process.env.BACKUP_KEEP_DAYS || 30)
+  const cutoff = Date.now() - keepDays * 86400000
+  for (const f of fs.readdirSync(dir)) {
+    const full = path.join(dir, f)
+    if (/^nashriyar-.*\.db$/.test(f) && fs.statSync(full).mtimeMs < cutoff) fs.rmSync(full, { force: true })
+  }
+  return out
+}
 
 async function main() {
   if (args.has('--seed')) {
@@ -82,19 +101,12 @@ async function main() {
   }
 
   if (args.has('--backup')) {
-    // VACUUM INTO produces a consistent, compacted copy even while the server is running (WAL mode).
-    const dir = path.join(DATA_DIR, 'backups')
-    fs.mkdirSync(dir, { recursive: true })
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-    const out = path.join(dir, `nashriyar-${stamp}.db`)
-    sqlite.exec(`VACUUM INTO '${out.replace(/'/g, "''")}'`)
-    const keepDays = Number(process.env.BACKUP_KEEP_DAYS || 30)
-    const cutoff = Date.now() - keepDays * 86400000
-    for (const f of fs.readdirSync(dir)) {
-      const full = path.join(dir, f)
-      if (/^nashriyar-.*\.db$/.test(f) && fs.statSync(full).mtimeMs < cutoff) fs.rmSync(full, { force: true })
-    }
-    console.log(`[nashriyar] backup written: ${out}`)
+    console.log(`[nashriyar] backup written: ${backupDb(sqlite)}`)
+    return
+  }
+
+  if (args.has('--maintenance')) {
+    console.log('[nashriyar] maintenance', JSON.stringify(await runMaintenance(db)))
     return
   }
 
@@ -119,6 +131,33 @@ async function main() {
   serve({ fetch: root.fetch, port: PORT, hostname: HOST }, (info) => {
     console.log(`[nashriyar] listening on http://${HOST}:${info.port} (data: ${DATA_DIR})`)
   })
+
+  // In-process scheduler (ROADMAP phase 11 — replaces the lazy, request-driven jobs on self-hosted installs).
+  // Maintenance hourly (idempotent); DB backup once a day at BACKUP_HOUR (server local time, default 3).
+  // CRON=off disables it (e.g. when the host crontab runs --maintenance / --backup instead).
+  if (process.env.CRON !== 'off') {
+    const backupHour = Number(process.env.BACKUP_HOUR ?? 3)
+    let lastBackupDay = ''
+    const tick = async () => {
+      try {
+        await runMaintenance(db)
+      } catch (e) {
+        console.error('[nashriyar] maintenance failed', e)
+      }
+      const now = new Date()
+      const day = now.toISOString().slice(0, 10)
+      if (backupHour >= 0 && now.getHours() === backupHour && lastBackupDay !== day) {
+        lastBackupDay = day
+        try {
+          console.log(`[nashriyar] daily backup written: ${backupDb(sqlite)}`)
+        } catch (e) {
+          console.error('[nashriyar] daily backup failed', e)
+        }
+      }
+    }
+    setTimeout(tick, 15_000).unref()
+    setInterval(tick, 15 * 60_000).unref()
+  }
 }
 
 main().catch((e) => {
