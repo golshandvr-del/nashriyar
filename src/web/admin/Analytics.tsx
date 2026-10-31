@@ -6,10 +6,12 @@ import { Async, Badge, Card, Empty, PageHeader, Tabs, useAsync } from '../compon
 import { Chart, ExportButtons } from '../components/Chart'
 import { RangePicker, defaultRange } from '../team/Stats'
 import { useAdminRole } from './Layout'
+import Visuals from './Visuals'
 
-type Tab = 'trends' | 'ranking' | 'production' | 'gaps' | 'directors' | 'explore' | 'sales' | 'forecast'
+type Tab = 'visuals' | 'trends' | 'ranking' | 'production' | 'gaps' | 'directors' | 'explore' | 'sales' | 'forecast'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'trends', label: 'روندها' },
+  { key: 'visuals', label: 'نمودارهای تصویری' },
   { key: 'ranking', label: 'رتبه‌بندی' },
   { key: 'production', label: 'سرعت تولید' },
   { key: 'gaps', label: 'فاصلهٔ انتشار' },
@@ -110,6 +112,7 @@ export default function AdminAnalytics() {
       </section>
       <Tabs<Tab> value={tab} onChange={(k) => patch({ tab: k })} tabs={TABS} />
       {tab === 'trends' && <Trends q={q} range={range} onDrill={(k, v) => patch({ [k]: v })} />}
+      {tab === 'visuals' && <Visuals q={q} />}
       {tab === 'ranking' && <Ranking q={q} />}
       {tab === 'production' && <Production q={q} />}
       {tab === 'gaps' && <Gaps q={q} />}
