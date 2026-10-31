@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, IndentDecrease, IndentIncrease, Plus, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { cx, formatNumber } from '../lib/format'
-import { Button, Card, Field, Input, PageHeader, Select, Textarea, useAction } from '../components/ui'
+import { Button, Card, Field, Input, PageHeader, Select, Textarea, useAction, useToast } from '../components/ui'
 import { useTeam } from './Layout'
 
 interface TocRow {
@@ -49,6 +49,7 @@ export default function IssueNew() {
   const { pubId, base } = useTeam()
   const nav = useNavigate()
   const { busy, run } = useAction()
+  const { toast } = useToast()
   const [step, setStep] = useState(0)
   const [members, setMembers] = useState<any[]>([])
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([])
