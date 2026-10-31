@@ -3,6 +3,7 @@ import type { AppEnv } from '../context'
 import { checkRateLimit, clearFailures, clientIp, createSession, destroySession, recordFailure, requireUser, userPubRoles } from '../auth'
 import { hashPassword, needsRehash, newId, sha256, verifyPassword } from '../lib/crypto'
 import { audit, bad, body, getSetting, HttpError, nowIso, str } from '../lib/util'
+import { createMembershipRequest } from './membership'
 import { toEnDigits } from '../../shared/fa'
 import { generateTotpSecret, otpauthUri, verifyTotp } from '../lib/totp'
 
@@ -52,7 +53,7 @@ authRoutes.post('/login', async (c) => {
 authRoutes.post('/register', async (c) => {
   const db = c.get('db')
   if (!(await getSetting(db, 'registration_open', true))) throw new HttpError(403, 'ثبت‌نام در حال حاضر بسته است')
-  const b = await body<{ student_number?: string; password?: string; display_name?: string; faculty_id?: string; accept_terms?: boolean; secret?: string }>(c)
+  const b = await body<{ student_number?: string; password?: string; display_name?: string; faculty_id?: string; accept_terms?: boolean; secret?: string; join?: { publication_id?: string; role_name?: string; message?: string } }>(c)
   const sn = toEnDigits(str(b.student_number, 'شماره دانشجویی', { max: 20 }))
   if (!/^\d{6,14}$/.test(sn)) throw bad('شماره دانشجویی باید فقط شامل ۶ تا ۱۴ رقم باشد')
   const password = str(b.password, 'رمز عبور', { min: 8, max: 200 })
@@ -86,8 +87,11 @@ authRoutes.post('/register', async (c) => {
      VALUES (?,?,?,?,?,?, 'student', ?)`,
     [id, sn, sn, name, b.faculty_id || null, await hashPassword(password), nowIso()]
   )
+  // Two-path registration (ROADMAP phase 15): «درخواست عضویت در تیم نشریه» files a membership request right away.
+  let request: string | null = null
+  if (b.join?.publication_id) request = (await createMembershipRequest(db, id, b.join)).id
   await createSession(c, id)
-  return c.json({ ok: true, home: '/' })
+  return c.json({ ok: true, home: request ? '/settings?tab=membership' : '/', request })
 })
 
 authRoutes.post('/logout', async (c) => {
