@@ -69,6 +69,15 @@ const AdminAnnouncements = lazy(() => import('./admin/Announcements'))
 const AdminUsers = lazy(() => import('./admin/Users'))
 const AdminAudit = lazy(() => import('./admin/Audit'))
 const AdminSettings = lazy(() => import('./admin/Settings'))
+// Developer console /system (ROADMAP phase 13) — its own shell, developer role only.
+const SystemLayout = lazy(() => import('./system/Layout'))
+const SystemHealth = lazy(() => import('./system/Health'))
+const SystemSettings = lazy(() => import('./system/Settings'))
+const SystemBackups = lazy(() => import('./system/Backups'))
+const SystemSessions = lazy(() => import('./system/Sessions'))
+const SystemDatabase = lazy(() => import('./system/Database'))
+const SystemStaff = lazy(() => import('./system/Staff'))
+const SystemAudit = lazy(() => import('./system/Audit'))
 
 
 if (getLargeText()) setLargeText(true)
@@ -123,6 +132,16 @@ function App() {
           <Route path="users" element={<Guard access="admin"><AdminUsers /></Guard>} />
           <Route path="audit" element={<Guard access="admin"><AdminAudit /></Guard>} />
           <Route path="settings" element={<Guard access="admin"><AdminSettings /></Guard>} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+        <Route path="/system" element={<SystemLayout />}>
+          <Route index element={<SystemHealth />} />
+          <Route path="settings" element={<SystemSettings />} />
+          <Route path="backups" element={<SystemBackups />} />
+          <Route path="sessions" element={<SystemSessions />} />
+          <Route path="database" element={<SystemDatabase />} />
+          <Route path="staff" element={<SystemStaff />} />
+          <Route path="audit" element={<SystemAudit />} />
           <Route path="*" element={<NotFound />} />
         </Route>
         <Route element={<PublicLayout />}>
