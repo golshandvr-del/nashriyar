@@ -265,7 +265,10 @@ function Gantt({ d }: { d: any }) {
   const now = Date.now()
   const rows = issues.map((t) => {
     const start = new Date(t.created_at).getTime()
-    const planned = t.planned_publish_at ? new Date(t.planned_publish_at + 'T23:59:59Z').getTime() : null
+    // planned_publish_at may be a date (YYYY-MM-DD) or a full ISO timestamp; appending a time to the latter gave NaN
+    const pp = String(t.planned_publish_at || '')
+    const pt = pp ? new Date(pp.length === 10 ? pp + 'T23:59:59Z' : pp).getTime() : NaN
+    const planned = Number.isFinite(pt) ? pt : null
     const end = Math.max(planned ?? now + 14 * DAY, start + DAY)
     return { label: `${t.publication_title} · ${toFaDigits(t.number ?? '')}`, start, end, late: planned != null && planned < now, planned: planned != null, status: t.status }
   })
