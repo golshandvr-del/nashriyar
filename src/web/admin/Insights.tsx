@@ -5,6 +5,7 @@ import { api, qs } from '../lib/api'
 import { toFaDigits } from '../lib/format'
 import { Async, Button, Card, Empty, PageHeader, Textarea, useAction, useAsync } from '../components/ui'
 import { RangePicker, defaultRange } from '../team/Stats'
+import { jalaliPresets } from '../../shared/fa'
 import { SEVERITY_CLS, SEVERITY_ICON } from './Overview'
 
 const SEV_LABEL: Record<string, string> = { critical: 'بحرانی', warning: 'هشدار', info: 'اطلاع', positive: 'مثبت' }
@@ -74,7 +75,7 @@ function AiPanel() {
   const [range, setRange] = useState(defaultRange('90d'))
   const [narr, setNarr] = useState<{ text: string; message?: string; enabled: boolean } | null>(null)
   const [question, setQuestion] = useState('')
-  const [answer, setAnswer] = useState<{ text: string; message?: string; enabled: boolean } | null>(null)
+  const [answer, setAnswer] = useState<AskResult | null>(null)
   const a1 = useAction()
   const a2 = useAction()
   const q = qs({ from: range.from, to: range.to })
@@ -92,10 +93,35 @@ function AiPanel() {
           <div className="text-sm font-bold">پرسش آماری</div>
           <Textarea rows={3} value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500} placeholder="مثلاً: کدام دانشکده‌ها در شش ماه اخیر کمتر منتشر کرده‌اند؟" />
           <Button variant="ghost" loading={a2.busy} disabled={question.trim().length < 3} onClick={async () => setAnswer((await a2.run(() => api.post('/api/analytics/ai/ask', { question }))) ?? null)}>پرسیدن</Button>
-          {answer && <AiResult r={answer} />}
+          {answer?.route && <ReportLink route={answer.route} />}
+          {answer && (answer.text || answer.enabled) && <AiResult r={answer} />}
         </div>
       </div>
     </Card>
+  )
+}
+
+type AskRoute = { report: string; range: string | null; faculty_id: string | null; confidence: number; label: string }
+type AskResult = { text: string; message?: string; enabled: boolean; route?: AskRoute }
+
+/** Opens the predefined report the question was mapped to (same dashboard components; never free SQL). */
+function ReportLink({ route }: { route: AskRoute }) {
+  const p = route.range ? jalaliPresets().find((x) => x.key === route.range) : null
+  const sp = new URLSearchParams({ tab: route.report })
+  if (p) {
+    sp.set('range', p.key)
+    sp.set('from', p.from)
+    sp.set('to', p.to)
+  }
+  if (route.faculty_id) sp.set('faculty', route.faculty_id)
+  return (
+    <div className="rounded-xl border border-brand/30 bg-brand-soft/40 p-3 text-sm">
+      {route.confidence ? 'نزدیک‌ترین گزارش به پرسش شما: ' : 'گزارش مشخصی تشخیص داده نشد؛ گزارش پیش‌فرض: '}
+      <Link className="font-bold text-brand underline" to={`/admin/analytics?${sp.toString()}`}>
+        {route.label}
+        {p ? ` — ${p.label}` : ''}
+      </Link>
+    </div>
   )
 }
 
