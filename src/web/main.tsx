@@ -28,6 +28,7 @@ const Recover = lazy(() => import('./public/Recover'))
 const Settings = lazy(() => import('./public/Settings'))
 const Verify = lazy(() => import('./public/Verify'))
 const Recruitment = lazy(() => import('./public/Recruitment'))
+const MySections = lazy(() => import('./public/MySections'))
 
 // Team panel: separate chunks, only downloaded by team members.
 const TeamLayout = lazy(() => import('./team/Layout'))
@@ -139,6 +140,7 @@ function App() {
           <Route path="redeem" element={<Redeem />} />
           <Route path="following" element={<Following />} />
           <Route path="notifications" element={<Notifications />} />
+          <Route path="my-sections" element={<MySections />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
           <Route path="recover" element={<Recover />} />
