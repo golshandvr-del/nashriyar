@@ -8,13 +8,21 @@ import { CredentialsSheet, type Credential } from './PublicationNew'
 import { useAdminRole } from './Layout'
 
 const ROLE_FILTERS = ['', 'super_admin', 'pub_officer', 'faculty_supervisor', 'analyst', 'team', 'student'] as const
+const PUB_ROLE_FA: Record<string, string> = { managing_director: 'مدیرمسئول', editor_in_chief: 'سردبیر', license_holder: 'صاحب امتیاز' }
+const DEGREE_FA: Record<string, string> = { associate: 'کاردانی', bachelor: 'کارشناسی', master: 'کارشناسی ارشد', phd: 'دکتری' }
+type Filters = { category: string; pub_role: string; production_role: string; publication_id: string; faculty_id: string; gender: string; degree: string; entry_year: string }
+const EMPTY_FILTERS: Filters = { category: '', pub_role: '', production_role: '', publication_id: '', faculty_id: '', gender: '', degree: '', entry_year: '' }
 
 export default function AdminUsers() {
   const { isSuper, user } = useAdminRole()
   const [role, setRole] = useState('')
   const [q, setQ] = useState('')
   const [term, setTerm] = useState('')
-  const st = useAsync(() => api.get('/api/admin/users' + qs({ role, q: term })), [role, term])
+  // ROADMAP phase 15: «تیم نشریه» category + filters by publication role, production role, publication, faculty, gender, degree, entry year
+  const [fl, setFl] = useState<Filters>(EMPTY_FILTERS)
+  const setF = (k: keyof Filters, v: string) => setFl((x) => ({ ...x, [k]: v }))
+  const opts = useAsync(() => Promise.all([api.get<any>('/api/membership/options'), api.get<any>('/api/public/categories')]), [])
+  const st = useAsync(() => api.get('/api/admin/users' + qs({ role, q: term, ...fl })), [role, term, JSON.stringify(fl)])
   const [creating, setCreating] = useState(false)
   const [creds, setCreds] = useState<Credential[] | null>(null)
   const { run, busy } = useAction()
@@ -64,6 +72,19 @@ export default function AdminUsers() {
         </div>
         <Button type="submit" variant="ghost">جست‌وجو</Button>
       </form>
+      <div id="user-filters" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Select aria-label="دسته" value={fl.category} onChange={(e) => setF('category', e.target.value)} placeholder="همهٔ دسته‌ها" options={[{ value: 'team', label: 'تیم نشریه (سمت یا عضویت)' }]} />
+        <Select aria-label="سمت نشریه" value={fl.pub_role} onChange={(e) => setF('pub_role', e.target.value)} placeholder="سمت نشریه" options={Object.entries(PUB_ROLE_FA).map(([value, label]) => ({ value, label }))} />
+        <Select aria-label="نقش تولید" value={fl.production_role} onChange={(e) => setF('production_role', e.target.value)} placeholder="نقش تولید" options={(opts.data?.[0]?.roles || []).map((r: any) => ({ value: r.name, label: r.name }))} />
+        <Select aria-label="نشریه" value={fl.publication_id} onChange={(e) => setF('publication_id', e.target.value)} placeholder="همهٔ نشریات" options={(opts.data?.[0]?.publications || []).map((p: any) => ({ value: p.id, label: p.title }))} />
+        <Select aria-label="دانشکده" value={fl.faculty_id} onChange={(e) => setF('faculty_id', e.target.value)} placeholder="همهٔ دانشکده‌ها" options={(opts.data?.[1]?.faculties || []).map((f: any) => ({ value: f.id, label: f.name }))} />
+        <Select aria-label="جنسیت" value={fl.gender} onChange={(e) => setF('gender', e.target.value)} placeholder="جنسیت (با رضایت)" options={[{ value: 'male', label: 'مرد' }, { value: 'female', label: 'زن' }]} />
+        <Select aria-label="مقطع" value={fl.degree} onChange={(e) => setF('degree', e.target.value)} placeholder="مقطع" options={Object.entries(DEGREE_FA).map(([value, label]) => ({ value, label }))} />
+        <Input aria-label="سال ورود" inputMode="numeric" value={fl.entry_year} onChange={(e) => setF('entry_year', e.target.value.replace(/[^0-9۰-۹]/g, '').replace(/[۰-۹]/g, (x) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x))).slice(0, 4))} placeholder="سال ورود (مثلاً ۱۴۰۲)" />
+      </div>
+      {Object.values(fl).some(Boolean) && (
+        <button type="button" className="text-xs text-brand underline" onClick={() => setFl(EMPTY_FILTERS)}>پاک کردن فیلترها</button>
+      )}
       <div className="flex flex-wrap gap-2">
         {ROLE_FILTERS.map((r) => (
           <button key={r} className={role === r ? 'chip border-brand bg-brand-soft text-brand' : 'chip'} onClick={() => setRole(r)}>
@@ -99,7 +120,12 @@ export default function AdminUsers() {
                       </td>
                       <td dir="ltr" className="text-start text-muted">{u.username || (u.student_number && toFaDigits(u.student_number)) || '—'}</td>
                       <td><Badge tone={['super_admin', 'pub_officer'].includes(u.system_role) ? 'brand' : 'muted'}>{ROLE_LABEL[u.system_role as keyof typeof ROLE_LABEL] || u.system_role}</Badge></td>
-                      <td className="max-w-56 truncate text-xs text-muted">{u.publications || u.faculty_name || '—'}</td>
+                      <td className="max-w-64 text-xs text-muted">
+                        <span className="block truncate">{u.publications || u.faculty_name || '—'}</span>
+                        {u.pub_roles && <span className="block truncate">{String(u.pub_roles).split(',').map((r: string) => PUB_ROLE_FA[r] || r).join('، ')}</span>}
+                        {u.memberships && <span className="block truncate">عضو: {u.memberships}</span>}
+                        {(u.degree || u.entry_year) && <span className="block truncate">{[DEGREE_FA[u.degree], u.entry_year ? `ورودی ${toFaDigits(u.entry_year)}` : null].filter(Boolean).join(' · ')}</span>}
+                      </td>
                       <td className="text-xs text-muted">{u.last_login_at ? relativeFa(u.last_login_at) : 'هرگز'}</td>
                       <td>{u.status === 'suspended' ? <Badge tone="danger">تعلیق</Badge> : <Badge tone="ok">فعال</Badge>}</td>
                       <td>
