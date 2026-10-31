@@ -140,6 +140,7 @@ npm run deploy:cf
 | `DATA_DIR` | `data` | محل `nashriyar.db`، `files/` و `backups/` |
 | `STATIC_DIR` | `dist` | خروجی SPA |
 | `BACKUP_KEEP_DAYS` | `30` | مدت نگهداری پشتیبان‌ها |
+| `BACKUP_OFFSITE_DIR` | خالی | مسیر دوم (مثلاً دیسک جدا، NFS یا mount شده با rclone) که هر پشتیبان DB و فایل‌ها بلافاصله در آن هم کپی می‌شود |
 | `PDF_RENDERER` | خالی | خالی ⇒ اگر `pdftoppm` (بستهٔ `poppler-utils`، در ایمیج Docker موجود) نصب باشد، تبدیل PDF به تصویر صفحات **روی سرور** انجام می‌شود؛ `browser` ⇒ همیشه در مرورگر بارگذارکننده (pdf.js). بدون Docker: `apt install poppler-utils` |
 | `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` | خالی | لایهٔ اختیاری هوش مصنوعی (سازگار با OpenAI). خالی ⇒ بخش‌های AI پنهان |
 
@@ -164,14 +165,15 @@ npm run deploy:cf
 بدون Docker: `npm run backup`.
 
 ### فایل‌ها (هفتگی) و نسخهٔ خارج از سرور
-```cron
-30 3 * * 0 docker run --rm -v nashriyar_nashriyar-data:/data -v /srv/backup:/out alpine \
-  tar -czf /out/nashriyar-files-$(date +\%F).tar.gz -C /data files backups
-```
-پوشهٔ `/srv/backup` را با `rsync`/`rclone` به یک مقصد **خارج از سرور** (سرور پشتیبان دانشگاه یا فضای ابری) همگام کنید.
+زمان‌بند داخلی در روزهای جمعه علاوه بر پشتیبان DB، فرمان `backupFiles` (`--backup-files` / `npm run backup:files`) را هم اجرا می‌کند که پوشهٔ `DATA_DIR/files` را در `DATA_DIR/backups/nashriyar-files-*.tar.gz` فشرده می‌سازد و نسخه‌های قدیمی‌تر از `BACKUP_KEEP_DAYS` را پاک می‌کند. اگر `BACKUP_OFFSITE_DIR` تنظیم شده باشد، هر دو فایل (`.db` و `.tar.gz`) بلافاصله به مقصد خارج از سرور نیز کپی می‌شوند.
 
-### آزمون بازیابی (ماهانه — اجباری)
-یک پشتیبان را روی ماشین دیگری بازیابی کنید (بخش ۷)، وارد شوید و چند شماره را در کتاب‌خوان باز کنید. پشتیبانی که آزمون نشده، پشتیبان نیست.
+برای اجرای دستی یا با crontab میزبان:
+```bash
+node server-dist/node.mjs --backup-files   # یا: npm run backup:files
+```
+
+### آزمون خودکار و دستی بازیابی
+فرمان `--restore-test` (`npm run backup:test` — همچنین پس از هر پشتیبان روزانهٔ زمان‌بند داخلی اجرا می‌شود) آخرین پشتیبان DB را به‌صورت فقط‌خواندنی باز می‌کند، `PRAGMA integrity_check` را اجرا می‌کند، شمارش ردیف‌های ۸ جدول اصلی را با پایگاه دادهٔ زنده مقایسه می‌کند، وجود همهٔ فایل‌های ارجاع‌شده روی دیسک را می‌سنجد و نتیجه را در `DATA_DIR/backups/restore-test.json` می‌نویسد (در صورت هر خطا با کد ۱ خارج می‌شود). علاوه بر این آزمون خودکار، ماهانه یک پشتیبان را روی ماشین دیگری بازیابی کامل کنید (بخش ۷).
 
 ---
 
