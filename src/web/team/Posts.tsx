@@ -133,6 +133,7 @@ function PostComposer({ pubId, story, onClose, onDone }: { pubId: string; story:
   const [alts, setAlts] = useState<Record<string, string>>({}) // image alt text by media key (ROADMAP phase 6 accessibility)
   const [caption, setCaption] = useState('')
   const [publishAt, setPublishAt] = useState('') // local datetime; empty = publish now (ROADMAP phase 6 scheduling)
+  const [drafting, setDrafting] = useState(false) // caption draft helper (ROADMAP phase 10)
   const [uploading, setUploading] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const { busy, run } = useAction()
@@ -249,6 +250,24 @@ function PostComposer({ pubId, story, onClose, onDone }: { pubId: string; story:
           <Field label="متن (کپشن)">
             <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={2200} rows={6} placeholder="چند جمله دربارهٔ این بخش…" />
           </Field>
+          <button
+            type="button"
+            className="text-xs text-brand hover:underline disabled:opacity-50"
+            disabled={!issueId || !tocId || drafting}
+            onClick={async () => {
+              setDrafting(true)
+              try {
+                const r = await api.post<{ text: string; source: string }>(`/api/team/${pubId}/captions/draft`, { issue_id: issueId, toc_item_id: tocId })
+                setCaption((old) => (old.trim() ? `${old.trim()}\n\n${r.text}` : r.text).slice(0, 2200))
+              } catch {
+                /* optional helper */
+              } finally {
+                setDrafting(false)
+              }
+            }}
+          >
+            {drafting ? 'در حال نوشتن پیش‌نویس…' : 'پیش‌نویس کپشن از بخش منبع (قابل ویرایش)'}
+          </button>
           <div className="text-left text-[11px] text-muted">{formatNumber(caption.length)}/۲۲۰۰</div>
           {!story && (
             <Field label="زمان انتشار (اختیاری)" hint="خالی = انتشار فوری. پست تا این زمان برای مخاطبان نمایش داده نمی‌شود (حداکثر ۹۰ روز بعد).">
