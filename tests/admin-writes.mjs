@@ -213,6 +213,47 @@ await call(sa, 'POST', '/api/admin/settings', { site_name: s0.settings.site_name
   await call(of, 'DELETE', `/api/festivals/${fe.id}`, undefined, 400) // only drafts can be deleted
 }
 
+// ───── phase 15: full profile + team membership requests (two-path sign-up → queue → approve/reject) ─────
+{
+  const opt = await call(client(), 'GET', '/api/membership/options')
+  ok(opt.publications.length > 0 && Array.isArray(opt.roles), 'membership options list publications and roles')
+  const tmc = await login('pub1-director', 'team1234')
+  const tmMe = await call(tmc, 'GET', '/api/auth/me')
+  const pubId = tmMe.publications[0].publication_id
+  const other = opt.publications.find((p) => p.id !== pubId).id
+  const sn = String(Date.now()).slice(-9)
+  const nu = client()
+  const reg = await call(nu, 'POST', '/api/auth/register', { student_number: sn, password: 'abcd12345', display_name: 'عضو آزمایشی', accept_terms: true, join: { publication_id: pubId, role_name: opt.roles[0]?.name, message: 'سلام' } })
+  ok(!!reg.request && reg.home === '/settings?tab=membership', 'sign-up with join files a membership request')
+  await call(nu, 'POST', '/api/membership/requests', { publication_id: pubId }, 400) // duplicate pending
+  await call(nu, 'POST', '/api/membership/requests', { publication_id: other, role_name: 'نقش ناموجود' }, 400)
+  await call(nu, 'GET', `/api/membership/queue?publication_id=${pubId}`, undefined, 403)
+  await call(tmc, 'GET', `/api/membership/queue?publication_id=${other}`, undefined, 403)
+  const q = await call(tmc, 'GET', `/api/membership/queue?publication_id=${pubId}`)
+  const rq = q.requests.find((r) => r.id === reg.request)
+  ok(!!rq && rq.student_number === sn, 'director sees the request with the student number')
+  const ap = await call(tmc, 'POST', `/api/membership/requests/${reg.request}/decide`, { decision: 'approve' })
+  ok(!!ap.team_member_id, 'approval links a team member record')
+  await call(tmc, 'POST', `/api/membership/requests/${reg.request}/decide`, { decision: 'reject' }, 400)
+  await call(nu, 'POST', '/api/membership/requests', { publication_id: pubId }, 400) // already a member
+  const r2 = await call(nu, 'POST', '/api/membership/requests', { publication_id: other })
+  await call(of, 'POST', `/api/membership/requests/${r2.id}/decide`, { decision: 'reject', note: 'آزمون' })
+  const mine = await call(nu, 'GET', '/api/membership/mine')
+  ok(mine.requests.find((r) => r.id === r2.id)?.status === 'rejected', 'requester sees the rejection')
+  // profile: consent gate, validation, the student-number lock, history
+  await call(nu, 'POST', '/api/me/profile', { gender: 'male' }, 400)
+  await call(nu, 'POST', '/api/me/profile', { phone: '123' , consent: true }, 400)
+  await call(nu, 'POST', '/api/me/profile', { student_number: '11111111' }, 400)
+  const cats = await call(client(), 'GET', '/api/public/categories')
+  await call(nu, 'POST', '/api/me/profile', { faculty_id: cats.faculties[0].id, degree: 'bachelor', entry_year: 1402, gender: 'male', phone: '09121234567', consent: true })
+  const pr = await call(nu, 'GET', '/api/me/profile')
+  ok(pr.complete === true && pr.user.phone === '09121234567', 'profile complete after required fields + consent')
+  ok(pr.memberships.some((m) => m.publication_id === pubId && m.is_active), 'collaboration history shows the approved team')
+  await call(nu, 'POST', '/api/me/profile/consent', { consent: false })
+  const pr2 = await call(nu, 'GET', '/api/me/profile')
+  ok(pr2.user.phone === null && pr2.user.gender === null, 'withdrawing consent erases sensitive fields')
+}
+
 // ───── audit trail ─────
 const audit = await call(of, 'GET', '/api/admin/audit')
 for (const a of ['publication.create', 'user.create', 'post.visibility', 'shelf.save', 'settings.update', 'category.merge']) ok(audit.items.some((x) => x.action === a), `audit has ${a}`)
