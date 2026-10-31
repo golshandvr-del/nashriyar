@@ -90,7 +90,7 @@ teamRoutes.get('/:pubId/dashboard', async (c) => {
     [p.id]
   ))?.n ?? 0
   const members = (await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM team_members WHERE publication_id = ? AND is_active = 1', [p.id]))?.n ?? 0
-  const deadlines = await db.all('SELECT id, title, due_at, description FROM deadlines WHERE due_at >= ? ORDER BY due_at LIMIT 5', [now.slice(0, 10)])
+  const deadlines = await db.all('SELECT id, title, due_at, description, kind, start_time, location FROM deadlines WHERE due_at >= ? ORDER BY due_at LIMIT 8', [now.slice(0, 10)])
   const announcements = await db.all(
     `SELECT a.id, a.title, a.body, a.pinned, a.created_at FROM announcements a
      WHERE a.audience = 'all' OR (a.audience = 'publication' AND a.target_id = ?) OR (a.audience = 'faculty' AND a.target_id = ?)
