@@ -285,5 +285,18 @@ if (draft) {
   }
 }
 
+// ───── «Today» action queue (phase 14): staff only, scoped by role ─────
+{
+  ok((await anon('/api/admin/today')).status === 401, 'today: anonymous -> 401')
+  ok((await st('/api/admin/today')).status === 403, 'today: student -> 403')
+  ok((await tm('/api/admin/today')).status === 403, 'today: team member -> 403')
+  const t = await of('/api/admin/today')
+  ok(t.status === 200 && Array.isArray(t.data?.items) && typeof t.data?.counts === 'object', `today: officer -> ${t.status}`)
+  ok((t.data?.items || []).every((x, i, a) => i === 0 || a[i - 1].priority <= x.priority), 'today: queue sorted by priority')
+  const { c: an } = await login('analyst', 'analyst1234')
+  const ta = await an('/api/admin/today')
+  ok(ta.status === 200 && !(ta.data?.items || []).some((x) => ['approval', 'report', 'comment'].includes(x.kind)), 'today: analyst sees no approval / moderation items')
+}
+
 console.log(failures ? `\nsecurity: ${failures} FAILURE(S), ${passed} passed` : `\nsecurity: ALL ${passed} CHECKS PASSED`)
 process.exit(failures ? 1 : 0)
