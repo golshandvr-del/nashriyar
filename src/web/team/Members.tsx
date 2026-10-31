@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { ISSUE_STATUS, TOC_STATUS, faDate, formatNumber, normalizeFa } from '../lib/format'
 import { Async, Avatar, Badge, Button, Empty, Field, Input, Modal, PageHeader, Select, useAction, useAsync } from '../components/ui'
 import { useTeam } from './Layout'
+import MembershipRequests from './MembershipRequests'
 
 interface Member {
   id: string
@@ -49,6 +50,7 @@ export default function TeamMembers() {
           )
           return (
             <>
+              <MembershipRequests pubId={pubId} roles={d.roles || []} onApproved={st.reload} />
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 <div className="relative min-w-56 flex-1">
                   <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted" />
