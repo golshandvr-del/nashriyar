@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
 
-export type FeatureKey = 'explore' | 'comments' | 'recruitment' | 'paid_content' | 'certificates' | 'physical_sales'
+export type FeatureKey = 'explore' | 'comments' | 'recruitment' | 'paid_content' | 'certificates' | 'physical_sales' | 'member_portal'
 
 export interface PublicSettings {
   registration_open?: boolean
