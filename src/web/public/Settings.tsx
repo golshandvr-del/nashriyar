@@ -6,6 +6,7 @@ import { useAuth, ROLE_LABEL, PUB_ROLE_LABEL, isMonitor } from '../lib/auth'
 import { applyTheme, getTheme, getLargeText, setLargeText } from '../lib/theme'
 import type { Theme } from '../lib/theme'
 import { cx, faDate, relativeFa, formatNumber } from '../lib/format'
+import ProfileForm from './ProfileForm'
 import { Async, Badge, Button, Card, Field, Input, PasswordInput, Select, useAction, useAsync, useToast } from '../components/ui'
 
 const COMMENT_STATUS: Record<string, { label: string; tone: 'muted' | 'ok' | 'warn' | 'danger' }> = {
@@ -82,72 +83,6 @@ function PanelsCard() {
           </Link>
         ))}
       </div>
-    </Card>
-  )
-}
-
-function ProfileCard() {
-  const { refresh, publications } = useAuth()
-  const st = useAsync(() => api.get('/api/me/profile'), [])
-  const [faculties, setFaculties] = useState<{ id: string; name: string }[]>([])
-  const [name, setName] = useState('')
-  const [fac, setFac] = useState('')
-  const { busy, run } = useAction()
-  useEffect(() => {
-    api.get('/api/public/categories').then((r) => setFaculties(r.faculties || [])).catch(() => {})
-  }, [])
-  useEffect(() => {
-    if (st.data) {
-      setName(st.data.user.display_name || '')
-      setFac(st.data.user.faculty_id || '')
-    }
-  }, [st.data])
-  return (
-    <Card title="نمایه">
-      <Async state={st}>
-        {(d: any) => (
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-2 text-xs">
-              <Badge tone="brand">{ROLE_LABEL[d.user.system_role as keyof typeof ROLE_LABEL] || d.user.system_role}</Badge>
-              <Badge>نام کاربری: {d.user.username}</Badge>
-              {d.user.student_number && <Badge>شمارهٔ دانشجویی: {d.user.student_number}</Badge>}
-              {publications.map((p) => (
-                <Badge key={p.publication_id + p.role} tone="ok">
-                  {PUB_ROLE_LABEL[p.role] || 'عضو تیم'} «{p.title}»
-                </Badge>
-              ))}
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center text-sm">
-              <Link to="/library" className="rounded-xl bg-surface-2 p-2">
-                <div className="text-lg font-extrabold">{formatNumber(d.stats.library)}</div>کتابخانه
-              </Link>
-              <Link to="/following" className="rounded-xl bg-surface-2 p-2">
-                <div className="text-lg font-extrabold">{formatNumber(d.stats.following)}</div>دنبال‌شده
-              </Link>
-              <Link to="/library?tab=saved" className="rounded-xl bg-surface-2 p-2">
-                <div className="text-lg font-extrabold">{formatNumber(d.stats.saved)}</div>ذخیره‌شده
-              </Link>
-            </div>
-            <Field label="نام نمایشی">
-              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
-            </Field>
-            <Field label="دانشکده">
-              <Select value={fac} onChange={(e) => setFac(e.target.value)} placeholder="انتخاب نشده" options={faculties.map((f) => ({ value: f.id, label: f.name }))} />
-            </Field>
-            <Button
-              loading={busy}
-              onClick={() =>
-                run(async () => {
-                  await api.post('/api/me/profile', { display_name: name.trim(), faculty_id: fac || null })
-                  await refresh()
-                }, 'نمایه ذخیره شد')
-              }
-            >
-              ذخیره
-            </Button>
-          </div>
-        )}
-      </Async>
     </Card>
   )
 }
@@ -436,7 +371,7 @@ export default function Settings() {
       <h1 className="text-xl font-extrabold">تنظیمات حساب</h1>
       {!!user.must_change_password && <PasswordCard />}
       <PanelsCard />
-      <ProfileCard />
+      <ProfileForm />
       <ThemeCard />
       {!user.must_change_password && <PasswordCard />}
       <RecoveryCard />
