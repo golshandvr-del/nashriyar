@@ -72,7 +72,7 @@ for (const t of ['_cf_KV', '_cf_METADATA', 'd1_migrations']) {
   } catch {}
 }
 
-const tables = ['users', 'faculties', 'associations', 'publications', 'issues', 'issue_pages', 'issue_toc_items', 'media_assets', 'posts', 'comments', 'access_codes', 'library_items', 'view_events', '_migrations']
+const tables = ['users', 'faculties', 'associations', 'publications', 'issues', 'issue_pages', 'issue_toc_items', 'media_assets', 'posts', 'comments', 'access_codes', 'entitlements', 'physical_sales', 'view_events', '_migrations']
 const counts = {}
 for (const t of tables) {
   try {
