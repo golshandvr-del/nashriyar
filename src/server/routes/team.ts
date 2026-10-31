@@ -9,7 +9,8 @@ import {
 import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { requireFeature } from '../lib/features'
 import { ensureReminders } from '../lib/reminders'
-import { draftCaption, suggestCategories, suggestKeywords } from '../ai'
+import { aiCommentLabels, draftCaption, ruleCommentLabel, suggestCategories, suggestKeywords } from '../ai'
+import { flagComment } from '../lib/moderation'
 import { traceCode } from './reader'
 
 export const teamRoutes = new Hono<AppEnv>()
@@ -872,7 +873,24 @@ teamRoutes.get('/:pubId/comments', async (c) => {
      FROM comments cm JOIN posts po ON po.id = cm.post_id LEFT JOIN users u ON u.id = cm.user_id WHERE po.publication_id = ? AND cm.status = ? ORDER BY cm.created_at DESC LIMIT 200`,
     [p.id, status]
   )
-  return c.json({ comments: rows.map((r) => ({ ...r, image: parseJson<string[]>(r.images_json, [])[0] || null, images_json: undefined })) })
+  return c.json({
+    comments: rows.map((r) => {
+      // Rule hint for the moderator (ROADMAP phase 10): a label only — the decision always stays with the team.
+      const reasons = r.status === 'pending' && !r.is_team_reply ? flagComment(String(r.body || '')).reasons : []
+      return { ...r, image: parseJson<string[]>(r.images_json, [])[0] || null, images_json: undefined, hint: reasons.length ? { label: ruleCommentLabel(reasons), reasons, source: 'rule' } : null }
+    })
+  })
+})
+
+/** Optional AI labels for the pending queue (on demand, never automatic). Only comment text is sent, redacted. */
+teamRoutes.post('/:pubId/comments/ai-hints', async (c) => {
+  const { pub: p } = await pub(c)
+  const rows = await c.get('db').all<{ id: string; body: string }>(
+    "SELECT cm.id, cm.body FROM comments cm JOIN posts po ON po.id = cm.post_id WHERE po.publication_id = ? AND cm.status = 'pending' AND cm.is_team_reply = 0 ORDER BY cm.created_at DESC LIMIT 30",
+    [p.id]
+  )
+  const labels = await aiCommentLabels(c, rows)
+  return c.json({ enabled: Object.keys(labels).length > 0 || rows.length === 0 ? true : (await import('../ai')).getProvider(c).then((x) => x.enabled), labels })
 })
 
 teamRoutes.post('/:pubId/comments/:cid', async (c) => {
