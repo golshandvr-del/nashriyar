@@ -260,6 +260,25 @@ await call(sa, 'POST', '/api/admin/settings', { site_name: s0.settings.site_name
   await call(nu, 'POST', '/api/me/profile/consent', { consent: false })
   const pw = await call(of, 'GET', `/api/admin/people/${sn}`)
   ok(pw.accounts[0].phone === null && pw.accounts[0].sensitive_visible === false, 'after withdrawal the officer sees nothing sensitive')
+
+  // access matrix: main accounts ⇒ panel, linked members ⇒ member desk (officer-configurable), others ⇒ public site
+  const meNu = await call(nu, 'GET', '/api/auth/me')
+  ok(meNu.home === '/desk' && meNu.desk === true, 'approved member lands on the member desk')
+  ok(tmMe.home === '/team', 'managing director keeps the publication panel')
+  const desk = await call(nu, 'GET', '/api/desk')
+  ok(desk.enabled && desk.memberships.some((m) => m.publication_id === pubId) && Array.isArray(desk.sections) && Array.isArray(desk.deadlines) && Array.isArray(desk.certificates), 'member desk shows memberships, sections, deadlines, certificates')
+  const stu = await login('40012345', 'student1234')
+  ok((await call(stu, 'GET', '/api/desk')).enabled === false, 'a student without membership has no desk')
+  await call(stu, 'GET', '/api/desk/config', undefined, 403)
+  await call(stu, 'POST', `/api/team/${pubId}/members`, { full_name: 'x' }, 403)
+  await call(nu, 'POST', `/api/team/${pubId}/members`, { full_name: 'x' }, 403) // members never get panel writes
+  await call(of, 'POST', '/api/desk/config', { certificates: false })
+  ok((await call(nu, 'GET', '/api/desk')).certificates === undefined, 'officer can hide certificates from the desk')
+  await call(of, 'POST', '/api/desk/config', { enabled: false })
+  ok((await call(nu, 'GET', '/api/auth/me')).home === '/', 'desk off ⇒ member lands on the public site')
+  await call(nu, 'GET', '/api/me/sections', undefined, 403)
+  await call(of, 'POST', '/api/desk/config', { enabled: true, certificates: true })
+  ok((await call(nu, 'GET', '/api/desk')).enabled === true, 'desk back on')
   const pr2 = await call(nu, 'GET', '/api/me/profile')
   ok(pr2.user.phone === null && pr2.user.gender === null, 'withdrawing consent erases sensitive fields')
 }
