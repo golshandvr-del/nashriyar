@@ -262,6 +262,9 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
   const officerId = await addUser('officer', 'مسئول نشریات دانشگاه', 'pub_officer', 'officer1234')
   await addUser('supervisor', 'ناظر دانشکدهٔ فنی', 'faculty_supervisor', 'super1234', { scope: facultyIds[0] })
   await addUser('analyst', 'کارشناس آمار', 'analyst', 'analyst1234')
+  // Demo-only developer account (phase 13). The /system console stays locked until it enables 2FA itself;
+  // on real installs the developer account is created only via `--create-developer`.
+  await addUser('developer', 'طراح سامانه', 'developer', 'dev12345678')
 
   // ───────── students ─────────
   const studentIds: string[] = []
