@@ -182,3 +182,25 @@ export async function suggestKeywords(c: Context<AppEnv>, text: string): Promise
   }
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([w]) => w)
 }
+
+/**
+ * Optional AI hypotheses for an insight's root cause (ROADMAP phase 10). Receives only aggregated
+ * evidence (counts/days), returns at most 3 short hypotheses; any failure ⇒ empty list (silent).
+ */
+export async function aiExplain(c: Context<AppEnv>, insight: { title: string; detail: string }, evidence: unknown): Promise<string[]> {
+  const p = await getProvider(c)
+  if (!p.enabled) return []
+  try {
+    const out = await p.complete(
+      'تو تحلیلگر نشریات دانشجویی هستی. فقط بر اساس شواهد داده‌شده حداکثر ۳ فرضیهٔ کوتاه (هر کدام یک خط) دربارهٔ علت این وضعیت بنویس. عدد نساز. هر فرضیه را در یک خط جدا و بدون شماره‌گذاری بنویس.',
+      `بینش: ${insight.title} — ${insight.detail}\nشواهد تجمیعی (JSON):\n${JSON.stringify(scrubPersonal(evidence))}`
+    )
+    return out
+      .split('\n')
+      .map((s) => s.replace(/^[\s\-•*\d۰-۹.)]+/, '').trim())
+      .filter((s) => s.length > 5 && s.length < 400)
+      .slice(0, 3)
+  } catch {
+    return []
+  }
+}
