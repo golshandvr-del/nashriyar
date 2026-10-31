@@ -45,6 +45,7 @@ const TeamSales = lazy(() => import('./team/Sales'))
 const TeamStats = lazy(() => import('./team/Stats'))
 const TeamRecruit = lazy(() => import('./team/Recruit'))
 const TeamProfile = lazy(() => import('./team/Profile'))
+const TeamFestivals = lazy(() => import('./team/Festivals'))
 
 // Admin / monitoring panel: separate chunks, only downloaded by staff.
 const AdminLayout = lazy(() => import('./admin/Layout'))
@@ -111,6 +112,7 @@ function App() {
           <Route path="stats" element={<TeamStats />} />
           <Route path="recruit" element={<TeamRecruit />} />
           <Route path="profile" element={<TeamProfile />} />
+          <Route path="festivals" element={<TeamFestivals />} />
           <Route path="*" element={<NotFound />} />
         </Route>
         <Route path="/admin" element={<AdminLayout />}>
