@@ -146,7 +146,7 @@
 - [x] انتشار ⇒ ثبت `published_at`، رویداد، تکمیل خودکار مرحلهٔ «انتشار» — ✅ `POST /api/admin/approvals/:id`: published_at (یا زمان آینده)، activity و تکمیل مرحلهٔ publish؛ فیلتر زمان‌بندی در public/reader/me
 - [x] پیش‌نمایش صفحهٔ عمومی شماره پیش از انتشار — ✅ دکمهٔ «پیش‌نمایش» در IssueRoom → `/read/:id` (کادر تیم/staff پیش از انتشار مجازند)
 - [x] **QR روی نسخهٔ چاپی** که به صفحهٔ دیجیتال شماره لینک می‌شود *(پیشنهادی)* — ✅ `web/lib/qr.ts` + کارت «QR نسخهٔ چاپی» در PublishTab (دانلود SVG)
-- [ ] نسخهٔ سمت‌سرور تبدیل PDF برای هاست شخصی (`pdftoppm`) پشت همان interface *(در فاز ۱۱ فعال می‌شود)*
+- [x] نسخهٔ سمت‌سرور تبدیل PDF برای هاست شخصی (`pdftoppm`) پشت همان interface *(در فاز ۱۱ فعال می‌شود)* — ✅ همان PdfRenderer/pdf-poppler فاز ۱۱ (worker Cloudflare آن را ندارد و مرورگر تبدیل می‌کند)
 
 ### معیار پذیرش
 - PDF صدصفحه‌ای روی لپ‌تاپ معمولی در کمتر از ۲ دقیقه پردازش و منتشر می‌شود.
@@ -379,7 +379,7 @@
 - [x] TLS خودکار با Let's Encrypt (Certbot) و تمدید خودکار — ✅ سرویس certbot در compose (renew هر ۱۲ ساعت) + صدور اولیهٔ standalone و reload شبانهٔ Nginx در OPERATIONS §۲-۱
 - [x] متغیرهای محیطی و Secrets تولید (`.env.production` خارج از مخزن) + الگوی `.env.example` — ✅ .env.example + .env.production در .gitignore/.dockerignore؛ APP_SECRET خالی ⇒ تولید و ذخیرهٔ خودکار
 - [x] انتخاب پایگاه داده: SQLite (حالت WAL، کافی برای مقیاس یک دانشگاه) یا مهاجرت به PostgreSQL با همان اسکیمای Drizzle — ✅ SQLite حالت WAL (node:sqlite، busy_timeout) — ADR-002/ADR-014؛ مسیر PostgreSQL با adapter سوم پشت Db باز است
-- [ ] فعال‌سازی تبدیل PDF سمت سرور (`pdftoppm`) به‌عنوان جایگزین/مکمل تبدیل مرورگر
+- [x] فعال‌سازی تبدیل PDF سمت سرور (`pdftoppm`) به‌عنوان جایگزین/مکمل تبدیل مرورگر — ✅ src/server/adapters/pdf-poppler.ts (pdfinfo/pdftoppm/pdftotext صفحه‌به‌صفحه) پشت interface `PdfRenderer` در Deps + `POST /api/media/pages/:issueId/server-render` و `GET /api/media/capabilities`؛ MediaTab اول سرور، در خطا مرورگر؛ poppler-utils در Dockerfile؛ `PDF_RENDERER=browser` برای غیرفعال‌سازی
 - [ ] جایگزینی rollup تنبل با **Cron** واقعی سرور (تجمیع آمار، انقضای استوری‌ها و کدها، پشتیبان)
 - [ ] **اسکریپت انتقال داده:** خروجی از D1/R2 ← ورود به پایگاه داده و ذخیره‌سازی جدید + تطبیق شمارش‌ها و چک‌سام فایل‌ها
 - [ ] **پشتیبان‌گیری خودکار:** روزانهٔ پایگاه داده، هفتگی فایل‌ها، نگهداری ۳۰ روزه، یک نسخه خارج از سرور + **آزمون بازیابی**
