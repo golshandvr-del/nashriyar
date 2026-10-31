@@ -4,6 +4,7 @@
 //   node server-dist/node.mjs --seed       reset the database and load demo data, then exit
 //   node server-dist/node.mjs --migrate    apply migrations, then exit
 //   node server-dist/node.mjs --create-admin [username]   create (or reset, incl. 2FA) a super admin with a random one-time password
+//   PDF_RENDERER=browser                    disable server-side PDF conversion (default: pdftoppm when installed)
 //   node server-dist/node.mjs --backup     consistent DB snapshot to DATA_DIR/backups (VACUUM INTO), prune > BACKUP_KEEP_DAYS (30)
 import fs from 'node:fs'
 import path from 'node:path'
@@ -15,6 +16,7 @@ import { createApp } from '../server/app'
 import { nodeSqliteDb } from '../server/adapters/db'
 import { diskStorage } from '../server/adapters/storage'
 import { ensureMigrated } from '../server/migrate'
+import { popplerRenderer } from '../server/adapters/pdf-poppler'
 import { resolveSecret } from '../server/secret'
 import type { Deps } from '../server/context'
 import { hashPassword, newId, randomId } from '../server/lib/crypto'
@@ -43,7 +45,9 @@ async function main() {
     db,
     storage,
     secret: await resolveSecret(db, process.env.APP_SECRET),
-    ai: { baseUrl: process.env.AI_BASE_URL, apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL }
+    ai: { baseUrl: process.env.AI_BASE_URL, apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL },
+    // Server-side PDF conversion (ROADMAP phase 11) when poppler-utils is installed; PDF_RENDERER=browser disables it.
+    pdf: process.env.PDF_RENDERER === 'browser' ? undefined : (await popplerRenderer()) ?? undefined
   }
 
   if (args.has('--create-admin')) {
