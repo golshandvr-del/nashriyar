@@ -50,6 +50,7 @@ const TeamProfile = lazy(() => import('./team/Profile'))
 const AdminLayout = lazy(() => import('./admin/Layout'))
 const Guard = lazy(() => import('./admin/Layout').then((m) => ({ default: m.RequireAccess })))
 const AdminOverview = lazy(() => import('./admin/Overview'))
+const AdminToday = lazy(() => import('./admin/Today'))
 const AdminLive = lazy(() => import('./admin/Live'))
 const AdminAnalytics = lazy(() => import('./admin/Analytics'))
 const AdminInsights = lazy(() => import('./admin/Insights'))
@@ -112,7 +113,8 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Route>
         <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminOverview />} />
+          <Route index element={<AdminToday />} />
+          <Route path="overview" element={<AdminOverview />} />
           <Route path="live" element={<AdminLive />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="insights" element={<AdminInsights />} />
