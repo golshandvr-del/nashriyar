@@ -8,7 +8,7 @@ import { FREQUENCY, faDate, formatNumber, toFaDigits } from '../lib/format'
 import { Async, Badge, useAsync } from '../components/ui'
 import { RangePicker, defaultRange } from '../team/Stats'
 
-const ROLE_FA: Record<string, string> = { managing_director: 'مدیرمسئول', editor_in_chief: 'سردبیر', license_holder: 'صاحب امتیاز' }
+import { PUB_ROLE_LABEL as ROLE_FA } from '../../shared/roles'
 const KPI_FA: Record<string, string> = {
   published: 'شمارهٔ منتشرشده',
   pages: 'صفحهٔ منتشرشده',
