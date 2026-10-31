@@ -84,7 +84,8 @@ export default function AdminLive() {
                         </div>
                         {i.planned_publish_at && (() => {
                           // ROADMAP phase 7 live board: delay = days past the planned publish date
-                          const late = Math.floor((Date.now() - new Date(i.planned_publish_at + 'T23:59:59Z').getTime()) / 86400000)
+                          const pp = String(i.planned_publish_at)
+                          const late = Math.floor((Date.now() - new Date(pp.length === 10 ? pp + 'T23:59:59Z' : pp).getTime()) / 86400000) || 0
                           return (
                             <div className="mt-1 flex items-center gap-2 text-xs text-muted">
                               <span>انتشار برنامه‌ریزی‌شده: {faDate(i.planned_publish_at)}</span>
