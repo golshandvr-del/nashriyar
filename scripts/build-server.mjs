@@ -25,7 +25,7 @@ await build({
   minify: true
 })
 
-fs.writeFileSync('dist/_routes.json', JSON.stringify({ version: 1, include: ['/api/*', '/robots.txt'], exclude: [] }, null, 2))
+fs.writeFileSync('dist/_routes.json', JSON.stringify({ version: 1, include: ['/api/*', '/healthz', '/robots.txt'], exclude: [] }, null, 2))
 
 await build({
   ...common,
