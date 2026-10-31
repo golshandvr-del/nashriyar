@@ -23,9 +23,10 @@ export const PUB_ROLE_LABEL: Record<string, string> = {
 /** Persian label for a publication role key; falls back to a neutral label instead of the raw key. */
 export const pubRoleLabel = (key: string | null | undefined): string => (key && PUB_ROLE_LABEL[key]) || 'عضو تیم'
 
-export type SystemRoleKey = 'super_admin' | 'pub_officer' | 'faculty_supervisor' | 'analyst' | 'team' | 'student'
+export type SystemRoleKey = 'developer' | 'super_admin' | 'pub_officer' | 'faculty_supervisor' | 'analyst' | 'team' | 'student'
 
 export const SYSTEM_ROLE_LABEL: Record<SystemRoleKey, string> = {
+  developer: 'طراح سامانه',
   super_admin: 'مدیر کل سامانه',
   pub_officer: 'مسئول نشریات',
   faculty_supervisor: 'ناظر دانشکده',
