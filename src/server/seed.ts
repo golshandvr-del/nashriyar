@@ -256,7 +256,7 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
     )
     return id
   }
-  await addUser('admin', 'مدیر سامانه', 'super_admin', 'admin1234')
+  const adminId = await addUser('admin', 'مدیر سامانه', 'super_admin', 'admin1234')
   const officerId = await addUser('officer', 'مسئول نشریات دانشگاه', 'pub_officer', 'officer1234')
   await addUser('supervisor', 'ناظر دانشکدهٔ فنی', 'faculty_supervisor', 'super1234', { scope: facultyIds[0] })
   await addUser('analyst', 'کارشناس آمار', 'analyst', 'analyst1234')
@@ -559,6 +559,27 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
   const latest = [...issueCards].sort((a, b) => b.publishedAt! - a.publishedAt!)
   q('INSERT INTO featured_shelves (id, title, issue_ids_json, sort_order, is_active, created_at) VALUES (?,?,?,?,1,?)', newId(), 'پیشنهاد مسئول نشریات', JSON.stringify(latest.slice(0, 8).map((x) => x.id)), 0, iso(NOW - 5 * DAY))
   q('INSERT INTO featured_shelves (id, title, issue_ids_json, sort_order, is_active, created_at) VALUES (?,?,?,?,1,?)', newId(), 'رایگان بخوانید', JSON.stringify(latest.filter((x) => x.pricing === 'free').slice(0, 8).map((x) => x.id)), 1, iso(NOW - 5 * DAY))
+  // ───────── audit log samples (so «گزارش رویدادها» is never empty on a fresh demo) ─────────
+  const AUDIT: [string, string, string | null, number, unknown, unknown][] = [
+    ['settings.update', 'settings', null, 60, { registration_open: false }, { registration_open: true }],
+    ['category.create', 'category', null, 55, null, { name: 'محیط زیست' }],
+    ['shelf.save', 'shelf', null, 5, null, { title: 'پیشنهاد مسئول نشریات' }],
+    ['announcement.create', 'announcement', null, 6, null, { title: 'جشنوارهٔ نشریات دانشجویی' }],
+    ['announcement.create', 'announcement', null, 20, null, { title: 'یادآوری تمدید مجوز' }],
+    ['user.create', 'user', null, 90, null, { username: 'analyst', system_role: 'analyst' }],
+    ['user.password_reset', 'user', null, 14, null, null]
+  ]
+  pubIds.slice(0, 12).forEach((pid, i) => {
+    AUDIT.push(['publication.create', 'publication', pid, 300 - i * 9, null, { title: PUBS[i][0] }])
+    if (i % 3 === 0) AUDIT.push(['publication.update', 'publication', pid, 40 - i, { license_number: null }, { license_number: `۱۴۰۴/${120 + i}` }])
+    if (i % 4 === 1) AUDIT.push(['publication.role_change', 'publication', pid, 30 - i, { role: 'editor_in_chief' }, { role: 'editor_in_chief', holder: 'سردبیر جدید' }])
+  })
+  for (const [action, type, entity, daysAgo, before, after] of AUDIT)
+    q('INSERT INTO audit_logs (id, actor_user_id, action, entity_type, entity_id, before_json, after_json, created_at) VALUES (?,?,?,?,?,?,?,?)',
+      newId(), action.startsWith('settings') || action.startsWith('user.create') ? adminId : officerId, action, type, entity,
+      before ? JSON.stringify(before) : null, after ? JSON.stringify(after) : null, iso(NOW - daysAgo * DAY - ri(1, 20) * 3600_000))
+  log(`audit samples: ${AUDIT.length}`)
+
   await flush()
   log(`done: ${PUBS.length} publications, ${issueCards.length} published issues`)
 }
