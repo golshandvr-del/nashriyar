@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { AppEnv } from '../context'
 import { checkRateLimit, clearFailures, clientIp, recordFailure, requireUser } from '../auth'
 import { newId, normalizePurchaseCode, sha256 } from '../lib/crypto'
-import { activity, bad, body, HttpError, notFound, nowIso, parseJson, str } from '../lib/util'
+import { activity, bad, body, HttpError, notFound, nowIso, oneOf, parseJson, str } from '../lib/util'
 import { toEnDigits } from '../../shared/fa'
 import { flagComment } from '../lib/moderation'
 import { requireFeature } from '../lib/features'
@@ -285,5 +285,56 @@ meRoutes.post('/delete-account', async (c) => {
   const now = nowIso()
   await db.run("UPDATE users SET status = 'suspended', deleted_at = ?, display_name = 'کاربر حذف‌شده' WHERE id = ?", [now, u.id])
   await db.run('UPDATE sessions SET revoked_at = ? WHERE user_id = ?', [now, u.id])
+  return c.json({ ok: true })
+})
+
+// ───────── Member portal (ROADMAP phase 9, optional, feature flag `member_portal`) ─────────
+// A regular team member signs in with their own student account; they are matched to active
+// team_members rows by student_number and may only move the TOC sections assigned to them.
+const MEMBER_STATUSES = ['todo', 'writing', 'written'] as const
+
+async function memberSections(c: any, tocId?: string) {
+  const u = requireUser(c)
+  await requireFeature(c.get('db'), 'member_portal')
+  const sn = (u as any).student_number || (await c.get('db').first('SELECT student_number FROM users WHERE id = ?', [u.id]))?.student_number
+  if (!sn) return []
+  return c.get('db').all(
+    `SELECT t.id, t.title, t.status, t.due_at, t.page_start, t.page_end, a.role AS my_role, tm.id AS team_member_id,
+            i.id AS issue_id, i.title AS issue_title, i.number AS issue_number, i.status AS issue_status,
+            p.id AS publication_id, p.title AS publication_title
+       FROM toc_assignments a
+       JOIN team_members tm ON tm.id = a.team_member_id AND tm.is_active = 1
+       JOIN issue_toc_items t ON t.id = a.toc_item_id
+       JOIN issues i ON i.id = t.issue_id AND i.deleted_at IS NULL AND i.status NOT IN ('published','archived')
+       JOIN publications p ON p.id = i.publication_id AND p.status = 'active' AND p.deleted_at IS NULL
+      WHERE tm.student_number = ?${tocId ? ' AND t.id = ?' : ''}
+      ORDER BY (t.due_at IS NULL), t.due_at, i.created_at DESC, t.sort_order`,
+    tocId ? [sn, tocId] : [sn]
+  )
+}
+
+meRoutes.get('/sections', async (c) => {
+  return c.json({ items: await memberSections(c), statuses: MEMBER_STATUSES })
+})
+
+meRoutes.post('/sections/:tocId/status', async (c) => {
+  const u = requireUser(c)
+  const rows = await memberSections(c, c.req.param('tocId'))
+  const t = rows[0]
+  if (!t) throw new HttpError(403, 'این بخش به شما سپرده نشده است')
+  const b = await body<{ status?: string; note?: string }>(c)
+  const status = oneOf(b.status, MEMBER_STATUSES, 'وضعیت')
+  if (!(MEMBER_STATUSES as readonly string[]).includes(t.status)) throw new HttpError(409, 'این بخش وارد مرحلهٔ ویرایش شده و فقط حساب‌های اصلی تیم می‌توانند آن را تغییر دهند')
+  if (status === t.status) return c.json({ ok: true })
+  const db = c.get('db')
+  const now = nowIso()
+  await db.batch([
+    { sql: 'UPDATE issue_toc_items SET status = ? WHERE id = ?', params: [status, t.id] },
+    {
+      sql: 'INSERT INTO stage_events (id, issue_id, toc_item_id, from_status, to_status, actor_user_id, note, created_at) VALUES (?,?,?,?,?,?,?,?)',
+      params: [newId(), t.issue_id, t.id, t.status, status, u.id, str(b.note, 'یادداشت', { max: 300, optional: true }) || 'از طریق ورود عضو', now]
+    }
+  ])
+  await activity(db, u.id, 'toc.status.member', t.publication_id, t.issue_id, { id: t.id, from: t.status, to: status })
   return c.json({ ok: true })
 })
