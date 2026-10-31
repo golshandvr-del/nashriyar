@@ -155,7 +155,8 @@ membershipRoutes.post('/requests/:id/decide', async (c) => {
     await audit(db, u.id, 'membership.rejected', 'membership_request', req.id)
     return c.json({ ok: true })
   }
-  const who = await db.first<any>('SELECT id, display_name, student_number, faculty_id, major_id, phone FROM users WHERE id = ? AND deleted_at IS NULL', [req.user_id])
+  // privacy (ROADMAP phase 15): sensitive profile fields (phone, email, gender, birth year) are never copied into team records
+  const who = await db.first<any>('SELECT id, display_name, student_number, faculty_id, major_id FROM users WHERE id = ? AND deleted_at IS NULL', [req.user_id])
   if (!who) throw bad('حساب درخواست‌دهنده دیگر وجود ندارد')
   const role = str(b.role_name, 'سمت', { max: 60, optional: true }) || req.role_name || null
   // link an existing record (same account or same student number) before creating a new one
@@ -172,8 +173,8 @@ membershipRoutes.post('/requests/:id/decide', async (c) => {
     })
   else
     stmts.push({
-      sql: 'INSERT INTO team_members (id, publication_id, user_id, full_name, student_number, faculty_id, major_id, default_role, phone, joined_at, is_active, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,1,?)',
-      params: [memberId, req.publication_id, who.id, who.display_name, who.student_number, who.faculty_id, who.major_id, role, who.phone, now.slice(0, 10), now]
+      sql: 'INSERT INTO team_members (id, publication_id, user_id, full_name, student_number, faculty_id, major_id, default_role, joined_at, is_active, created_at) VALUES (?,?,?,?,?,?,?,?,?,1,?)',
+      params: [memberId, req.publication_id, who.id, who.display_name, who.student_number, who.faculty_id, who.major_id, role, now.slice(0, 10), now]
     })
   stmts.push({
     sql: "UPDATE membership_requests SET status = 'approved', decided_by = ?, decided_at = ?, decision_note = ?, team_member_id = ?, role_name = ? WHERE id = ?",
