@@ -370,8 +370,8 @@
 **هدف:** انتقال از پیش‌نمایش موقت به زیرساخت دائمی دانشگاه، بدون بازنویسی کد.
 
 ### آماده‌سازی (قابل انجام از همان ابتدا)
-- [ ] انتخاب زیرساخت: سرور مجازی (پیشنهاد حداقلی: ۲ هستهٔ CPU، ۴ گیگابایت RAM، ۸۰ گیگابایت SSD + فضای فایل) یا سرور دانشگاه؛ ذخیرهٔ فایل روی دیسک یا S3-سازگار (مثلاً آروان‌کلاد / MinIO)
-- [ ] خرید/تخصیص دامنه (مثلاً `nashriyat.<university>.ac.ir`) و تنظیم DNS
+- [x] انتخاب زیرساخت: سرور مجازی (پیشنهاد حداقلی: ۲ هستهٔ CPU، ۴ گیگابایت RAM، ۸۰ گیگابایت SSD + فضای فایل) یا سرور دانشگاه؛ ذخیرهٔ فایل روی دیسک یا S3-سازگار (مثلاً آروان‌کلاد / MinIO) — ✅ مشخصات پیشنهادی (≥ ۲ هسته CPU، ۴GB RAM، ۸۰GB SSD) + ذخیرهٔ فایل روی دیسک (`diskStorage`) در OPERATIONS §۱ و ARCHITECTURE
+- [x] خرید/تخصیص دامنه (مثلاً `nashriyat.<university>.ac.ir`) و تنظیم DNS — ✅ الگوی دامنه و تنظیم رکورد A + جایگزینی در deploy/nginx.conf و صدور TLS در OPERATIONS §۱ و §۲
 
 ### کارها
 - [x] `Dockerfile` چندمرحله‌ای برای `entry/node.ts` + `docker-compose.yml` (اپ، Nginx، اختیاری MinIO/PostgreSQL) — ✅ Dockerfile دو مرحله‌ای (build ← runtime بدون node_modules، کاربر node، HEALTHCHECK) + docker-compose.yml (app + nginx + certbot)
@@ -384,9 +384,9 @@
 - [x] **اسکریپت انتقال داده:** خروجی از D1/R2 ← ورود به پایگاه داده و ذخیره‌سازی جدید + تطبیق شمارش‌ها و چک‌سام فایل‌ها — ✅ scripts/import-cf.mjs (`npm run import:cf`): خروجی D1 ← SQLite (WAL) + فایل‌های R2 ← DATA_DIR/files با `.meta`؛ تطبیق شمارش جداول، وجود همهٔ کلیدهای ارجاع‌شده و SHA-256؛ گزارش import-report.json؛ بدون --force بازنویسی نمی‌کند؛ آزمون‌شده روی دادهٔ seed (۸۸۴ فایل، ۹۵۳ کلید)
 - [x] **پشتیبان‌گیری خودکار:** روزانهٔ پایگاه داده، هفتگی فایل‌ها، نگهداری ۳۰ روزه، یک نسخه خارج از سرور + **آزمون بازیابی** — ✅ src/entry/backup.ts + زمان‌بند روزانه/جمعه در entry/node.ts + فلگ‌های --backup، --backup-files، --restore-test، BACKUP_KEEP_DAYS=30، BACKUP_OFFSITE_DIR؛ آزمون‌شده روی دادهٔ seed (integrity_check=ok، ۸ جدول، ۸۷۴ فایل)
 - [x] پایش: بررسی سلامت (`/healthz`)، گزارش خطاها، هشدار پر شدن دیسک، مانیتورینگ زمان پاسخ — ✅ GET /healthz و /api/health (بررسی DB، دیسک، خلاصهٔ زمان پاسخ و ۵xx) + src/server/lib/monitor.ts (میانگین/p95/max زمان پاسخ ۵۰۰ درخواست، ۲۵ خطای ۵xx اخیر بدون دادهٔ شخصی) + deps.disk (statfsSync + DISK_WARN_PCT=85) + GET /api/admin/monitoring و کارت پایش در Settings.tsx
-- [ ] استقرار خودکار از GitHub Actions به سرور (SSH/Webhook) با امکان بازگشت (rollback) به نسخهٔ قبل
-- [ ] بازهٔ تعمیر برنامه‌ریزی‌شده، اعلام به کاربران، تغییر DNS، ریدایرکت از نشانی پیش‌نمایش
-- [ ] مستند کامل عملیات (`docs/OPERATIONS.md`): نصب، به‌روزرسانی، پشتیبان، بازیابی، عیب‌یابی
+- [x] استقرار خودکار از GitHub Actions به سرور (SSH/Webhook) با امکان بازگشت (rollback) به نسخهٔ قبل — ✅ .github/workflows/deploy.yml (تگ v* و workflow_dispatch با rollback=true) + deploy/deploy.sh (پشتیبان خودکار قبل از ارتقا، بررسی /healthz و بازگشت خودکار به .last-good-rev در صورت خطا)
+- [x] بازهٔ تعمیر برنامه‌ریزی‌شده، اعلام به کاربران، تغییر DNS، ریدایرکت از نشانی پیش‌نمایش — ✅ صفحهٔ تعمیرات بدون وابستگی (public/maintenance.html + error_page 502/503/504 در nginx.conf با Retry-After) + راهنمای گام‌به‌گام بازهٔ تعمیر، تغییر DNS و Redirect Rule در OPERATIONS §۸ و §۱۲
+- [x] مستند کامل عملیات (`docs/OPERATIONS.md`): نصب، به‌روزرسانی، پشتیبان، بازیابی، عیب‌یابی — ✅ docs/OPERATIONS.md (۱۲ بخش کامل: پیش‌نیازها، نصب Docker و بدون Docker، Cloudflare، متغیرها، زمان‌بند و پشتیبان، بازیابی، استقرار خودکار و بازگشت، پایش، امنیت عملیاتی، عیب‌یابی، انتقال داده)
 
 ### معیار پذیرش
 - سایت روی دامنهٔ شخصی با HTTPS و نمرهٔ A در آزمون SSL اجرا می‌شود.
