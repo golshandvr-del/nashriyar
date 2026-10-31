@@ -45,7 +45,14 @@ export default function MediaTab({ d, reload, pubId }: RoomProps) {
         const blob = await pdfFirstPage(file).catch(() => null)
         if (blob) await send(new File([blob], 'cover.jpg', { type: 'image/jpeg' }), 'cover', {}, 'ساخت جلد از صفحهٔ اول')
       }
-      await processPdf(issue.id, file, setProc)
+      // Self-hosted installs with poppler convert on the server (ROADMAP phase 11); otherwise / on failure, in the browser.
+      const caps = await api.get<{ server_pdf: boolean }>('/api/media/capabilities').catch(() => ({ server_pdf: false }))
+      let done = false
+      if (caps.server_pdf) {
+        setProc({ phase: 'rendering', page: 0, total: 0, skipped: 0 })
+        done = await api.post(`/api/media/pages/${issue.id}/server-render`, {}).then(() => true, () => false)
+      }
+      if (!done) await processPdf(issue.id, file, setProc)
       toast('نسخهٔ دیجیتال آماده شد')
     } catch (e: any) {
       toast(e?.message || 'پردازش ناموفق بود؛ دوباره همان فایل را انتخاب کنید تا از ادامه شروع شود', 'error')
