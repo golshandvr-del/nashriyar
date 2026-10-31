@@ -374,11 +374,11 @@
 - [ ] خرید/تخصیص دامنه (مثلاً `nashriyat.<university>.ac.ir`) و تنظیم DNS
 
 ### کارها
-- [ ] `Dockerfile` چندمرحله‌ای برای `entry/node.ts` + `docker-compose.yml` (اپ، Nginx، اختیاری MinIO/PostgreSQL)
-- [ ] پیکربندی Nginx: پروکسی معکوس، HTTP/2، فشرده‌سازی، کش فایل‌های استاتیک، سقف حجم آپلود
-- [ ] TLS خودکار با Let's Encrypt (Certbot) و تمدید خودکار
-- [ ] متغیرهای محیطی و Secrets تولید (`.env.production` خارج از مخزن) + الگوی `.env.example`
-- [ ] انتخاب پایگاه داده: SQLite (حالت WAL، کافی برای مقیاس یک دانشگاه) یا مهاجرت به PostgreSQL با همان اسکیمای Drizzle
+- [x] `Dockerfile` چندمرحله‌ای برای `entry/node.ts` + `docker-compose.yml` (اپ، Nginx، اختیاری MinIO/PostgreSQL) — ✅ Dockerfile دو مرحله‌ای (build ← runtime بدون node_modules، کاربر node، HEALTHCHECK) + docker-compose.yml (app + nginx + certbot)
+- [x] پیکربندی Nginx: پروکسی معکوس، HTTP/2، فشرده‌سازی، کش فایل‌های استاتیک، سقف حجم آپلود — ✅ deploy/nginx.conf: upstream keepalive، HTTP/2، gzip، کش immutable برای /assets، no-cache برای sw.js، client_max_body_size 100m، limit_req برای ورود/API، صفحهٔ تعمیر
+- [x] TLS خودکار با Let's Encrypt (Certbot) و تمدید خودکار — ✅ سرویس certbot در compose (renew هر ۱۲ ساعت) + صدور اولیهٔ standalone و reload شبانهٔ Nginx در OPERATIONS §۲-۱
+- [x] متغیرهای محیطی و Secrets تولید (`.env.production` خارج از مخزن) + الگوی `.env.example` — ✅ .env.example + .env.production در .gitignore/.dockerignore؛ APP_SECRET خالی ⇒ تولید و ذخیرهٔ خودکار
+- [x] انتخاب پایگاه داده: SQLite (حالت WAL، کافی برای مقیاس یک دانشگاه) یا مهاجرت به PostgreSQL با همان اسکیمای Drizzle — ✅ SQLite حالت WAL (node:sqlite، busy_timeout) — ADR-002/ADR-014؛ مسیر PostgreSQL با adapter سوم پشت Db باز است
 - [ ] فعال‌سازی تبدیل PDF سمت سرور (`pdftoppm`) به‌عنوان جایگزین/مکمل تبدیل مرورگر
 - [ ] جایگزینی rollup تنبل با **Cron** واقعی سرور (تجمیع آمار، انقضای استوری‌ها و کدها، پشتیبان)
 - [ ] **اسکریپت انتقال داده:** خروجی از D1/R2 ← ورود به پایگاه داده و ذخیره‌سازی جدید + تطبیق شمارش‌ها و چک‌سام فایل‌ها
