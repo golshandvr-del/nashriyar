@@ -469,7 +469,8 @@ function Production({ q }: { q: string }) {
             const DAY = 86400000
             const rowsG = d.timeline.map((t: any) => {
               const start = new Date(t.created_at).getTime()
-              const end = t.planned_publish_at ? new Date(t.planned_publish_at + 'T23:59:59Z').getTime() : Date.now() + 14 * DAY
+              const pp = String(t.planned_publish_at || ''), pt = pp ? new Date(pp.length === 10 ? pp + 'T23:59:59Z' : pp).getTime() : NaN
+              const end = Number.isFinite(pt) ? pt : Date.now() + 14 * DAY
               return { label: `${t.publication_title} · ${toFaDigits(t.number ?? '')}`, start, end: Math.max(end, start + DAY), late: !!t.planned_publish_at && end < Date.now(), planned: !!t.planned_publish_at }
             })
             const min = Math.min(...rowsG.map((r: any) => r.start))
