@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { applyTheme, getTheme } from '../lib/theme'
 import { cx } from '../lib/format'
 import { useFeature } from '../lib/features'
+import { ErrorBoundary } from './Static'
 
 function ThemeButton() {
   const [t, setT] = useState(getTheme())
@@ -124,7 +125,9 @@ export default function PublicLayout() {
       )}
 
       <main id="main" className={cx('mx-auto max-w-6xl', hideChrome ? '' : 'px-4 pb-24 pt-4 md:pb-10')}>
-        <Outlet />
+        <ErrorBoundary inline key={loc.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
 
       {!hideChrome && (
