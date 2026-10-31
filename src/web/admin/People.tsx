@@ -4,15 +4,25 @@ import { Search } from 'lucide-react'
 import { api, qs } from '../lib/api'
 import { ISSUE_STATUS, TOC_STATUS, faDate, toFaDigits } from '../lib/format'
 import { Async, Badge, Card, Empty, Input, PageHeader, useAsync } from '../components/ui'
+import MembershipRequests from '../team/MembershipRequests'
+import { useAdminRole } from './Layout'
+
+/** Officer view of team membership requests across all publications (ROADMAP phase 15). */
+function OfficerRequests() {
+  const roles = useAsync(() => api.get<{ roles: { id: string; name: string }[] }>('/api/membership/options'), [])
+  return <MembershipRequests roles={roles.data?.roles || []} />
+}
 
 /** People across all publications (matched by student number, otherwise exact name). */
 export default function AdminPeople() {
   const [q, setQ] = useState('')
   const [term, setTerm] = useState('')
   const st = useAsync(() => api.get(`/api/admin/people${qs({ q: term })}`), [term])
+  const { admin } = useAdminRole()
   return (
     <div>
       <PageHeader title="پروندهٔ افراد" subtitle="سابقهٔ همکاری هر دانشجو در همهٔ نشریات (بر اساس شمارهٔ دانشجویی یا نام)" />
+      {admin && <OfficerRequests />}
       <form
         className="relative mb-4 max-w-lg"
         onSubmit={(e) => {
