@@ -6,7 +6,7 @@ import { useAuth, ROLE_LABEL, PUB_ROLE_LABEL, isMonitor } from '../lib/auth'
 import { applyTheme, getTheme, getLargeText, setLargeText } from '../lib/theme'
 import type { Theme } from '../lib/theme'
 import { cx, faDate, relativeFa, formatNumber } from '../lib/format'
-import { Async, Badge, Button, Card, Field, Input, Select, useAction, useAsync, useToast } from '../components/ui'
+import { Async, Badge, Button, Card, Field, Input, PasswordInput, Select, useAction, useAsync, useToast } from '../components/ui'
 
 const COMMENT_STATUS: Record<string, { label: string; tone: 'muted' | 'ok' | 'warn' | 'danger' }> = {
   pending: { label: 'در انتظار بررسی', tone: 'warn' },
@@ -172,13 +172,13 @@ function PasswordCard() {
       {!!user?.must_change_password && <p className="mb-3 text-sm text-amber-700 dark:text-amber-300">رمز شما توسط مدیر صادر شده است؛ لطفاً همین حالا آن را تغییر دهید.</p>}
       <div className="space-y-3">
         <Field label="رمز فعلی">
-          <Input type="password" autoComplete="current-password" value={f.current} onChange={(e) => setF({ ...f, current: e.target.value })} />
+          <PasswordInput autoComplete="current-password" value={f.current} onChange={(e) => setF({ ...f, current: e.target.value })} />
         </Field>
         <Field label="رمز جدید" hint="حداقل ۸ نویسه">
-          <Input type="password" autoComplete="new-password" value={f.next} onChange={(e) => setF({ ...f, next: e.target.value })} />
+          <PasswordInput strength autoComplete="new-password" value={f.next} onChange={(e) => setF({ ...f, next: e.target.value })} />
         </Field>
         <Field label="تکرار رمز جدید" error={err}>
-          <Input type="password" autoComplete="new-password" value={f.next2} onChange={(e) => setF({ ...f, next2: e.target.value })} />
+          <PasswordInput autoComplete="new-password" value={f.next2} onChange={(e) => setF({ ...f, next2: e.target.value })} />
         </Field>
         <Button loading={busy} onClick={submit} disabled={!f.current || !f.next}>
           تغییر رمز
@@ -224,7 +224,7 @@ function RecoveryCard() {
       <div className="flex items-end gap-2">
         <div className="flex-1">
           <Field label="رمز فعلی">
-            <Input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+            <PasswordInput autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
           </Field>
         </div>
         <Button loading={busy} onClick={make} disabled={!pw}>
@@ -270,7 +270,7 @@ function TotpCard() {
             <Badge tone="ok">فعال</Badge> هنگام ورود، علاوه بر رمز، کد شش‌رقمی برنامهٔ احراز هویت هم خواسته می‌شود.
           </p>
           <Field label="رمز عبور فعلی">
-            <Input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+            <PasswordInput autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
           </Field>
           <Field label="کد شش‌رقمی فعلی">
             <Input dir="ltr" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} />
