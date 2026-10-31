@@ -17,6 +17,9 @@ npm run build && node server-dist/node.mjs --seed   # دادهٔ نمونه در
 ## وضعیت فعلی رودمپ
 - فاز ۰ تا ۱۰ کامل؛ فاز ۱۱ (انتقال دامنه) **معلق به درخواست کارفرما**.
 - فازهای فعال: ۱۲ تا ۱۸ (از بازخورد کارفرما — ریشه‌یابی در `docs/AUDIT-1405-08.md`). فاز ۱۸ (Excel/چاپ) عمداً آخر است.
+- ✅ فاز ۱۲ کامل (کشوی موبایل پنل‌ها، PasswordInput، پنل من، guide واکنش‌گرا، audit نمونه، demo_mode، `tests/browser-e2e.mjs`).
+- ▶ بعدی: فاز ۱۳ — پنل طراح `/system` با نقش `developer`.
+- آزمون مرورگر: `BASE=http://127.0.0.1:3000 PLAYWRIGHT_PATH=/tmp/pw/node_modules/playwright/index.mjs node tests/browser-e2e.mjs`
 
 ## نکات فنی کشف‌شده
 - `defaultRange` در `src/web/team/Stats.tsx` است؛ پیش‌تنظیم‌ها در `src/shared/fa.ts` (`jalaliPresets`).
