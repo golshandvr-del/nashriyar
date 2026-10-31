@@ -380,7 +380,7 @@
 - [x] متغیرهای محیطی و Secrets تولید (`.env.production` خارج از مخزن) + الگوی `.env.example` — ✅ .env.example + .env.production در .gitignore/.dockerignore؛ APP_SECRET خالی ⇒ تولید و ذخیرهٔ خودکار
 - [x] انتخاب پایگاه داده: SQLite (حالت WAL، کافی برای مقیاس یک دانشگاه) یا مهاجرت به PostgreSQL با همان اسکیمای Drizzle — ✅ SQLite حالت WAL (node:sqlite، busy_timeout) — ADR-002/ADR-014؛ مسیر PostgreSQL با adapter سوم پشت Db باز است
 - [x] فعال‌سازی تبدیل PDF سمت سرور (`pdftoppm`) به‌عنوان جایگزین/مکمل تبدیل مرورگر — ✅ src/server/adapters/pdf-poppler.ts (pdfinfo/pdftoppm/pdftotext صفحه‌به‌صفحه) پشت interface `PdfRenderer` در Deps + `POST /api/media/pages/:issueId/server-render` و `GET /api/media/capabilities`؛ MediaTab اول سرور، در خطا مرورگر؛ poppler-utils در Dockerfile؛ `PDF_RENDERER=browser` برای غیرفعال‌سازی
-- [ ] جایگزینی rollup تنبل با **Cron** واقعی سرور (تجمیع آمار، انقضای استوری‌ها و کدها، پشتیبان)
+- [x] جایگزینی rollup تنبل با **Cron** واقعی سرور (تجمیع آمار، انقضای استوری‌ها و کدها، پشتیبان) — ✅ src/server/lib/maintenance.ts (runMaintenance: rollup، یادآورها، حذف نشست/کش/پنجرهٔ ورود منقضی؛ گزارش در maintenance_last) + زمان‌بند درون‌فرایندی در entry/node.ts (هر ۱۵ دقیقه + پشتیبان روزانه در BACKUP_HOUR؛ CRON=off) + فلگ --maintenance برای crontab میزبان
 - [ ] **اسکریپت انتقال داده:** خروجی از D1/R2 ← ورود به پایگاه داده و ذخیره‌سازی جدید + تطبیق شمارش‌ها و چک‌سام فایل‌ها
 - [ ] **پشتیبان‌گیری خودکار:** روزانهٔ پایگاه داده، هفتگی فایل‌ها، نگهداری ۳۰ روزه، یک نسخه خارج از سرور + **آزمون بازیابی**
 - [ ] پایش: بررسی سلامت (`/healthz`)، گزارش خطاها، هشدار پر شدن دیسک، مانیتورینگ زمان پاسخ
