@@ -16,6 +16,24 @@ export interface SessionUser {
   theme: string | null
 }
 
+/** One rendered PDF page (server-side conversion, ROADMAP phase 11). */
+export interface RenderedPage {
+  page_number: number
+  bytes: Uint8Array
+  mime: string
+  ext: string
+  text: string | null
+}
+
+/**
+ * Optional server-side PDF → page images converter (self-hosted only, e.g. poppler's pdftoppm).
+ * On Cloudflare it is absent and the browser (pdf.js) converts instead.
+ */
+export interface PdfRenderer {
+  name: string
+  render(pdf: Uint8Array, opts: { width: number; onPage: (p: RenderedPage) => Promise<void> }): Promise<{ page_count: number }>
+}
+
 export interface Deps {
   db: Db
   storage: Storage
@@ -23,6 +41,8 @@ export interface Deps {
   secret: string
   /** Optional AI config (feature is fully optional). */
   ai?: { baseUrl?: string; apiKey?: string; model?: string }
+  /** Optional server-side PDF converter (Node entry only, when poppler-utils is installed). */
+  pdf?: PdfRenderer
 }
 
 export type AppEnv = {
