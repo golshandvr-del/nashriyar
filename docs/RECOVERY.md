@@ -18,7 +18,12 @@ npm run build && node server-dist/node.mjs --seed   # دادهٔ نمونه در
 - فاز ۰ تا ۱۰ کامل؛ فاز ۱۱ (انتقال دامنه) **معلق به درخواست کارفرما**.
 - فازهای فعال: ۱۲ تا ۱۸ (از بازخورد کارفرما — ریشه‌یابی در `docs/AUDIT-1405-08.md`). فاز ۱۸ (Excel/چاپ) عمداً آخر است.
 - ✅ فاز ۱۲ کامل (کشوی موبایل پنل‌ها، PasswordInput، پنل من، guide واکنش‌گرا، audit نمونه، demo_mode، `tests/browser-e2e.mjs`).
-- ▶ بعدی: فاز ۱۳ — پنل طراح `/system` با نقش `developer`.
+- ▶ فاز ۱۳ (در حال انجام): سمت سرور کامل — `migrations/0007_developer_console.sql` (sessions.elevated_until + جدول append-only `system_audit`)،
+  `src/server/routes/system.ts` (همهٔ `/api/system/*`: guard لایه‌ای IP/نقش/نشست ۲ساعته/TOTP، `POST /elevate` = sudo ده‌دقیقه‌ای،
+  health، settings فنی + maintenance_mode، backups، sessions/locks، db/vacuum|analyze، staff، audit)، `SystemOps` در `context.ts` و `entry/node.ts`،
+  `--create-developer` در CLI. تنظیمات مسئول نشریات فقط امور نشریات دارد؛ `/api/admin/monitoring` حذف شد.
+  حساب نمایشی: `developer / dev12345678` (آخر seed اضافه شده تا ترتیب PRNG و شماره‌دانشجویی‌های آزمون عوض نشود).
+  آزمون: `tests/security.mjs` (۸۸ مورد سبز). باقی‌مانده: رابط کاربری `/system` (پوسته + صفحات)، اجرای حالت تعمیرات در سرور.
 - آزمون مرورگر: `BASE=http://127.0.0.1:3000 PLAYWRIGHT_PATH=/tmp/pw/node_modules/playwright/index.mjs node tests/browser-e2e.mjs`
 
 ## نکات فنی کشف‌شده
