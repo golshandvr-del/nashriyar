@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { KeyRound } from 'lucide-react'
 import { api } from '../lib/api'
 import { toEnDigits } from '../lib/format'
-import { Button, Card, ErrorBox, Field, Input } from '../components/ui'
+import { Button, Card, ErrorBox, Field, Input, PasswordInput } from '../components/ui'
 
 /** Self-service password recovery with the one-time recovery code (ROADMAP phase 5; SMS later). */
 export default function Recover() {
@@ -56,10 +56,10 @@ export default function Recover() {
                 <Input dir="ltr" autoComplete="off" value={f.code} onChange={set('code')} required maxLength={40} />
               </Field>
               <Field label="رمز جدید" hint="حداقل ۸ نویسه">
-                <Input dir="ltr" type="password" autoComplete="new-password" value={f.next} onChange={set('next')} required />
+                <PasswordInput strength autoComplete="new-password" value={f.next} onChange={set('next')} required />
               </Field>
               <Field label="تکرار رمز جدید">
-                <Input dir="ltr" type="password" autoComplete="new-password" value={f.next2} onChange={set('next2')} required />
+                <PasswordInput autoComplete="new-password" value={f.next2} onChange={set('next2')} required />
               </Field>
               {error && <ErrorBox error={error} />}
               <Button type="submit" className="w-full" loading={busy}>
