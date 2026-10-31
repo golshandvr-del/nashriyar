@@ -53,7 +53,20 @@ async function main() {
     secret: await resolveSecret(db, process.env.APP_SECRET),
     ai: { baseUrl: process.env.AI_BASE_URL, apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL },
     // Server-side PDF conversion (ROADMAP phase 11) when poppler-utils is installed; PDF_RENDERER=browser disables it.
-    pdf: process.env.PDF_RENDERER === 'browser' ? undefined : (await popplerRenderer()) ?? undefined
+    pdf: process.env.PDF_RENDERER === 'browser' ? undefined : (await popplerRenderer()) ?? undefined,
+    disk: () => {
+      try {
+        const st = fs.statfsSync(DATA_DIR)
+        const total = Number(st.blocks) * Number(st.bsize)
+        const free = Number(st.bavail) * Number(st.bsize)
+        const used = Math.max(0, total - free)
+        const usedPct = total > 0 ? Math.round((used / total) * 1000) / 10 : 0
+        const warnPct = Number(process.env.DISK_WARN_PCT || 85)
+        return { total_bytes: total, free_bytes: free, used_bytes: used, used_pct: usedPct, warn_pct: warnPct, warn: usedPct >= warnPct }
+      } catch {
+        return null
+      }
+    }
   }
 
   if (args.has('--create-admin')) {
