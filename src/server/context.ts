@@ -1,7 +1,8 @@
 import type { Db } from './adapters/db'
 import type { Storage } from './adapters/storage'
 
-export type SystemRole = 'super_admin' | 'pub_officer' | 'faculty_supervisor' | 'analyst' | 'team' | 'student'
+// `developer` = technical maintainer (ROADMAP phase 13): only the /system console, created from the CLI only.
+export type SystemRole = 'developer' | 'super_admin' | 'pub_officer' | 'faculty_supervisor' | 'analyst' | 'team' | 'student'
 export type PubRole = 'managing_director' | 'editor_in_chief' | 'license_holder'
 
 export interface SessionUser {
