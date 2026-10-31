@@ -145,7 +145,7 @@ export async function aiNarrative(c: Context<AppEnv>, data: unknown) {
   const p = await getProvider(c)
   if (!p.enabled) return DISABLED
   try {
-    const text = await p.complete(SYSTEM_FA, 'گزارش روایی کوتاهی از وضعیت نشریات در این بازه بنویس. داده‌ها (JSON):\n' + JSON.stringify(data))
+    const text = await p.complete(SYSTEM_FA, 'گزارش روایی کوتاهی از وضعیت نشریات در این بازه بنویس. داده‌ها (JSON):\n' + JSON.stringify(scrubPersonal(data)))
     return { enabled: true, text }
   } catch (e) {
     return { enabled: true, text: '', message: failMessage(e) }
@@ -157,7 +157,7 @@ export async function aiAsk(c: Context<AppEnv>, question: string, data: unknown)
   if (!p.enabled) return DISABLED
   if (question.trim().length < 3) return { enabled: true, text: '', message: 'پرسش خود را کامل‌تر بنویسید.' }
   try {
-    const text = await p.complete(SYSTEM_FA, `پرسش مسئول نشریات: ${question}\nداده‌های تجمیعی موجود (JSON):\n${JSON.stringify(data)}`)
+    const text = await p.complete(SYSTEM_FA, `پرسش مسئول نشریات: ${question}\nداده‌های تجمیعی موجود (JSON):\n${JSON.stringify(scrubPersonal(data))}`)
     return { enabled: true, text }
   } catch (e) {
     return { enabled: true, text: '', message: failMessage(e) }
