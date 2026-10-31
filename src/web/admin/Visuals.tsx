@@ -269,6 +269,9 @@ function Gantt({ d }: { d: any }) {
     const end = Math.max(planned ?? now + 14 * DAY, start + DAY)
     return { label: `${t.publication_title} · ${toFaDigits(t.number ?? '')}`, start, end, late: planned != null && planned < now, planned: planned != null, status: t.status }
   })
+  const marks = [now, ...deadlines.map((x) => new Date(x.due_at).getTime())]
+  const xMin = Math.min(...rows.map((r) => r.start), ...marks) - 3 * DAY
+  const xMax = Math.max(...rows.map((r) => r.end), ...marks) + 3 * DAY
   const color = (r: any) => (r.late ? '#dc2626' : !r.planned ? '#94a3b8' : r.status === 'awaiting_approval' ? '#d97706' : '#0f766e')
   const opt = {
     tooltip: {
@@ -280,17 +283,18 @@ function Gantt({ d }: { d: any }) {
       }
     },
     grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true },
-    xAxis: { type: 'time', axisLabel: { formatter: (v: number) => shortFa(v) } },
+    xAxis: { type: 'time', min: xMin, max: xMax, axisLabel: { formatter: (v: number) => shortFa(v) } },
     yAxis: { type: 'category', data: rows.map((r) => r.label), inverse: true, axisLabel: { formatter: (x: string) => (x.length > 26 ? x.slice(0, 25) + '…' : x) } },
     series: [
       {
         type: 'custom',
         encode: { x: [1, 2], y: 0 },
         data: rows.map((r, i) => ({ value: [i, r.start, r.end], itemStyle: { color: color(r) } })),
-        renderItem: (_: any, a: any) => {
-          const y = a.value(0)
-          const s = a.coord([a.value(1), y])
-          const e = a.coord([a.value(2), y])
+        // read start/end from `rows` (not a.value): the tree-shaken browser build dropped the 3rd dimension → empty bars
+        renderItem: (p: any, a: any) => {
+          const y = p.dataIndex
+          const s = a.coord([rows[y].start, y])
+          const e = a.coord([rows[y].end, y])
           const h = a.size([0, 1])[1] * 0.55
           return { type: 'rect', shape: { x: Math.min(s[0], e[0]), y: s[1] - h / 2, width: Math.max(2, Math.abs(e[0] - s[0])), height: h, r: 3 }, style: { fill: color(rows[y]) } }
         },
