@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Bell, Compass, House, Library, ListChecks, LogIn, Moon, Search, Sun, User } from 'lucide-react'
+import { Bell, Compass, House, LayoutDashboard, Library, ListChecks, LogIn, Moon, Search, Sun, User } from 'lucide-react'
 import { useAuth, isMonitor } from '../lib/auth'
 import { api } from '../lib/api'
 import { applyTheme, getTheme } from '../lib/theme'
@@ -63,6 +63,7 @@ export default function PublicLayout() {
   const panel = user && (isMonitor(user) ? '/admin' : publications.length ? '/team' : null)
   const exploreOn = useFeature('explore')
   const memberPortal = useFeature('member_portal')
+  const panelLabel = panel === '/admin' ? 'پنل مدیریت' : 'پنل نشریه'
   const items = [
     { to: '/', label: 'خانه', icon: House, end: true },
     { to: '/explore', label: 'اکسپلور', icon: Compass },
@@ -70,6 +71,11 @@ export default function PublicLayout() {
     { to: '/library', label: 'کتابخانه', icon: Library },
     { to: user ? '/settings' : '/login', label: user ? 'من' : 'ورود', icon: user ? User : LogIn }
   ].filter((i) => exploreOn || i.to !== '/explore')
+  // Mobile bottom bar: staff and team members always get a one-tap "my panel" entry
+  // (the header link is hidden on small screens — this was why the panels looked missing on phones).
+  const bottomItems = panel
+    ? [...items.filter((i) => i.to !== '/search').slice(0, 3), { to: panel, label: 'پنل من', icon: LayoutDashboard }, items[items.length - 1]]
+    : items
   const hideChrome = loc.pathname.startsWith('/read/')
 
   return (
@@ -94,8 +100,13 @@ export default function PublicLayout() {
             </nav>
             <div className="ms-auto flex items-center gap-1">
               {panel && (
-                <Link to={panel} className="btn-ghost hidden sm:inline-flex">
-                  {panel === '/admin' ? 'پنل مدیریت' : 'پنل تیم'}
+                <Link to={panel} className="btn-ghost hidden items-center gap-1 sm:inline-flex">
+                  <LayoutDashboard className="size-4" /> {panelLabel}
+                </Link>
+              )}
+              {panel && (
+                <Link to="/search" className="rounded-xl p-2 hover:bg-surface-2 md:hidden" aria-label="جست‌وجو">
+                  <Search className="size-5" />
                 </Link>
               )}
               {user && memberPortal && !panel && (
@@ -142,7 +153,7 @@ export default function PublicLayout() {
       {!hideChrome && (
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden" aria-label="ناوبری پایین">
           <div className="grid grid-cols-5">
-            {items.map((i) => (
+            {bottomItems.map((i) => (
               <NavLink key={i.to} to={i.to} end={i.end} className={({ isActive }) => cx('flex flex-col items-center gap-0.5 py-2 text-[11px]', isActive ? 'font-bold text-brand' : 'text-muted')}>
                 <i.icon className="size-5" />
                 {i.label}
