@@ -262,9 +262,6 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
   const officerId = await addUser('officer', 'مسئول نشریات دانشگاه', 'pub_officer', 'officer1234')
   await addUser('supervisor', 'ناظر دانشکدهٔ فنی', 'faculty_supervisor', 'super1234', { scope: facultyIds[0] })
   await addUser('analyst', 'کارشناس آمار', 'analyst', 'analyst1234')
-  // Demo-only developer account (phase 13). The /system console stays locked until it enables 2FA itself;
-  // on real installs the developer account is created only via `--create-developer`.
-  await addUser('developer', 'طراح سامانه', 'developer', 'dev12345678')
 
   // ───────── students ─────────
   const studentIds: string[] = []
@@ -584,6 +581,11 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
       newId(), action.startsWith('settings') || action.startsWith('user.create') ? adminId : officerId, action, type, entity,
       before ? JSON.stringify(before) : null, after ? JSON.stringify(after) : null, iso(NOW - daysAgo * DAY - ri(1, 20) * 3600_000))
   log(`audit samples: ${AUDIT.length}`)
+
+  // Demo-only developer account (phase 13). Added LAST so it never shifts the seeded PRNG sequence (student numbers
+  // used by the tests stay stable). The /system console stays locked until this account enables 2FA itself;
+  // on real installs the developer account is created only via `--create-developer`.
+  await addUser('developer', 'طراح سامانه', 'developer', 'dev12345678')
 
   await flush()
   log(`done: ${PUBS.length} publications, ${issueCards.length} published issues`)
