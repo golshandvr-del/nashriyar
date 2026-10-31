@@ -22,7 +22,8 @@ const ROLES = [
   { name: 'guest', user: null, routes: PUBLIC },
   { name: 'student', user: ['40012345', 'student1234'], routes: STUDENT },
   { name: 'team', user: ['pub1-director', 'team1234'], routes: ['/settings', ...TEAM.map((r) => '__TEAM__' + r)] },
-  { name: 'officer', user: ['officer', 'officer1234'], routes: ['/settings', ...ADMIN.map((r) => '/admin' + r)] },
+  // __PUB__ = the first publication's dossier (phase 14 tabs), resolved after login
+  { name: 'officer', user: ['officer', 'officer1234'], routes: ['/settings', ...ADMIN.map((r) => '/admin' + r), '__PUB__', '__PUB__?tab=license', '__PUB__?tab=stats', '__PUB__?tab=sales', '__PUB__?tab=activity'] },
   { name: 'analyst', user: ['analyst', 'analyst1234'], routes: ['/admin', '/admin/analytics', '/admin/insights', '/admin/report'] },
   // developer console (phase 13): a fresh CLI-created account per run; password change + TOTP are done in-page
   { name: 'developer', user: 'cli', routes: SYSTEM.map((r) => '/system' + r) }
@@ -71,6 +72,7 @@ for (const width of WIDTHS) {
     page.on('console', (m) => m.type() === 'error' && !IGNORE.some((re) => re.test(m.text())) && errors.push(m.text().slice(0, 200)))
     page.on('pageerror', (e) => errors.push('PAGEERROR ' + e.message.slice(0, 200)))
     let teamBase = ''
+    let pubBase = ''
     if (role.user === 'cli') {
       const username = `e2e-dev-${width}-${Date.now() % 100000}`
       const pw = await cliDeveloper(username)
@@ -94,10 +96,14 @@ for (const width of WIDTHS) {
         const me = await page.evaluate(() => fetch('/api/auth/me').then((r) => r.json()))
         teamBase = '/team/' + me.publications[0].publication_id
       }
+      if (role.name === 'officer') {
+        const list = await page.evaluate(() => fetch('/api/admin/publications').then((r) => r.json()))
+        pubBase = '/admin/publications/' + list.publications[0].id
+      }
     }
     console.log(`▶ ${role.name} @ ${width}px`)
     for (const r of role.routes) {
-      const path = r.replace('__TEAM__', teamBase)
+      const path = r.replace('__TEAM__', teamBase).replace('__PUB__', pubBase)
       errors.length = 0
       try {
         await page.goto(BASE + path, { timeout: 20000 })
