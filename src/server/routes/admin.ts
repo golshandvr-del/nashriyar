@@ -409,13 +409,32 @@ adminRoutes.get('/users', async (c) => {
   const params: unknown[] = []
   if (role) (where.push('u.system_role = ?'), params.push(role))
   if (q) (where.push('(u.display_name LIKE ? OR u.username LIKE ? OR u.student_number LIKE ?)'), params.push(`%${q}%`, `%${q}%`, `%${q}%`))
-  const rows = await c.get('db').all(
+  // ROADMAP phase 15 filters: publication role, production role (officer-defined), publication, faculty, gender, degree, entry year.
+  // "Team" = holds a publication role OR is linked to an active team member record.
+  const f = (k: string) => c.req.query(k) || ''
+  const team = `(EXISTS (SELECT 1 FROM publication_roles r WHERE r.user_id = u.id AND r.ended_at IS NULL${f('publication_id') ? ' AND r.publication_id = ?' : ''})
+     OR EXISTS (SELECT 1 FROM team_members tm WHERE tm.user_id = u.id AND tm.is_active = 1${f('publication_id') ? ' AND tm.publication_id = ?' : ''}))`
+  if (f('category') === 'team' || f('publication_id')) (where.push(team), f('publication_id') && params.push(f('publication_id'), f('publication_id')))
+  if (f('pub_role')) (where.push('EXISTS (SELECT 1 FROM publication_roles r WHERE r.user_id = u.id AND r.ended_at IS NULL AND r.role = ?)'), params.push(oneOf(f('pub_role'), PUB_ROLES, 'سمت نشریه')))
+  if (f('production_role')) (where.push('EXISTS (SELECT 1 FROM team_members tm WHERE tm.user_id = u.id AND tm.is_active = 1 AND tm.default_role = ?)'), params.push(f('production_role')))
+  if (f('faculty_id')) (where.push('u.faculty_id = ?'), params.push(f('faculty_id')))
+  if (f('degree')) (where.push('u.degree = ?'), params.push(oneOf(f('degree'), ['associate', 'bachelor', 'master', 'phd'] as const, 'مقطع')))
+  if (f('entry_year')) (where.push('u.entry_year = ?'), params.push(int(f('entry_year'), 'سال ورود', { min: 1300, max: 1500 })))
+  // gender is a consented sensitive field: filtering by it is officer-only and only matches people who consented
+  if (f('gender')) (where.push('u.gender = ? AND u.profile_consent_at IS NOT NULL'), params.push(oneOf(f('gender'), ['male', 'female'] as const, 'جنسیت')))
+  const db = c.get('db')
+  const rows = await db.all(
     `SELECT u.id, u.username, u.display_name, u.student_number, u.system_role, u.status, u.scope_faculty_id, u.last_login_at, u.created_at, u.must_change_password, u.totp_enabled, f.name AS faculty_name,
-       (SELECT GROUP_CONCAT(p.title, '، ') FROM publication_roles r JOIN publications p ON p.id = r.publication_id WHERE r.user_id = u.id AND r.ended_at IS NULL) AS publications
+       u.degree, u.entry_year,
+       (SELECT GROUP_CONCAT(p.title, '، ') FROM publication_roles r JOIN publications p ON p.id = r.publication_id WHERE r.user_id = u.id AND r.ended_at IS NULL) AS publications,
+       (SELECT GROUP_CONCAT(r.role) FROM publication_roles r WHERE r.user_id = u.id AND r.ended_at IS NULL) AS pub_roles,
+       (SELECT GROUP_CONCAT(p.title || COALESCE(' · ' || tm.default_role, ''), '، ') FROM team_members tm JOIN publications p ON p.id = tm.publication_id WHERE tm.user_id = u.id AND tm.is_active = 1) AS memberships
      FROM users u LEFT JOIN faculties f ON f.id = u.faculty_id WHERE ${where.join(' AND ')} ORDER BY u.created_at DESC LIMIT 300`,
     params
   )
-  return c.json({ users: rows })
+  // filter options: production roles in the officer-defined display order
+  const production_roles = await db.all('SELECT id, name FROM production_roles ORDER BY sort_order, name')
+  return c.json({ users: rows, production_roles })
 })
 
 adminRoutes.post('/users', async (c) => {
