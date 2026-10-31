@@ -7,6 +7,7 @@ import { applyTheme, getTheme, getLargeText, setLargeText } from '../lib/theme'
 import type { Theme } from '../lib/theme'
 import { cx, faDate, relativeFa, formatNumber } from '../lib/format'
 import ProfileForm from './ProfileForm'
+import MembershipCard from './MembershipCard'
 import { Async, Badge, Button, Card, Field, Input, PasswordInput, Select, useAction, useAsync, useToast } from '../components/ui'
 
 const COMMENT_STATUS: Record<string, { label: string; tone: 'muted' | 'ok' | 'warn' | 'danger' }> = {
@@ -372,6 +373,7 @@ export default function Settings() {
       {!!user.must_change_password && <PasswordCard />}
       <PanelsCard />
       <ProfileForm />
+      <MembershipCard />
       <ThemeCard />
       {!user.must_change_password && <PasswordCard />}
       <RecoveryCard />
