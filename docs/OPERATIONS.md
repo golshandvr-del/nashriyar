@@ -141,6 +141,7 @@ npm run deploy:cf
 | `STATIC_DIR` | `dist` | خروجی SPA |
 | `BACKUP_KEEP_DAYS` | `30` | مدت نگهداری پشتیبان‌ها |
 | `BACKUP_OFFSITE_DIR` | خالی | مسیر دوم (مثلاً دیسک جدا، NFS یا mount شده با rclone) که هر پشتیبان DB و فایل‌ها بلافاصله در آن هم کپی می‌شود |
+| `DISK_WARN_PCT` | `85` | آستانهٔ هشدار پر شدن دیسک (درصد) در `/healthz` و پنل مدیریت |
 | `PDF_RENDERER` | خالی | خالی ⇒ اگر `pdftoppm` (بستهٔ `poppler-utils`، در ایمیج Docker موجود) نصب باشد، تبدیل PDF به تصویر صفحات **روی سرور** انجام می‌شود؛ `browser` ⇒ همیشه در مرورگر بارگذارکننده (pdf.js). بدون Docker: `apt install poppler-utils` |
 | `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` | خالی | لایهٔ اختیاری هوش مصنوعی (سازگار با OpenAI). خالی ⇒ بخش‌های AI پنهان |
 
@@ -219,10 +220,10 @@ curl -fsS https://nashriyat.YOUR-UNI.ac.ir/api/health
 
 | مورد | روش |
 |---|---|
-| سلامت | `GET /api/health` ⇒ `{ ok, db, latency_ms }`؛ در صورت خرابی DB کد **503**. Docker HEALTHCHECK و کار CI همین را بررسی می‌کنند. |
-| لاگ‌ها | `docker compose logs --since 1h app` (خطاهای کنترل‌نشده با پیشوند `[nashriyar] unhandled error`) |
-| دیسک | `df -h` و `du -sh /var/lib/docker/volumes/nashriyar_nashriyar-data` — هشدار در ۸۰٪ |
-| زمان پاسخ | یک پایشگر بیرونی (مثلاً Uptime Kuma) روی `/api/health` با هشدار تلگرام/بله/ایمیل |
+| سلامت | `GET /healthz` و `GET /api/health` ⇒ `{ ok, db, latency_ms, disk: { used_pct, free_bytes, warn }, requests: { total, errors_5xx, avg_ms, p95_ms } }`؛ در صورت خرابی DB کد **503**. Docker HEALTHCHECK و کار CI همین را بررسی می‌کنند. |
+| خطاها و زمان پاسخ | `GET /api/admin/monitoring` (کارت «پایش سلامت سرور، دیسک و زمان پاسخ» در «پنل مدیریت ← تنظیمات»): میانگین، صدک ۹۵ (`p95`) و بیشینهٔ زمان پاسخ ۵۰۰ درخواست اخیر، شمارندهٔ خطاهای ۴xx/۵xx و فهرست ۲۵ خطای ۵xx اخیر (بدون دادهٔ شخصی). |
+| دیسک | در نسخهٔ Node فضای دیسک `DATA_DIR` با `statfs` سنجیده می‌شود و در صورت عبور از `DISK_WARN_PCT` (پیش‌فرض ۸۵٪) در `/healthz` (`disk.warn = true`) و در پنل مدیریت بنر هشدار نشان داده می‌شود. |
+| پایشگر بیرونی | یک پایشگر بیرونی (مثلاً Uptime Kuma) را روی `/healthz` تنظیم کنید تا در کد غیر ۲۰۰ یا `disk.warn == true` هشدار بفرستد. |
 | ممیزی | «پنل مدیریت ← ممیزی» همهٔ تغییرات حساس (نقش‌ها، رمزها، تنظیمات، پنهان‌سازی) را با کاربر و زمان نشان می‌دهد |
 
 ---
