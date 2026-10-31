@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
 import { useAuth } from '../lib/auth'
-import { Button, Card, ErrorBox, Field, Input } from '../components/ui'
+import { Button, Card, ErrorBox, Field, Input, PasswordInput } from '../components/ui'
 
 /** Only allow same-site relative redirects (prevents open redirect). */
 export function safeNext(n: string | null, fallback = '/') {
@@ -56,7 +56,7 @@ export default function Login() {
             <Input dir="ltr" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus />
           </Field>
           <Field label="رمز عبور">
-            <Input dir="ltr" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <PasswordInput autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </Field>
           {needTotp && (
             <Field label="کد شش‌رقمی برنامهٔ احراز هویت" hint="کد فعلی را از Google Authenticator یا برنامهٔ مشابه وارد کنید.">
