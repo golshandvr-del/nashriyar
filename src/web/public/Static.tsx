@@ -1,7 +1,7 @@
 import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Compass, Download, Printer, RefreshCw, TriangleAlert } from 'lucide-react'
+import { ArrowDown, ArrowLeft, Compass, Download, Printer, RefreshCw, TriangleAlert } from 'lucide-react'
 
 /**
  * Friendly "something went wrong" page (ROADMAP phase 9). Catches render errors and failed lazy-chunk loads
