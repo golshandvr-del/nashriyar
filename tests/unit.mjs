@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -99,5 +99,14 @@ t('explain: rule hypotheses follow the evidence', () => {
   const bad = m.ruleHypotheses({ ...base, members_left_90: 3, members_active: 2, director_changed_90: true, days_since_director_change: 20, stuck_items: 4 })
   assert.ok(bad.length >= 4); assert.ok(bad.every((h) => h.source === 'rule'))
   assert.ok(bad.some((h) => /مدیرمسئول/.test(h.text))); assert.ok(bad.some((h) => /گلوگاه/.test(h.text)))
+})
+t('team helpers: category overlap + caption template', () => {
+  const cats = [{ id: 'ai', name: 'هوش مصنوعی' }, { id: 'h', name: 'سلامت' }, { id: 'lit', name: 'ادبی و هنری' }]
+  assert.deepEqual(m.scoreCategories('کاربرد هوش مصنوعی در درمان', cats), ['ai'])
+  assert.deepEqual(m.scoreCategories('شعر و داستان کوتاه', cats), [])
+  const cap = m.templateCaption({ section: 'سرمقاله', issue_title: 'آب', issue_number: 3, summary: 'دربارهٔ بحران آب. ادامه دارد.', publication: 'سبز' })
+  assert.match(cap, /«سرمقاله» از شمارهٔ 3 سبز — آب\./)
+  assert.match(cap, /دربارهٔ بحران آب\./)
+  assert.ok(!/ادامه دارد/.test(cap))
 })
 console.log(`unit: ${n} passed`)
