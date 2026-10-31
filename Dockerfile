@@ -17,6 +17,10 @@ ENV NODE_ENV=production \
     DATA_DIR=/data \
     STATIC_DIR=/app/dist
 WORKDIR /app
+# poppler-utils: server-side PDF → page images (pdftoppm), ROADMAP phase 11. Set PDF_RENDERER=browser to skip it.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends poppler-utils \
+ && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server-dist ./server-dist
 RUN mkdir -p /data && chown -R node:node /data
