@@ -900,9 +900,9 @@ adminRoutes.post('/deadlines', async (c) => {
   // ROADMAP phase 14 events calendar: deadline | meeting | workshop | event (+ optional HH:MM and location)
   const kind = ['deadline', 'meeting', 'workshop', 'event'].includes(b.kind) ? b.kind : 'deadline'
   const due = str(b.due_at, 'تاریخ', { max: 10 })
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new HTTPException(400, { message: 'تاریخ نامعتبر است' })
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) throw bad('تاریخ نامعتبر است')
   const time = str(b.start_time, 'ساعت', { max: 5, optional: true })
-  if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new HTTPException(400, { message: 'ساعت نامعتبر است' })
+  if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw bad('ساعت نامعتبر است')
   await c.get('db').run('INSERT INTO deadlines (id, title, due_at, description, kind, start_time, location, created_at) VALUES (?,?,?,?,?,?,?,?)', [
     id, str(b.title, 'عنوان', { max: 120 }), due, str(b.description, 'توضیح', { max: 1000, optional: true }), kind, time || null, str(b.location, 'مکان', { max: 120, optional: true }) || null, nowIso()
   ])
