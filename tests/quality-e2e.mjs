@@ -186,11 +186,13 @@ await step('E2E Pub Officer & Super Admin: approvals, settings, monitoring, audi
   assert.equal((await off('/api/admin/approvals')).status, 200)
   assert.equal((await off('/api/admin/audit')).status, 200)
 
+  // Server monitoring moved to the developer console (phase 13): publication staff get 403, /healthz stays public.
   const adm = await login('admin', 'admin1234')
-  const mon = await adm('/api/admin/monitoring')
-  assert.equal(mon.status, 200)
-  assert.equal(mon.data.ok, true)
-  assert.ok(typeof mon.data.latency_ms.p95 === 'number')
+  assert.equal((await adm('/api/system/health')).status, 403)
+  assert.equal((await off('/api/system/health')).status, 403)
+  const hz = await fetch(BASE + '/healthz').then((r) => r.json())
+  assert.equal(hz.ok, true)
+  assert.ok(typeof hz.requests.p95_ms === 'number')
 })
 
 console.log(`quality-e2e: ${passed} passed`)
