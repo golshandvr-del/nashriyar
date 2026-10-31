@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import {
-  Activity, BarChart3, BookCopy, Building2, CheckSquare, FileText, FolderTree, House, LayoutDashboard, Lightbulb, Megaphone, ScrollText, Settings, ShieldAlert, Store, UserCog, Users
+  Activity, BarChart3, BookCopy, Building2, CheckSquare, FileText, FolderTree, House, LayoutDashboard, Lightbulb, Megaphone, Menu, ScrollText, Settings, ShieldAlert, Store, UserCog, Users, X
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { ROLE_LABEL, isAdmin, isMonitor, useAuth } from '../lib/auth'
@@ -77,6 +78,19 @@ const searchPublications = async (q: string): Promise<PaletteItem[]> => {
 export default function AdminLayout() {
   const { user, loading } = useAuth()
   const loc = useLocation()
+  // Mobile: the menu lives in a slide-in drawer (a horizontal tab strip used to overlap on phones).
+  const [drawer, setDrawer] = useState(false)
+  useEffect(() => setDrawer(false), [loc.pathname])
+  useEffect(() => {
+    if (!drawer) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDrawer(false)
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [drawer])
   if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login?next=/admin" replace />
   if (!isMonitor(user)) return <Navigate to="/" replace />
@@ -92,10 +106,35 @@ export default function AdminLayout() {
     { id: 'act-site', label: 'رفتن به سایت', hint: 'اقدام', icon: <House className="size-4" />, to: '/' }
   ]
 
+  const current = NAV.flatMap((g) => g.items).find((n) => (n.to ? loc.pathname.startsWith(`/admin/${n.to}`) : loc.pathname === '/admin' || loc.pathname === '/admin/'))
+
   return (
     <div className="min-h-dvh md:flex">
       <a href="#main" className="skip-link">پرش به محتوای اصلی</a>
-      <aside className="no-print border-line bg-surface md:sticky md:top-0 md:h-dvh md:w-60 md:shrink-0 md:overflow-y-auto md:border-l">
+      {/* Mobile top bar */}
+      <header className="no-print sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-surface/95 px-2 py-2 backdrop-blur md:hidden">
+        <button className="rounded-xl p-2 hover:bg-surface-2" onClick={() => setDrawer(true)} aria-label="باز کردن منو" aria-expanded={drawer} aria-controls="admin-drawer">
+          <Menu className="size-6" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] leading-4 text-muted">پنل مدیریت</div>
+          <div className="truncate text-sm font-bold leading-5">{current?.label || 'پنل مدیریت'}</div>
+        </div>
+        <NotificationBell />
+        <Link to="/" className="rounded-xl p-2 hover:bg-surface-2" aria-label="سایت">
+          <House className="size-5" />
+        </Link>
+      </header>
+      {drawer && <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setDrawer(false)} aria-hidden />}
+      <aside
+        id="admin-drawer"
+        className={cx(
+          'no-print fixed inset-y-0 right-0 z-50 w-72 max-w-[85vw] overflow-y-auto border-l border-line bg-surface shadow-xl transition-transform duration-200',
+          drawer ? 'translate-x-0' : 'translate-x-full',
+          'md:sticky md:top-0 md:z-auto md:h-dvh md:w-60 md:max-w-none md:shrink-0 md:translate-x-0 md:shadow-none'
+        )}
+        aria-label="منوی مدیریت"
+      >
         <div className="flex items-center justify-between gap-2 border-b border-line p-3">
           <div className="min-w-0">
             <div className="text-xs text-muted">پنل مدیریت</div>
@@ -103,22 +142,27 @@ export default function AdminLayout() {
             <div className="text-[11px] text-muted">{ROLE_LABEL[role]}</div>
           </div>
           <div className="flex items-center">
-            <NotificationBell />
-            <Link to="/" className="rounded-lg p-2 hover:bg-surface-2" aria-label="سایت">
+            <span className="hidden md:inline-flex">
+              <NotificationBell />
+            </span>
+            <Link to="/" className="hidden rounded-lg p-2 hover:bg-surface-2 md:inline-flex" aria-label="سایت">
               <House className="size-5" />
             </Link>
+            <button className="rounded-lg p-2 hover:bg-surface-2 md:hidden" onClick={() => setDrawer(false)} aria-label="بستن منو">
+              <X className="size-5" />
+            </button>
           </div>
         </div>
         <div className="hidden px-2 pt-2 md:block">
           <PaletteButton />
         </div>
-        <nav className="no-scrollbar flex gap-1 overflow-x-auto p-2 md:flex-col md:overflow-visible" aria-label="منوی مدیریت">
+        <nav className="flex flex-col gap-1 p-2" aria-label="منوی مدیریت">
           {NAV.map((g) => {
             const items = g.items.filter((n) => canAccess(role, n.access))
             if (!items.length) return null
             return (
-              <div key={g.group} className="flex gap-1 md:mb-2 md:flex-col">
-                <div className="hidden px-3 pt-2 pb-1 text-[11px] font-bold text-muted md:block">{g.group}</div>
+              <div key={g.group} className="mb-2 flex flex-col gap-1">
+                <div className="px-3 pt-2 pb-1 text-[11px] font-bold text-muted">{g.group}</div>
                 {items.map((n) => (
                   <NavLink
                     key={n.to}
