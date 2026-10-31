@@ -9,7 +9,7 @@ import {
 import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { requireFeature } from '../lib/features'
 import { ensureReminders } from '../lib/reminders'
-import { suggestKeywords } from '../ai'
+import { draftCaption, suggestCategories, suggestKeywords } from '../ai'
 import { traceCode } from './reader'
 
 export const teamRoutes = new Hono<AppEnv>()
@@ -233,6 +233,26 @@ teamRoutes.post('/:pubId/keywords/suggest', async (c) => {
   const text = normalizeFa(String(b.text || '')).slice(0, 4000)
   if (text.length < 3) return c.json({ keywords: [] })
   return c.json({ keywords: await suggestKeywords(c, text) })
+})
+
+/** Category suggestions (ROADMAP phase 10): AI may only pick from existing non-major categories; word-overlap fallback. */
+teamRoutes.post('/:pubId/categories/suggest', async (c) => {
+  await pub(c)
+  const b = await body<{ text?: string }>(c)
+  const text = String(b.text || '').slice(0, 4000)
+  if (text.trim().length < 3) return c.json({ category_ids: [] })
+  const cats = await c.get('db').all<{ id: string; name: string }>("SELECT id, name FROM categories WHERE type <> 'major' ORDER BY sort_order, name")
+  return c.json({ category_ids: await suggestCategories(c, text, cats) })
+})
+
+/** Caption draft for an explore post from its source TOC section (AI when enabled; editable template otherwise). */
+teamRoutes.post('/:pubId/captions/draft', async (c) => {
+  const { pub: p } = await pub(c)
+  const b = await body<{ issue_id?: string; toc_item_id?: string }>(c)
+  const issue = await issueOf(c, p.id, String(b.issue_id || ''))
+  const toc = await c.get('db').first<{ title: string }>('SELECT title FROM issue_toc_items WHERE id = ? AND issue_id = ?', [String(b.toc_item_id || ''), issue.id])
+  if (!toc) throw notFound('بخش یافت نشد')
+  return c.json(await draftCaption(c, { section: toc.title, issue_title: issue.title, issue_number: issue.number, summary: issue.summary, publication: p.title }))
 })
 
 /**
