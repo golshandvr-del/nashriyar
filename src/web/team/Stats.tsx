@@ -37,9 +37,11 @@ export function RangePicker({ value, onChange }: { value: { from: string; to: st
   )
 }
 
+/** Never throws: an unknown preset key falls back to the last 30 days (a missing key once blanked whole pages). */
 export function defaultRange(key = '30d') {
-  const p = jalaliPresets().find((x) => x.key === key)!
-  return { from: p.from, to: p.to, key }
+  const all = jalaliPresets()
+  const p = all.find((x) => x.key === key) || all.find((x) => x.key === '30d')!
+  return { from: p.from, to: p.to, key: p.key }
 }
 
 export default function TeamStats() {
