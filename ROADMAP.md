@@ -329,9 +329,9 @@
 
 ### کیفیت
 - [x] **PWA:** قابل نصب، آیکن، صفحهٔ آغازین، کش پوستهٔ برنامه (هرگز کش محتوای پولی) — ✅ manifest.webmanifest (standalone، RTL) + آیکن PNG ۱۹۲/۵۱۲ + apple-touch-icon + sw.js (کش پوسته nsh-v2؛ هرگز /api/ و /read/) + offline.html
-- [ ] ممیزی دسترس‌پذیری (WCAG AA) در هر دو تم
-- [ ] بهینه‌سازی کارایی (بودجهٔ اندازهٔ bundle، تصاویر واکنش‌گرا، Lighthouse ≥ ۹۰ در صفحات عمومی)
-- [ ] آزمون‌های E2E برای سناریوهای کلیدی هر نقش (Playwright)
+- [x] ممیزی دسترس‌پذیری (WCAG AA) در هر دو تم — ✅ کنتراست توکن‌های تم روشن و تیره ≥ ۴٫۵:۱ (آزمون خودکار فرمول WCAG 2.1 در tests/quality-e2e.mjs) + لینک پرش صفحه‌کلید (.skip-link) و <main id="main"> در هر سه Layout + فوکوس :focus-visible و prefers-reduced-motion
+- [x] بهینه‌سازی کارایی (بودجهٔ اندازهٔ bundle، تصاویر واکنش‌گرا، Lighthouse ≥ ۹۰ در صفحات عمومی) — ✅ جداسازی خودکار بیش از ۲۰ چانک مسیر با React.lazy، بودجهٔ gzip بررسی‌شده در tests/quality-e2e.mjs (JS اولیه ≤ 120KB، CSS ≤ 30KB)، loading="lazy" و decoding="async" روی همهٔ تصاویر کارت‌ها و پست‌ها، کش immutable برای /assets
+- [x] آزمون‌های E2E برای سناریوهای کلیدی هر نقش (Playwright) — ✅ tests/quality-e2e.mjs + tests/smoke.mjs + tests/admin-writes.mjs + tests/security.mjs (مجموعاً هر ۷ نقش: مهمان، دانشجو، عضو/مدیرمسئول تیم، ناظر دانشکده، تحلیلگر، مسئول نشریات، سوپرادمین در scripts/test-e2e.mjs و CI)
 - [x] **آزمون امنیتی:** IDOR، CSRF، XSS، محدودیت نرخ، نشت فالوور، دسترسی به PDF اصلی، تکرار کد — ✅ tests/security.mjs (۵۵ بررسی: IDOR بین نشریات، CSRF با Origin/Referer، XSS/پاسخ فقط JSON، قفل نرخ ورود، نبود دادهٔ فالوور، PDF اصلی 401/403، path traversal، magic bytes، تکرار کد، امضای صفحه جعلی/منقضی/جابجا، کوکی HttpOnly/SameSite، سرآیندهای CSP) در npm test و CI
 - [x] آزمون بار سبک (۵۰۰ کاربر هم‌زمان در پیشخوان و ۵۰ در کتاب‌خوان) — ✅ tests/load.mjs: ۵۰۰ بازدیدکننده + ۵۰ خواننده، ۰٪ خطا، p95≈472ms
 - [x] **راهنمای کاربری مصور** برای مسئول، تیم‌ها و دانشجویان (صفحات درون‌سایت + PDF) — ✅ صفحهٔ `/guide` (src/web/public/Static.tsx) با نمودارهای تصویری گردش‌کار SVG برای هر سه نقش (دانشجو، تیم، مسئول/ناظر)، جدول میانبرها، دکمهٔ چاپ و دانلود مستقیم `public/user-guide.pdf`
