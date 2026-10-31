@@ -9,10 +9,11 @@ import { Badge, Button, Card, Field, Input, Modal, Select, useAction, useAsync }
 import { DEGREE_LABEL } from '../public/ProfileForm'
 import { REQUEST_STATUS } from '../public/MembershipCard'
 
-export default function MembershipRequests({ pubId, roles, onApproved }: { pubId: string; roles: { id: string; name: string }[]; onApproved?: () => void }) {
+/** pubId omitted ⇒ officer view across all publications (the API allows that only for admins). */
+export default function MembershipRequests({ pubId, roles, onApproved }: { pubId?: string; roles: { id: string; name: string }[]; onApproved?: () => void }) {
   const [sp] = useSearchParams()
   const [status, setStatus] = useState<'pending' | 'all'>('pending')
-  const st = useAsync(() => api.get<{ requests: any[] }>(`/api/membership/queue?publication_id=${pubId}&status=${status}`), [pubId, status])
+  const st = useAsync(() => api.get<{ requests: any[] }>(`/api/membership/queue?${pubId ? `publication_id=${pubId}&` : ''}status=${status}`), [pubId, status])
   const [decide, setDecide] = useState<{ r: any; decision: 'approve' | 'reject' } | null>(null)
   const [note, setNote] = useState('')
   const [role, setRole] = useState('')
@@ -64,6 +65,7 @@ export default function MembershipRequests({ pubId, roles, onApproved }: { pubId
           {rows.map((r) => (
             <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-2">
               <div className="min-w-0">
+                {!pubId && <div className="text-xs font-bold text-brand">{r.publication_title}</div>}
                 <div className="font-bold">
                   {r.display_name} <span className="font-normal text-muted" dir="ltr">{r.student_number || r.username}</span>
                 </div>
