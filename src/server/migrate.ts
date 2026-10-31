@@ -6,6 +6,7 @@ import m0003 from '../../migrations/0003_shelf_rules.sql'
 import m0004 from '../../migrations/0004_registration_modes.sql'
 import m0005 from '../../migrations/0005_post_alt_text.sql'
 import m0006 from '../../migrations/0006_analytics_rollup.sql'
+import m0007 from '../../migrations/0007_developer_console.sql'
 
 export const MIGRATIONS: { name: string; sql: string }[] = [
   { name: '0001_init', sql: m0001 },
@@ -13,7 +14,8 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
   { name: '0003_shelf_rules', sql: m0003 },
   { name: '0004_registration_modes', sql: m0004 },
   { name: '0005_post_alt_text', sql: m0005 },
-  { name: '0006_analytics_rollup', sql: m0006 }
+  { name: '0006_analytics_rollup', sql: m0006 },
+  { name: '0007_developer_console', sql: m0007 }
 ]
 
 /** Split a SQL script into single statements (strips `--` comments). */
