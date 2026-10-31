@@ -249,7 +249,17 @@ await call(sa, 'POST', '/api/admin/settings', { site_name: s0.settings.site_name
   const pr = await call(nu, 'GET', '/api/me/profile')
   ok(pr.complete === true && pr.user.phone === '09121234567', 'profile complete after required fields + consent')
   ok(pr.memberships.some((m) => m.publication_id === pubId && m.is_active), 'collaboration history shows the approved team')
+  // privacy: sensitive fields only for the officer (with consent), never for monitors, never copied into team records
+  const pf = await call(of, 'GET', `/api/admin/people/${sn}`)
+  ok(pf.accounts?.[0]?.phone === '09121234567' && pf.accounts[0].sensitive_visible === true, 'officer sees consented sensitive fields in the person file')
+  const an = await login('analyst', 'analyst1234')
+  const pa = await call(an, 'GET', `/api/admin/people/${sn}`)
+  ok(pa.accounts?.[0] && pa.accounts[0].phone === null && pa.accounts[0].sensitive_visible === false, 'analyst never sees sensitive profile fields')
+  const tmRows = await call(tmc, 'GET', `/api/team/${pubId}/members`)
+  ok(!(tmRows.members || []).some((m) => m.student_number === sn && m.phone), 'approval does not copy the phone into the team record')
   await call(nu, 'POST', '/api/me/profile/consent', { consent: false })
+  const pw = await call(of, 'GET', `/api/admin/people/${sn}`)
+  ok(pw.accounts[0].phone === null && pw.accounts[0].sensitive_visible === false, 'after withdrawal the officer sees nothing sensitive')
   const pr2 = await call(nu, 'GET', '/api/me/profile')
   ok(pr2.user.phone === null && pr2.user.gender === null, 'withdrawing consent erases sensitive fields')
 }
