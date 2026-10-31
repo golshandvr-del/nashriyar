@@ -212,7 +212,9 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
     guest_can_read_free: true,
     supervisor_can_approve: false,
     ai_enabled: false,
-    home_banners: []
+    home_banners: [],
+    // Demo databases only: lets the login page list the demo accounts. Never set on a real install.
+    demo_mode: true
   }
   for (const [k, v] of Object.entries(settings)) q('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?,?,?)', k, JSON.stringify(v), iso(NOW))
 
