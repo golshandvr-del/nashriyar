@@ -71,6 +71,7 @@ const AdminAnnouncements = lazy(() => import('./admin/Announcements'))
 const AdminUsers = lazy(() => import('./admin/Users'))
 const AdminAudit = lazy(() => import('./admin/Audit'))
 const AdminSettings = lazy(() => import('./admin/Settings'))
+const AdminFestivals = lazy(() => import('./admin/Festivals'))
 // Developer console /system (ROADMAP phase 13) — its own shell, developer role only.
 const SystemLayout = lazy(() => import('./system/Layout'))
 const SystemHealth = lazy(() => import('./system/Health'))
@@ -132,6 +133,7 @@ function App() {
           <Route path="moderation" element={<Guard access="admin"><AdminModeration /></Guard>} />
           <Route path="storefront" element={<Guard access="admin"><AdminStorefront /></Guard>} />
           <Route path="announcements" element={<Guard access="admin"><AdminAnnouncements /></Guard>} />
+          <Route path="festivals" element={<AdminFestivals />} />
           <Route path="users" element={<Guard access="admin"><AdminUsers /></Guard>} />
           <Route path="audit" element={<Guard access="admin"><AdminAudit /></Guard>} />
           <Route path="settings" element={<Guard access="admin"><AdminSettings /></Guard>} />
