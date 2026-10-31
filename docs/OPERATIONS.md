@@ -195,18 +195,20 @@ docker compose start app
 
 ---
 
-## ۸. به‌روزرسانی و بازگشت
+## ۸. به‌روزرسانی، استقرار خودکار و بازگشت
 
+### اسکریپت اتمی `deploy/deploy.sh`
 ```bash
 cd /opt/nashriyar
-docker compose exec -T app node server-dist/node.mjs --backup   # همیشه پیش از به‌روزرسانی
-git fetch --tags && git checkout v1.x.y                         # یا: git pull
-docker compose up -d --build
-curl -fsS https://nashriyat.YOUR-UNI.ac.ir/api/health
+./deploy/deploy.sh v1.2.0       # یا بدون آرگومان برای origin/main
+./deploy/deploy.sh --rollback   # بازگشت فوری به آخرین نسخهٔ سالم (.last-good-rev)
 ```
+این اسکریپت به‌طور خودکار: ۱) از پایگاه داده پشتیبان می‌گیرد (`--backup`)؛ ۲) کامیت فعلی را نگه می‌دارد؛ ۳) به نسخهٔ جدید می‌رود و کانتینر را می‌سازد (`DEPLOY_MODE=systemd` برای نصب بدون Docker)؛ ۴) تا ۳۰ ثانیه `/healthz` را بررسی می‌کند و اگر سالم نبود، **خودکار به کامیت قبلی بازمی‌گردد**؛ ۵) در صورت سلامت، کامیت قبلی را در `.last-good-rev` می‌نویسد.
+
+### استقرار خودکار از GitHub Actions (`.github/workflows/deploy.yml`)
+با ثبت تگ نسخه (`git tag v1.2.0 && git push --tags`) یا اجرای دستی (`workflow_dispatch` با گزینهٔ `ref` یا `rollback=true`)، ابتدا تایپ‌چک، تست‌ها و بیلد اجرا می‌شوند و سپس از طریق SSH فرمان `./deploy/deploy.sh` روی سرور فراخوانی می‌گردد. سکرت‌های ریپو: `DEPLOY_HOST`، `DEPLOY_USER`، `DEPLOY_SSH_KEY` (و اختیاری: `DEPLOY_PORT`، `DEPLOY_PATH`).
 
 - مهاجرت‌های پایگاه داده هنگام راه‌اندازی خودکار و فقط‌افزایشی‌اند.
-- **بازگشت (rollback):** `git checkout <نسخهٔ قبلی> && docker compose up -d --build`؛ اگر نسخهٔ جدید مهاجرت ناسازگار داشته، پایگاه داده را هم از پشتیبان پیش از به‌روزرسانی بازیابی کنید.
 - Service Worker نسخهٔ جدید را در بازدید بعدی کاربران فعال می‌کند (`sw.js` و `index.html` کش نمی‌شوند).
 
 ### بازهٔ تعمیر برنامه‌ریزی‌شده
