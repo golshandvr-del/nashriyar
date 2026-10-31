@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import {
-  Activity, BarChart3, BookCopy, Building2, CheckSquare, FileText, FolderTree, House, LayoutDashboard, Lightbulb, ListChecks, Megaphone, Menu, ScrollText, Settings, ShieldAlert, Store, UserCog, Users, X
+  Activity, Award, BarChart3, BookCopy, Building2, CheckSquare, FileText, FolderTree, House, LayoutDashboard, Lightbulb, ListChecks, Megaphone, Menu, ScrollText, Settings, ShieldAlert, Store, UserCog, Users, X
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { ROLE_LABEL, isAdmin, isMonitor, useAuth } from '../lib/auth'
@@ -58,7 +58,8 @@ const NAV: { group: string; items: NavItem[] }[] = [
     group: 'ارتباطات',
     items: [
       { to: 'announcements', label: 'اطلاعیه‌ها و مهلت‌ها', icon: Megaphone, access: 'admin' },
-      { to: 'storefront', label: 'صفحهٔ اول سایت', icon: Store, access: 'admin' }
+      { to: 'storefront', label: 'صفحهٔ اول سایت', icon: Store, access: 'admin' },
+      { to: 'festivals', label: 'جشنوارهٔ نشریات', icon: Award, access: 'monitor' }
     ]
   },
   {
