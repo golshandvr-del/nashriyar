@@ -35,5 +35,6 @@ lerna-debug.log*
 # nashriyar runtime data
 data/
 server-dist/
+.last-good-rev
 .env.*
 !.env.example
