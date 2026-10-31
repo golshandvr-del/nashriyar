@@ -280,7 +280,7 @@ festivalRoutes.patch('/:id', async (c) => {
     await audit(db, u.id, 'festival.status', 'festival', f.id, { status: f.status }, { status })
     if (status === 'judging') {
       const js = await db.all<{ user_id: string }>('SELECT user_id FROM festival_judges WHERE festival_id = ?', [f.id])
-      for (const j of js) await notify(db, j.user_id, 'festival.judging', `داوری جشنوارهٔ «${f.title}» آغاز شد`, '/me/judging')
+      for (const j of js) await notify(db, j.user_id, 'festival.judging', `داوری جشنوارهٔ «${f.title}» آغاز شد`, '/judging')
     }
     if (status === 'open' || status === 'announced') {
       const leads = await db.all<{ user_id: string }>(
@@ -288,7 +288,7 @@ festivalRoutes.patch('/:id', async (c) => {
          WHERE r.ended_at IS NULL AND r.role IN ('managing_director','editor_in_chief') AND p.status = 'active' AND p.deleted_at IS NULL`
       )
       const msg = status === 'open' ? `فراخوان جشنوارهٔ «${f.title}» منتشر شد` : `نتایج جشنوارهٔ «${f.title}» اعلام شد`
-      for (const l of leads) await notify(db, l.user_id, 'festival.' + status, msg)
+      for (const l of leads) await notify(db, l.user_id, 'festival.' + status, msg, '/festivals')
     }
   } else await audit(db, u.id, 'festival.update', 'festival', f.id)
   return c.json({ ok: true })
