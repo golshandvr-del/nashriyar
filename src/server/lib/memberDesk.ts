@@ -46,3 +46,15 @@ export async function activeMemberships(db: Db, userId: string, studentNumber: s
     [userId, studentNumber, studentNumber]
   )
 }
+
+/**
+ * Link legacy team member records (created before accounts existed) to an account by student number (ROADMAP phase 15).
+ * Only unlinked records are touched, so an explicit link made by an approval is never overwritten. Returns rows linked.
+ */
+export async function linkMemberRecords(db: Db, userId: string, studentNumber: string | null | undefined): Promise<number> {
+  if (!studentNumber) return 0
+  const n = await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM team_members WHERE user_id IS NULL AND student_number = ?', [studentNumber])
+  if (!n?.n) return 0
+  await db.run('UPDATE team_members SET user_id = ? WHERE user_id IS NULL AND student_number = ?', [userId, studentNumber])
+  return n.n
+}
