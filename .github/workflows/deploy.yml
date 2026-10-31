@@ -1,0 +1,71 @@
+# Self-hosted deployment workflow (ROADMAP phase 11).
+# Triggers on version tags (v*) or manual dispatch (supports rollback=true).
+# Configure repository secrets when the university server is ready:
+#   DEPLOY_HOST      server hostname or IP
+#   DEPLOY_USER      SSH user (e.g. deploy)
+#   DEPLOY_SSH_KEY   private SSH key with access to DEPLOY_USER@DEPLOY_HOST
+#   DEPLOY_PORT      optional SSH port (default 22)
+#   DEPLOY_PATH      optional path on server (default /opt/nashriyar)
+name: Deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git tag/commit/branch to deploy (ignored when rollback is true)'
+        required: false
+        default: 'origin/main'
+      rollback:
+        description: 'Roll back to the previously recorded working revision (.last-good-rev)'
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Deploy or rollback over SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          INPUT_REF: ${{ github.event.inputs.ref }}
+          INPUT_ROLLBACK: ${{ github.event.inputs.rollback }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ] || [ -z "$DEPLOY_SSH_KEY" ]; then
+            echo "DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY not configured — skipping remote SSH step."
+            exit 0
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          PORT="${DEPLOY_PORT:-22}"
+          DIR="${DEPLOY_PATH:-/opt/nashriyar}"
+          ssh-keyscan -p "$PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          if [ "$INPUT_ROLLBACK" = "true" ]; then
+            ARG="--rollback"
+          elif [ -n "$INPUT_REF" ]; then
+            ARG="$INPUT_REF"
+          else
+            ARG="$GITHUB_REF_NAME"
+          fi
+          ssh -i ~/.ssh/id_deploy -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DIR' && ./deploy/deploy.sh '$ARG'"
