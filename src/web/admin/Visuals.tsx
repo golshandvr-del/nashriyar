@@ -81,7 +81,7 @@ function JalaliHeatmap({ d }: { d: any }) {
       grid: { left: 8, right: 8, top: 8, bottom: 40, containLabel: true },
       xAxis: { type: 'category', data: labels, splitArea: { show: false }, axisTick: { show: false }, axisLabel: { interval: 0, formatter: (x: string) => x } },
       yAxis: { type: 'category', data: WEEK_FA, inverse: true, axisTick: { show: false }, axisLabel: { formatter: (x: string) => x } },
-      visualMap: { min: 0, max, orient: 'horizontal', left: 'center', bottom: 0, itemHeight: 120, calculable: false, inRange: { color: ['#e6f4f1', '#0f766e'] }, textStyle: { fontFamily: 'inherit' }, formatter: (v: number) => toFaDigits(Math.round(v)) },
+      visualMap: { min: 0, max, dimension: 2, orient: 'horizontal', left: 'center', bottom: 0, itemHeight: 120, calculable: false, inRange: { color: ['#e6f4f1', '#0f766e'] }, textStyle: { fontFamily: 'inherit' }, formatter: (v: number) => toFaDigits(Math.round(v)) },
       series: [{ type: 'heatmap', data, itemStyle: { borderColor: 'rgba(255,255,255,0.6)', borderWidth: 1 } }]
     }
   }, [d, metric])
@@ -292,7 +292,7 @@ function Gantt({ d }: { d: any }) {
           const s = a.coord([a.value(1), y])
           const e = a.coord([a.value(2), y])
           const h = a.size([0, 1])[1] * 0.55
-          return { type: 'rect', shape: { x: s[0], y: s[1] - h / 2, width: Math.max(2, e[0] - s[0]), height: h, r: 3 }, style: a.style() }
+          return { type: 'rect', shape: { x: Math.min(s[0], e[0]), y: s[1] - h / 2, width: Math.max(2, Math.abs(e[0] - s[0])), height: h, r: 3 }, style: { fill: color(rows[y]) } }
         },
         markLine: {
           symbol: 'none',
