@@ -1,7 +1,7 @@
 // Nashriyar service worker — offline app shell + static asset cache.
 // Security rule: NEVER cache API responses, media, or reader pages (paid content must not persist on disk).
-const VERSION = 'nsh-v1'
-const SHELL = ['/', '/index.html', '/theme-init.js', '/favicon.svg', '/manifest.webmanifest', '/offline.html']
+const VERSION = 'nsh-v2'
+const SHELL = ['/', '/index.html', '/theme-init.js', '/favicon.svg', '/manifest.webmanifest', '/offline.html', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
