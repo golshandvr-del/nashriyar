@@ -7,6 +7,7 @@ import { activity, bad, body, HttpError, notFound, nowIso, oneOf, parseJson, str
 import { toEnDigits, toJalali } from '../../shared/fa'
 import { flagComment } from '../lib/moderation'
 import { requireFeature } from '../lib/features'
+import { requireDesk } from './desk'
 
 export const meRoutes = new Hono<AppEnv>()
 
@@ -397,11 +398,11 @@ meRoutes.post('/delete-account', async (c) => {
 // team_members rows by student_number and may only move the TOC sections assigned to them.
 const MEMBER_STATUSES = ['todo', 'writing', 'written'] as const
 
-async function memberSections(c: any, tocId?: string) {
-  const u = requireUser(c)
-  await requireFeature(c.get('db'), 'member_portal')
-  const sn = (u as any).student_number || (await c.get('db').first('SELECT student_number FROM users WHERE id = ?', [u.id]))?.student_number
-  if (!sn) return []
+async function memberSections(c: any, tocId?: string, need: 'sections' | 'update_sections' = 'sections') {
+  // ROADMAP phase 15 access matrix: governed by the officer's «میز کار عضو» settings; members are matched by their linked
+  // account (team_members.user_id) or, for legacy unlinked records, by student number.
+  const a = await requireDesk(c, need)
+  const ids = a.memberships.map((m) => m.id)
   return c.get('db').all(
     `SELECT t.id, t.title, t.status, t.due_at, t.page_start, t.page_end, a.role AS my_role, tm.id AS team_member_id,
             i.id AS issue_id, i.title AS issue_title, i.number AS issue_number, i.status AS issue_status,
@@ -411,9 +412,9 @@ async function memberSections(c: any, tocId?: string) {
        JOIN issue_toc_items t ON t.id = a.toc_item_id
        JOIN issues i ON i.id = t.issue_id AND i.deleted_at IS NULL AND i.status NOT IN ('published','archived')
        JOIN publications p ON p.id = i.publication_id AND p.status = 'active' AND p.deleted_at IS NULL
-      WHERE tm.student_number = ?${tocId ? ' AND t.id = ?' : ''}
+      WHERE tm.id IN (${ids.map(() => '?').join(',')})${tocId ? ' AND t.id = ?' : ''}
       ORDER BY (t.due_at IS NULL), t.due_at, i.created_at DESC, t.sort_order`,
-    tocId ? [sn, tocId] : [sn]
+    tocId ? [...ids, tocId] : ids
   )
 }
 
@@ -423,7 +424,7 @@ meRoutes.get('/sections', async (c) => {
 
 meRoutes.post('/sections/:tocId/status', async (c) => {
   const u = requireUser(c)
-  const rows = await memberSections(c, c.req.param('tocId'))
+  const rows = await memberSections(c, c.req.param('tocId'), 'update_sections')
   const t = rows[0]
   if (!t) throw new HttpError(403, 'این بخش به شما سپرده نشده است')
   const b = await body<{ status?: string; note?: string }>(c)
