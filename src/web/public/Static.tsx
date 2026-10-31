@@ -157,25 +157,30 @@ const GUIDE: { id: string; title: string; flow: [string, string][]; steps: strin
   }
 ]
 
-/** Visual workflow diagram (inline SVG, RTL) for each role in the user guide. */
+/**
+ * Responsive workflow diagram for each role in the user guide.
+ * Plain HTML (not SVG) so Persian text wraps naturally: stacked vertically with down-arrows on phones,
+ * a single RTL row with side-arrows from `sm` up. (The old fixed-width SVG overlapped text on mobile.)
+ */
 function FlowDiagram({ title, flow }: { title: string; flow: [string, string][] }) {
   return (
-    <figure className="my-3 overflow-x-auto rounded-xl border border-line bg-surface-2 p-3" aria-label={`نمودار گردش کار ${title}`}>
-      <svg viewBox="0 0 760 96" className="h-auto w-full min-w-[540px]" role="img" aria-label={`مراحل ${title}`}>
-        {flow.map(([head, sub], i) => {
-          const x = 760 - (i + 1) * 185 + 8
-          return (
-            <g key={head} transform={`translate(${x}, 10)`}>
-              <rect width="168" height="76" rx="12" className="fill-surface stroke-line" strokeWidth="1.5" />
-              <text x="154" y="30" textAnchor="end" className="fill-current text-[13px] font-bold">{head}</text>
-              <text x="154" y="54" textAnchor="end" className="fill-current opacity-70 text-[11px]">{sub}</text>
-              {i < flow.length - 1 && (
-                <path d="M -4 38 L -14 38 M -10 33 L -15 38 L -10 43" className="stroke-current opacity-50" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-              )}
-            </g>
-          )
-        })}
-      </svg>
+    <figure className="my-3 rounded-xl border border-line bg-surface-2 p-3" aria-label={`نمودار گردش کار ${title}`}>
+      <ol className="flex flex-col items-stretch gap-0 sm:flex-row sm:items-stretch">
+        {flow.map(([head, sub], i) => (
+          <li key={head} className="flex flex-col items-stretch sm:flex-1 sm:flex-row sm:items-center">
+            <div className="flex-1 rounded-xl border border-line bg-surface p-3 text-right leading-6">
+              <div className="text-[13px] font-bold">{head}</div>
+              <div className="text-[12px] text-muted">{sub}</div>
+            </div>
+            {i < flow.length - 1 && (
+              <span aria-hidden className="flex shrink-0 items-center justify-center py-1 text-muted sm:px-1 sm:py-0">
+                <ArrowDown className="size-4 sm:hidden" />
+                <ArrowLeft className="hidden size-4 sm:block" />
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
     </figure>
   )
 }
