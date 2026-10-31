@@ -30,6 +30,7 @@ const Settings = lazy(() => import('./public/Settings'))
 const Verify = lazy(() => import('./public/Verify'))
 const Recruitment = lazy(() => import('./public/Recruitment'))
 const MySections = lazy(() => import('./public/MySections'))
+const Desk = lazy(() => import('./public/Desk'))
 const Festivals = lazy(() => import('./public/Festivals'))
 const Judging = lazy(() => import('./public/Judging'))
 
@@ -169,6 +170,7 @@ function App() {
           <Route path="following" element={<Following />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="my-sections" element={<MySections />} />
+          <Route path="desk" element={<Desk />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
           <Route path="recover" element={<Recover />} />
