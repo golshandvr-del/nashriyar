@@ -34,6 +34,16 @@ export interface PdfRenderer {
   render(pdf: Uint8Array, opts: { width: number; onPage: (p: RenderedPage) => Promise<void> }): Promise<{ page_count: number }>
 }
 
+/** Disk usage report on self-hosted Node installs (ROADMAP phase 11 monitoring). */
+export interface DiskStatus {
+  total_bytes: number
+  free_bytes: number
+  used_bytes: number
+  used_pct: number
+  warn_pct: number
+  warn: boolean
+}
+
 export interface Deps {
   db: Db
   storage: Storage
@@ -43,6 +53,8 @@ export interface Deps {
   ai?: { baseUrl?: string; apiKey?: string; model?: string }
   /** Optional server-side PDF converter (Node entry only, when poppler-utils is installed). */
   pdf?: PdfRenderer
+  /** Optional disk space probe (Node entry only, via fs.statfsSync). */
+  disk?: () => DiskStatus | null
 }
 
 export type AppEnv = {
