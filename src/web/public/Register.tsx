@@ -24,13 +24,15 @@ export default function Register() {
   // ROADMAP phase 15: two-path registration — plain student, or student + request to join a publication team
   const [path, setPath] = useState<'student' | 'team'>(sp.get('path') === 'team' ? 'team' : 'student')
   const [join, setJoin] = useState<JoinValue>(EMPTY_JOIN)
+  // where to land after sign-up; set BEFORE refresh() so the signed-in redirect below uses it (no race with nav())
+  const [after, setAfter] = useState<string | null>(null)
 
   useEffect(() => {
     api.get('/api/public/categories').then((r) => setFaculties(r.faculties || [])).catch(() => {})
     api.get('/api/public/settings').then((r) => (setOpen(r.registration_open !== false), setMode(r.registration_mode === 'allowlist' ? 'allowlist' : 'open'))).catch(() => {})
   }, [])
 
-  if (user) return <Navigate to={safeNext(sp.get('next'))} replace />
+  if (user) return <Navigate to={after || safeNext(sp.get('next'))} replace />
 
   const set = (k: keyof typeof f) => (e: any) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
 
@@ -51,9 +53,10 @@ export default function Register() {
         ...(mode === 'allowlist' && f.secret.trim() ? { secret: toEnDigits(f.secret.trim()) } : {}),
         ...(path === 'team' ? { join: { publication_id: join.publication_id, role_name: join.role_name || undefined, message: join.message.trim() || undefined } } : {})
       })
+      const target = path === 'team' ? (r.join_error ? `/settings?tab=membership&join_error=${encodeURIComponent(r.join_error)}` : '/settings?tab=membership') : safeNext(sp.get('next'))
+      setAfter(target)
       await refresh()
-      if (path === 'team') nav(r.join_error ? `/settings?tab=membership&join_error=${encodeURIComponent(r.join_error)}` : '/settings?tab=membership', { replace: true })
-      else nav(safeNext(sp.get('next')), { replace: true })
+      nav(target, { replace: true })
     } catch (err: any) {
       setError(err.message)
     } finally {
