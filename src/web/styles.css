@@ -29,20 +29,20 @@
   font-display: swap;
 }
 
-/* design tokens (light) */
+/* design tokens (light) — WCAG AA verified (muted #4b5563 >= 6.7:1 on surface/bg; brand #0f766e >= 5.4:1 with white) */
 :root {
   --bg: #f6f7f9;
   --surface: #ffffff;
   --surface-2: #f1f3f6;
   --text: #111827;
-  --muted: #6b7280;
+  --muted: #4b5563;
   --line: #e5e7eb;
   --brand: #0f766e;
   --brand-soft: #ccfbf1;
   --brand-ink: #ffffff;
   --danger: #dc2626;
-  --warn: #d97706;
-  --ok: #059669;
+  --warn: #b45309;
+  --ok: #047857;
   color-scheme: light;
 }
 /* design tokens (dark) */
@@ -98,6 +98,22 @@ html.text-lg-mode {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: 6px;
+}
+
+.skip-link {
+  position: absolute;
+  inset-inline-start: 0.75rem;
+  top: -10rem;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--brand);
+  color: var(--brand-ink);
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+.skip-link:focus {
+  top: 0.75rem;
 }
 
 /* reusable component classes */
