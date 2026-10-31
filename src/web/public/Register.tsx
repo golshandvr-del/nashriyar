@@ -5,7 +5,7 @@ import { UserPlus } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { toEnDigits } from '../lib/format'
-import { Button, Card, ErrorBox, Field, Input, Select } from '../components/ui'
+import { Button, Card, ErrorBox, Field, Input, PasswordInput, Select } from '../components/ui'
 import { safeNext } from './Login'
 
 export default function Register() {
@@ -77,10 +77,10 @@ export default function Register() {
               <Select value={f.faculty_id} onChange={set('faculty_id')} placeholder="انتخاب کنید" options={faculties.map((x) => ({ value: x.id, label: x.name }))} />
             </Field>
             <Field label="رمز عبور" hint="حداقل ۸ نویسه">
-              <Input dir="ltr" type="password" autoComplete="new-password" value={f.password} onChange={set('password')} required />
+              <PasswordInput strength autoComplete="new-password" value={f.password} onChange={set('password')} required />
             </Field>
             <Field label="تکرار رمز عبور">
-              <Input dir="ltr" type="password" autoComplete="new-password" value={f.password2} onChange={set('password2')} required />
+              <PasswordInput autoComplete="new-password" value={f.password2} onChange={set('password2')} required />
             </Field>
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="mt-1 accent-[var(--brand)]" checked={f.accept_terms} onChange={set('accept_terms')} />
