@@ -196,5 +196,82 @@ if (draft) {
   }
 }
 
+// ───── Developer console /api/system/* (ROADMAP phase 13) ─────
+{
+  const { createHmac } = await import('node:crypto')
+  const b32 = (s) => {
+    const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+    let bits = 0, val = 0
+    const out = []
+    for (const ch of s.toUpperCase().replace(/[^A-Z2-7]/g, '')) {
+      val = (val << 5) | A.indexOf(ch)
+      bits += 5
+      if (bits >= 8) (out.push((val >>> (bits - 8)) & 255), (bits -= 8))
+    }
+    return Buffer.from(out)
+  }
+  const totp = (secret, offset = 0) => {
+    const step = Math.floor(Date.now() / 30000) + offset
+    const msg = Buffer.alloc(8)
+    msg.writeBigUInt64BE(BigInt(step))
+    const h = createHmac('sha1', b32(secret)).update(msg).digest()
+    const o = h[h.length - 1] & 15
+    return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1e6).padStart(6, '0')
+  }
+  // every non-developer role is refused
+  ok((await anon('/api/system/status')).status === 401, 'system: anonymous -> 401')
+  for (const [name, cl] of [['student', st], ['team', tm], ['officer', of]]) {
+    for (const p of ['/api/system/status', '/api/system/health', '/api/system/settings', '/api/system/audit']) {
+      const r = await cl(p)
+      ok(r.status === 403, `system: ${name} ${p} -> ${r.status} (want 403)`)
+    }
+  }
+  const { c: sa } = await login('admin', 'admin1234')
+  ok((await sa('/api/system/health')).status === 403, 'system: super admin -> 403')
+  // the officer's settings carry no technical options any more
+  const os = (await of('/api/admin/settings')).data?.settings || {}
+  ok(!('ai_api_key' in os) && !('feature_flags' in os) && !('max_sessions' in os), 'officer settings have no technical keys (AI / flags / sessions)')
+  const sas = (await sa('/api/admin/settings')).data?.settings || {}
+  ok(!('ai_api_key' in sas) && !('feature_flags' in sas), 'super admin settings have no technical keys either')
+
+  const dv = client()
+  const dl = await dv('/api/auth/login', { json: { username: 'developer', password: 'dev12345678' } })
+  if (dl.status === 401 && dl.data?.code === 'totp_required') {
+    console.log('  (developer already has 2FA from an earlier run — reseed to re-run the developer console checks)')
+  } else {
+    ok(dl.status === 200 && dl.data?.home === '/system', `developer login -> ${dl.status} home=${dl.data?.home}`)
+    const s0 = await dv('/api/system/status')
+    ok(s0.status === 200 && s0.data?.totp_enabled === false, 'system: status reachable without 2FA (to guide setup)')
+    const h0 = await dv('/api/system/health')
+    ok(h0.status === 403 && h0.data?.code === 'totp_required', `system: without TOTP -> ${h0.status} ${h0.data?.code}`)
+    ok((await dv('/api/admin/overview')).status === 403, 'developer cannot open the publication admin API')
+    const setup = await dv('/api/auth/totp/setup', { json: {} })
+    ok(setup.status === 200 && setup.data?.secret, 'developer: totp setup')
+    const secret = setup.data?.secret
+    const en = await dv('/api/auth/totp/enable', { json: { code: totp(secret) } })
+    ok(en.status === 200, `developer: totp enable -> ${en.status}`)
+    ok((await dv('/api/system/health')).status === 200, 'system: with TOTP, health -> 200')
+    const w0 = await dv('/api/system/settings', { json: { max_sessions: 6 } })
+    ok(w0.status === 403 && w0.data?.code === 'sudo_required', `system: write without sudo -> ${w0.status} ${w0.data?.code}`)
+    const bad = await dv('/api/system/elevate', { json: { password: 'wrong-password', totp: totp(secret, 1) } })
+    ok(bad.status === 401, `system: elevate with wrong password -> ${bad.status}`)
+    const el = await dv('/api/system/elevate', { json: { password: 'dev12345678', totp: totp(secret, 1) } })
+    ok(el.status === 200 && el.data?.elevated_until, `system: elevate -> ${el.status}`)
+    const replay = await dv('/api/system/elevate', { json: { password: 'dev12345678', totp: totp(secret, 1) } })
+    ok(replay.status === 401, `system: TOTP code replay rejected -> ${replay.status}`)
+    const w1 = await dv('/api/system/settings', { json: { max_sessions: 6 } })
+    ok(w1.status === 200, `system: write in sudo mode -> ${w1.status}`)
+    await dv('/api/system/elevate/drop', { json: {} })
+    const w2 = await dv('/api/system/settings', { json: { max_sessions: 5 } })
+    ok(w2.status === 403 && w2.data?.code === 'sudo_required', `system: after sudo expiry -> ${w2.status} ${w2.data?.code}`)
+    ok((await dv('/api/system/backups/x.db/download')).status === 403, 'system: backup download needs sudo')
+    const au = await dv('/api/system/audit')
+    const acts = (au.data?.items || []).map((x) => x.action)
+    ok(acts.includes('system.elevate') && acts.includes('system.elevate_failed') && acts.includes('system.settings'), 'system: technical audit records elevate / failure / settings')
+    const sess = await dv('/api/system/sessions')
+    ok(sess.status === 200 && Array.isArray(sess.data?.sessions) && !sess.data.sessions.some((x) => x.id), 'system: sessions list never exposes session ids')
+  }
+}
+
 console.log(failures ? `\nsecurity: ${failures} FAILURE(S), ${passed} passed` : `\nsecurity: ALL ${passed} CHECKS PASSED`)
 process.exit(failures ? 1 : 0)
