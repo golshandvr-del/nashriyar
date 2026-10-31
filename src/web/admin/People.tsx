@@ -74,6 +74,45 @@ export default function AdminPeople() {
   )
 }
 
+const DEGREE_FA: Record<string, string> = { associate: 'کاردانی', bachelor: 'کارشناسی', master: 'کارشناسی ارشد', phd: 'دکتری' }
+const GENDER_FA: Record<string, string> = { male: 'مرد', female: 'زن' }
+
+/** Linked accounts' profiles; sensitive fields arrive from the API only for the officer and only with the person's consent. */
+function AccountProfiles({ accounts }: { accounts: any[] }) {
+  if (!accounts?.length) return null
+  return (
+    <Card title="حساب کاربری و پروفایل">
+      <ul className="divide-y divide-line text-sm">
+        {accounts.map((a) => (
+          <li key={a.id} id={`account-${a.id}`} className="space-y-1 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium">{a.display_name}</span>
+              <span className="flex flex-wrap gap-1">
+                <Badge tone={a.profile_completed_at ? 'ok' : 'muted'}>{a.profile_completed_at ? 'پروفایل کامل' : 'پروفایل ناقص'}</Badge>
+                <Badge tone={a.profile_consent_at ? 'ok' : 'muted'}>{a.profile_consent_at ? 'رضایت ثبت شده' : 'بدون رضایت'}</Badge>
+              </span>
+            </div>
+            <div className="text-xs text-muted">
+              {[a.faculty_name, a.major_name, DEGREE_FA[a.degree], a.entry_year ? `ورودی ${toFaDigits(a.entry_year)}` : null].filter(Boolean).join(' · ') || '—'}
+            </div>
+            {a.bio && <p className="text-xs">{a.bio}</p>}
+            {a.sensitive_visible ? (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-xl bg-surface-2 p-2 text-xs">
+                <span>جنسیت: {GENDER_FA[a.gender] || '—'}</span>
+                <span>سال تولد: {a.birth_year ? toFaDigits(a.birth_year) : '—'}</span>
+                <span dir="ltr">{a.phone ? toFaDigits(a.phone) : '—'}</span>
+                <span dir="ltr">{a.email || '—'}</span>
+              </div>
+            ) : (
+              <p className="text-xs text-muted">اطلاعات حساس فقط با رضایت فرد و فقط برای مسئول نشریات نمایش داده می‌شود.</p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
+
 export function AdminPerson() {
   const { key = '' } = useParams()
   const st = useAsync(() => api.get(`/api/admin/people/${encodeURIComponent(key)}`), [key])
@@ -89,6 +128,7 @@ export function AdminPerson() {
               title={first.full_name}
               subtitle={first.student_number ? `شمارهٔ دانشجویی ${toFaDigits(first.student_number)}` : undefined}
             />
+            <AccountProfiles accounts={d.accounts} />
             <Card title="عضویت در نشریات">
               <ul className="divide-y divide-line text-sm">
                 {d.memberships.map((m: any) => (
