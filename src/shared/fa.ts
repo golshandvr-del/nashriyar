@@ -187,6 +187,8 @@ export function jalaliPresets(now = new Date()) {
     { key: 'week', label: 'هفتهٔ جاری', from: weekStart, to: today },
     { key: '7d', label: '۷ روز اخیر', from: daysAgo(6), to: today },
     { key: '30d', label: '۳۰ روز اخیر', from: daysAgo(29), to: today },
+    { key: '90d', label: '۹۰ روز اخیر', from: daysAgo(89), to: today },
+    { key: '1y', label: 'یک سال اخیر', from: daysAgo(364), to: today },
     { key: 'month', label: 'ماه جاری', from: monthStart, to: today },
     { key: 'prevMonth', label: 'ماه گذشته', from: jalaliToIso(prevM.y, prevM.m, 1), to: jalaliToIso(prevM.y, prevM.m, jalaliMonthLength(prevM.y, prevM.m)) },
     { key: 'term', label: 'ترم جاری', from: termStart, to: today },
