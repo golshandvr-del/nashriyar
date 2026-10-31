@@ -9,8 +9,6 @@ import {
   activity, audit, bad, body, getSetting, inList, int, keywordsCsv, notFound, notify, nowIso, oneOf, parseJson, setSetting, slugify, str
 } from '../lib/util'
 import { normalizeFa, toEnDigits } from '../../shared/fa'
-import { getFeatures, sanitizeFeatures } from '../lib/features'
-import { getAiStatus } from '../ai'
 import { ensureReminders } from '../lib/reminders'
 import { getMonitorStats } from '../lib/monitor'
 import { DEFAULT_THRESHOLDS, DEFAULT_WEIGHTS, getThresholds, getWeights, sanitizeThresholds, sanitizeWeights } from '../insights'
