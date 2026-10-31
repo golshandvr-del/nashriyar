@@ -37,7 +37,8 @@ const FEATURE_LABELS: Record<string, string> = {
   recruitment: 'فراخوان جذب نیرو',
   paid_content: 'محتوای پولی و کد خرید',
   certificates: 'استعلام گواهی همکاری',
-  physical_sales: 'ثبت فروش نسخهٔ چاپی'
+  physical_sales: 'ثبت فروش نسخهٔ چاپی',
+  member_portal: 'ورود محدود اعضای عادی تیم (تیک بخش‌های خودشان)'
 }
 
 function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
