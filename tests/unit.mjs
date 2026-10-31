@@ -86,6 +86,10 @@ t('askmap: questions map to whitelisted reports/ranges/faculties', () => {
   assert.equal(r.report, 'trends'); assert.equal(r.range, '7d')
   r = m.mapQuestion('سلام', fac)
   assert.equal(r.report, 'trends'); assert.equal(r.confidence, 0)
+  const fac2 = [{ id: 'a', name: 'فنی و مهندسی' }, { id: 'b', name: 'علوم پایه' }, { id: 'c', name: 'علوم انسانی' }]
+  assert.equal(m.mapQuestion('فروش دانشکده فنی', fac2).faculty_id, 'a')
+  assert.equal(m.mapQuestion('روند علوم انسانی', fac2).faculty_id, 'c')
+  assert.equal(m.mapQuestion('روند علوم', fac2).faculty_id, null)
   assert.deepEqual(m.sanitizeRoute({ report: 'DROP TABLE', range: 'year', faculty_id: 'x' }, fac), { range: 'year' })
 })
 console.log(`unit: ${n} passed`)
