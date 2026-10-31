@@ -15,6 +15,7 @@ import { mediaRoutes } from './routes/media'
 import { systemRoutes } from './routes/system'
 import { festivalRoutes } from './routes/festivals'
 import { membershipRoutes } from './routes/membership'
+import { deskRoutes } from './routes/desk'
 
 export const CSP = [
   "default-src 'self'",
@@ -152,6 +153,7 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
   app.route('/api/system', systemRoutes)
   app.route('/api/festivals', festivalRoutes)
   app.route('/api/membership', membershipRoutes)
+ app.route('/api/desk', deskRoutes)
 
   app.all('/api/*', (c) => c.json({ error: 'مسیر یافت نشد' }, 404))
   return app
