@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -91,5 +91,13 @@ t('askmap: questions map to whitelisted reports/ranges/faculties', () => {
   assert.equal(m.mapQuestion('روند علوم انسانی', fac2).faculty_id, 'c')
   assert.equal(m.mapQuestion('روند علوم', fac2).faculty_id, null)
   assert.deepEqual(m.sanitizeRoute({ report: 'DROP TABLE', range: 'year', faculty_id: 'x' }, fac), { range: 'year' })
+})
+t('explain: rule hypotheses follow the evidence', () => {
+  const base = { publication_id: 'p', title: 't', frequency: 'monthly', days_since_last_issue: 10, issues_last_180: 3, members_active: 8, members_joined_90: 0, members_left_90: 0, director_changed_90: false, days_since_director_change: null, open_issues: 1, stuck_items: 0, last_activity_days: 2, posts_30: 2, posts_prev_30: 2, views_30: 50, views_prev_30: 50, pending_comments: 0, license_days_left: 300 }
+  const calm = m.ruleHypotheses(base)
+  assert.equal(calm.length, 1); assert.match(calm[0].text, /علت روشنی/)
+  const bad = m.ruleHypotheses({ ...base, members_left_90: 3, members_active: 2, director_changed_90: true, days_since_director_change: 20, stuck_items: 4 })
+  assert.ok(bad.length >= 4); assert.ok(bad.every((h) => h.source === 'rule'))
+  assert.ok(bad.some((h) => /مدیرمسئول/.test(h.text))); assert.ok(bad.some((h) => /گلوگاه/.test(h.text)))
 })
 console.log(`unit: ${n} passed`)
