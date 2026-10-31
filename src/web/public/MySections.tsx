@@ -68,7 +68,7 @@ export default function MySections() {
             <Empty
               icon={<ListChecks className="size-10 opacity-60" />}
               title="بخشی به شما سپرده نشده است"
-              description={<>اگر عضو تیم نشریه‌ای هستید، از مدیرمسئول بخواهید شماره دانشجویی شما را در فهرست اعضا ثبت کند. <Link to="/guide" className="underline">راهنما</Link></>}
+              hint={<>اگر عضو تیم نشریه‌ای هستید، از مدیرمسئول بخواهید شماره دانشجویی شما را در فهرست اعضا ثبت کند. <Link to="/guide" className="underline">راهنما</Link></>}
             />
           )
         }
