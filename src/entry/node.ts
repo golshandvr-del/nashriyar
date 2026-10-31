@@ -133,7 +133,7 @@ async function main() {
   })
 
   // In-process scheduler (ROADMAP phase 11 — replaces the lazy, request-driven jobs on self-hosted installs).
-  // Maintenance hourly (idempotent); DB backup once a day at BACKUP_HOUR (server local time, default 3).
+  // Maintenance every 15 minutes (idempotent, cheap); DB backup once a day at BACKUP_HOUR (server local time, default 3).
   // CRON=off disables it (e.g. when the host crontab runs --maintenance / --backup instead).
   if (process.env.CRON !== 'off') {
     const backupHour = Number(process.env.BACKUP_HOUR ?? 3)
