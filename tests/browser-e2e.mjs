@@ -15,6 +15,7 @@ try {
 const PUBLIC = ['/', '/explore', '/categories', '/search', '/guide', '/terms', '/recruitment', '/login', '/register', '/recover', '/verify']
 const STUDENT = ['/', '/library', '/following', '/notifications', '/settings', '/redeem']
 const TEAM = ['', '/issues', '/issues/new', '/members', '/posts', '/comments', '/sales', '/stats', '/recruit', '/profile']
+const SYSTEM = ['', '/settings', '/backups', '/sessions', '/database', '/staff', '/audit']
 const ADMIN = ['', '/live', '/analytics', '/insights', '/report', '/approvals', '/publications', '/people', '/structure', '/categories', '/moderation', '/storefront', '/announcements', '/users', '/audit', '/settings']
 
 const ROLES = [
@@ -22,8 +23,35 @@ const ROLES = [
   { name: 'student', user: ['40012345', 'student1234'], routes: STUDENT },
   { name: 'team', user: ['pub1-director', 'team1234'], routes: ['/settings', ...TEAM.map((r) => '__TEAM__' + r)] },
   { name: 'officer', user: ['officer', 'officer1234'], routes: ['/settings', ...ADMIN.map((r) => '/admin' + r)] },
-  { name: 'analyst', user: ['analyst', 'analyst1234'], routes: ['/admin', '/admin/analytics', '/admin/insights', '/admin/report'] }
+  { name: 'analyst', user: ['analyst', 'analyst1234'], routes: ['/admin', '/admin/analytics', '/admin/insights', '/admin/report'] },
+  // developer console (phase 13): a fresh CLI-created account per run; password change + TOTP are done in-page
+  { name: 'developer', user: 'cli', routes: SYSTEM.map((r) => '/system' + r) }
 ]
+
+/** Creates a developer from the CLI (same DATA_DIR as the server) and returns its one-time password. */
+async function cliDeveloper(username) {
+  const { spawnSync } = await import('node:child_process')
+  const r = spawnSync(process.execPath, ['server-dist/node.mjs', '--create-developer', username], { env: process.env, encoding: 'utf8' })
+  const m = /password: (\S+)/.exec(r.stdout || '')
+  if (!m) throw new Error('create-developer failed: ' + (r.stderr || r.stdout))
+  return m[1]
+}
+async function totpCode(secret) {
+  const { createHmac } = await import('node:crypto')
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  let bits = 0, val = 0
+  const out = []
+  for (const ch of secret.toUpperCase().replace(/[^A-Z2-7]/g, '')) {
+    val = (val << 5) | A.indexOf(ch)
+    bits += 5
+    if (bits >= 8) (out.push((val >>> (bits - 8)) & 255), (bits -= 8))
+  }
+  const msg = Buffer.alloc(8)
+  msg.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)))
+  const h = createHmac('sha1', Buffer.from(out)).update(msg).digest()
+  const o = h[h.length - 1] & 15
+  return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1e6).padStart(6, '0')
+}
 const WIDTHS = (process.env.WIDTHS || '390,1440').split(',').map(Number)
 // Benign noise that is not an app bug (aborted fetches when navigating quickly, favicon in headless).
 const IGNORE = [/net::ERR_ABORTED/, /favicon/i, /Failed to load resource.*40[13]/]
@@ -43,7 +71,21 @@ for (const width of WIDTHS) {
     page.on('console', (m) => m.type() === 'error' && !IGNORE.some((re) => re.test(m.text())) && errors.push(m.text().slice(0, 200)))
     page.on('pageerror', (e) => errors.push('PAGEERROR ' + e.message.slice(0, 200)))
     let teamBase = ''
-    if (role.user) {
+    if (role.user === 'cli') {
+      const username = `e2e-dev-${width}-${Date.now() % 100000}`
+      const pw = await cliDeveloper(username)
+      await page.goto(BASE + '/login')
+      const call = (path, body) =>
+        page.evaluate(
+          ([path, body]) => fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(async (r) => ({ status: r.status, data: await r.json().catch(() => null) })),
+          [path, body]
+        )
+      const steps = [await call('/api/auth/login', { username, password: pw }), await call('/api/auth/change-password', { current: pw, next: pw + '-New9' })]
+      const setup = await call('/api/auth/totp/setup', {})
+      steps.push(setup, await call('/api/auth/totp/enable', { code: await totpCode(setup.data?.secret || '') }))
+      const bad = steps.find((s) => s.status !== 200)
+      if (bad) fail(`developer setup step -> ${bad.status} ${JSON.stringify(bad.data).slice(0, 120)}`)
+    } else if (role.user) {
       await page.goto(BASE + '/login')
       await page.fill('input[autocomplete=username]', role.user[0])
       await page.fill('input[autocomplete=current-password]', role.user[1])
