@@ -16,6 +16,8 @@
     "test:load": "node tests/load.mjs",
     "test:cf": "node tests/smoke-cf.mjs",
     "backup": "node server-dist/node.mjs --backup",
+    "backup:files": "node server-dist/node.mjs --backup-files",
+    "backup:test": "node server-dist/node.mjs --restore-test",
     "maintenance": "node server-dist/node.mjs --maintenance",
     "import:cf": "node scripts/import-cf.mjs",
     "dev:cf": "wrangler pages dev dist --ip 0.0.0.0 --port 3000",
