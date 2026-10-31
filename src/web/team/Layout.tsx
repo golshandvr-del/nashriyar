@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect } from 'react'
-import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { BarChart3, BookOpen, ClipboardCheck, House, Images, LayoutDashboard, Megaphone, MessageCircle, Settings, Ticket, Users } from 'lucide-react'
 import { useAuth, PUB_ROLE_LABEL, isAdmin } from '../lib/auth'
 import type { PubRole } from '../lib/auth'
@@ -9,6 +9,7 @@ import { CommandPalette, PaletteButton } from '../components/CommandPalette'
 import { NotificationBell } from '../components/NotificationBell'
 import type { PaletteItem } from '../components/CommandPalette'
 import { Empty, PageLoader } from '../components/ui'
+import { ErrorBoundary } from '../public/Static'
 
 interface TeamCtx {
   pubId: string
@@ -66,6 +67,7 @@ export default function TeamLayout() {
   const { pubId = '' } = useParams()
   const { user, publications, loading } = useAuth()
   const nav = useNavigate()
+  const loc = useLocation()
   // Hide menu items whose whole feature was switched off by the super admin (the API enforces it too).
   const ff = usePublicSettings()?.features || {}
   const off = (k: string) => (ff as Record<string, boolean | undefined>)[k] === false
@@ -148,7 +150,9 @@ export default function TeamLayout() {
               رمز عبور شما موقت است. <Link to="/settings" className="font-bold text-brand">همین حالا تغییرش دهید</Link>
             </div>
           )}
-          <Outlet />
+          <ErrorBoundary inline key={loc.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
         <CommandPalette items={paletteItems} placeholder="جست‌وجو در صفحه‌های پنل تیم…" />
       </div>
