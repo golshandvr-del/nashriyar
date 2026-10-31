@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { BarChart3, BookOpen, ClipboardCheck, House, Images, LayoutDashboard, Megaphone, MessageCircle, Settings, Ticket, Users } from 'lucide-react'
+import { BarChart3, BookOpen, ClipboardCheck, House, Images, LayoutDashboard, Megaphone, Menu, MessageCircle, Settings, Ticket, Users, X } from 'lucide-react'
 import { useAuth, PUB_ROLE_LABEL, isAdmin } from '../lib/auth'
 import type { PubRole } from '../lib/auth'
 import { cx } from '../lib/format'
@@ -68,6 +68,19 @@ export default function TeamLayout() {
   const { user, publications, loading } = useAuth()
   const nav = useNavigate()
   const loc = useLocation()
+  // Mobile: slide-in drawer instead of an overlapping horizontal tab strip.
+  const [drawer, setDrawer] = useState(false)
+  useEffect(() => setDrawer(false), [loc.pathname])
+  useEffect(() => {
+    if (!drawer) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDrawer(false)
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [drawer])
   // Hide menu items whose whole feature was switched off by the super admin (the API enforces it too).
   const ff = usePublicSettings()?.features || {}
   const off = (k: string) => (ff as Record<string, boolean | undefined>)[k] === false
@@ -93,14 +106,38 @@ export default function TeamLayout() {
     { id: 'act-site', label: 'رفتن به سایت', hint: 'اقدام', icon: <House className="size-4" />, to: '/' }
   ]
 
+  const current = navItems.find((n) => (n.to ? loc.pathname.startsWith(`${base}/${n.to}`) : loc.pathname === base || loc.pathname === base + '/'))
+
   return (
     <Ctx.Provider value={{ pubId, pub, base }}>
       <div className="min-h-dvh md:flex">
         <a href="#main" className="skip-link">پرش به محتوای اصلی</a>
-        <aside className="no-print border-line bg-surface md:sticky md:top-0 md:h-dvh md:w-60 md:shrink-0 md:overflow-y-auto md:border-l">
+        <header className="no-print sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-surface/95 px-2 py-2 backdrop-blur md:hidden">
+          <button className="rounded-xl p-2 hover:bg-surface-2" onClick={() => setDrawer(true)} aria-label="باز کردن منو" aria-expanded={drawer} aria-controls="team-drawer">
+            <Menu className="size-6" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[11px] leading-4 text-muted">{pub?.title || 'پنل نشریه'}</div>
+            <div className="truncate text-sm font-bold leading-5">{current?.label || 'پنل نشریه'}</div>
+          </div>
+          <NotificationBell />
+          <Link to="/" className="rounded-xl p-2 hover:bg-surface-2" aria-label="سایت">
+            <House className="size-5" />
+          </Link>
+        </header>
+        {drawer && <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setDrawer(false)} aria-hidden />}
+        <aside
+          id="team-drawer"
+          className={cx(
+            'no-print fixed inset-y-0 right-0 z-50 w-72 max-w-[85vw] overflow-y-auto border-l border-line bg-surface shadow-xl transition-transform duration-200',
+            drawer ? 'translate-x-0' : 'translate-x-full',
+            'md:sticky md:top-0 md:z-auto md:h-dvh md:w-60 md:max-w-none md:shrink-0 md:translate-x-0 md:shadow-none'
+          )}
+          aria-label="منوی پنل نشریه"
+        >
           <div className="flex items-center justify-between gap-2 border-b border-line p-3">
             <div className="min-w-0">
-              <div className="text-xs text-muted">پنل تیم</div>
+              <div className="text-xs text-muted">پنل نشریه</div>
               {publications.length > 1 ? (
                 <select className="mt-0.5 max-w-full bg-transparent text-sm font-bold outline-none" value={pubId} onChange={(e) => nav(`/team/${e.target.value}`)} aria-label="تغییر نشریه">
                   {publications.map((p) => (
@@ -115,16 +152,21 @@ export default function TeamLayout() {
               {pub && <div className="text-[11px] text-muted">{PUB_ROLE_LABEL[pub.role] || pub.role}</div>}
             </div>
             <div className="flex items-center">
-              <NotificationBell />
-              <Link to="/" className="rounded-lg p-2 hover:bg-surface-2" aria-label="سایت">
+              <span className="hidden md:inline-flex">
+                <NotificationBell />
+              </span>
+              <Link to="/" className="hidden rounded-lg p-2 hover:bg-surface-2 md:inline-flex" aria-label="سایت">
                 <House className="size-5" />
               </Link>
+              <button className="rounded-lg p-2 hover:bg-surface-2 md:hidden" onClick={() => setDrawer(false)} aria-label="بستن منو">
+                <X className="size-5" />
+              </button>
             </div>
           </div>
           <div className="hidden px-2 pt-2 md:block">
             <PaletteButton />
           </div>
-          <nav className="no-scrollbar flex gap-1 overflow-x-auto p-2 md:flex-col md:overflow-visible" aria-label="منوی پنل تیم">
+          <nav className="flex flex-col gap-1 p-2" aria-label="منوی پنل نشریه">
             {navItems.map((n) => (
               <NavLink
                 key={n.to}
