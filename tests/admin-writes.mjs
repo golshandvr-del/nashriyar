@@ -152,6 +152,14 @@ ok(ann.id, 'announcement created')
 await call(of, 'DELETE', `/api/admin/announcements/${ann.id}`)
 const dl = await call(of, 'POST', '/api/admin/deadlines', { title: 'مهلت آزمایشی', due_at: '2027-01-01', description: 'توضیح' })
 await call(of, 'DELETE', `/api/admin/deadlines/${dl.id}`)
+// phase 14 events calendar: kind/time/location + validation
+const ev = await call(of, 'POST', '/api/admin/deadlines', { title: 'کارگاه آزمایشی', due_at: '2027-01-02', kind: 'workshop', start_time: '14:00', location: 'سالن ۱' })
+const evs = await call(of, 'GET', '/api/admin/deadlines')
+const evRow = evs.deadlines.find((x) => x.id === ev.id)
+ok(evRow?.kind === 'workshop' && evRow?.start_time === '14:00' && evRow?.location === 'سالن ۱', 'event kind/time/location stored')
+await call(of, 'POST', '/api/admin/deadlines', { title: 'x', due_at: '2027-01-02', kind: 'meeting', start_time: '99:00' }, 400)
+await call(of, 'POST', '/api/admin/deadlines', { title: 'x', due_at: '1405/10/12' }, 400)
+await call(of, 'DELETE', `/api/admin/deadlines/${ev.id}`)
 
 // ───── settings ─────
 const s0 = await call(of, 'GET', '/api/admin/settings')
