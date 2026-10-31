@@ -7,7 +7,9 @@
 //   PDF_RENDERER=browser                    disable server-side PDF conversion (default: pdftoppm when installed)
 //   node server-dist/node.mjs --maintenance  run the periodic job once (rollup, reminders, purges), then exit
 //   CRON=off / BACKUP_HOUR=3                 in-process scheduler: maintenance every 15 min, daily backup at BACKUP_HOUR (-1 = off)
-//   node server-dist/node.mjs --backup     consistent DB snapshot to DATA_DIR/backups (VACUUM INTO), prune > BACKUP_KEEP_DAYS (30)
+//   node server-dist/node.mjs --backup     consistent DB snapshot to DATA_DIR/backups (+ BACKUP_OFFSITE_DIR), prune > BACKUP_KEEP_DAYS (30)
+//   node server-dist/node.mjs --backup-files   weekly files tar.gz to DATA_DIR/backups (+ BACKUP_OFFSITE_DIR)
+//   node server-dist/node.mjs --restore-test   verify newest DB snapshot (integrity_check, row counts, referenced files)
 import fs from 'node:fs'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -20,6 +22,7 @@ import { diskStorage } from '../server/adapters/storage'
 import { ensureMigrated } from '../server/migrate'
 import { popplerRenderer } from '../server/adapters/pdf-poppler'
 import { runMaintenance } from '../server/lib/maintenance'
+import { backupDb, backupFiles, restoreTest } from './backup'
 import { resolveSecret } from '../server/secret'
 import type { Deps } from '../server/context'
 import { hashPassword, newId, randomId } from '../server/lib/crypto'
@@ -32,22 +35,6 @@ const HOST = process.env.HOST || '0.0.0.0'
 const DB_FILE = path.join(DATA_DIR, 'nashriyar.db')
 
 fs.mkdirSync(DATA_DIR, { recursive: true })
-
-/** Consistent DB snapshot (VACUUM INTO works while the server is running in WAL mode) + retention pruning. */
-function backupDb(sqlite: DatabaseSync): string {
-  const dir = path.join(DATA_DIR, 'backups')
-  fs.mkdirSync(dir, { recursive: true })
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  const out = path.join(dir, `nashriyar-${stamp}.db`)
-  sqlite.exec(`VACUUM INTO '${out.replace(/'/g, "''")}'`)
-  const keepDays = Number(process.env.BACKUP_KEEP_DAYS || 30)
-  const cutoff = Date.now() - keepDays * 86400000
-  for (const f of fs.readdirSync(dir)) {
-    const full = path.join(dir, f)
-    if (/^nashriyar-.*\.db$/.test(f) && fs.statSync(full).mtimeMs < cutoff) fs.rmSync(full, { force: true })
-  }
-  return out
-}
 
 async function main() {
   if (args.has('--seed')) {
@@ -101,7 +88,21 @@ async function main() {
   }
 
   if (args.has('--backup')) {
-    console.log(`[nashriyar] backup written: ${backupDb(sqlite)}`)
+    const r = backupDb(sqlite, DATA_DIR)
+    console.log(`[nashriyar] backup written: ${r.file}${r.offsite ? ` (offsite: ${r.offsite})` : ''}`)
+    return
+  }
+
+  if (args.has('--backup-files')) {
+    const r = backupFiles(DATA_DIR)
+    console.log(`[nashriyar] files archive written: ${r.file}${r.offsite ? ` (offsite: ${r.offsite})` : ''}`)
+    return
+  }
+
+  if (args.has('--restore-test')) {
+    const r = restoreTest(sqlite, DATA_DIR)
+    console.log('[nashriyar] restore-test', JSON.stringify(r))
+    if (!r.ok) process.exitCode = 1
     return
   }
 
@@ -149,7 +150,11 @@ async function main() {
       if (backupHour >= 0 && now.getHours() === backupHour && lastBackupDay !== day) {
         lastBackupDay = day
         try {
-          console.log(`[nashriyar] daily backup written: ${backupDb(sqlite)}`)
+          const dbSnap = backupDb(sqlite, DATA_DIR)
+          // Fridays (day 5 in Iran's weekend) also archive uploaded files and run the automated restore test.
+          const filesSnap = now.getDay() === 5 ? backupFiles(DATA_DIR) : null
+          const check = restoreTest(sqlite, DATA_DIR)
+          console.log('[nashriyar] daily backup', JSON.stringify({ db: dbSnap.file, files: filesSnap?.file ?? null, restore_ok: check.ok }))
         } catch (e) {
           console.error('[nashriyar] daily backup failed', e)
         }
