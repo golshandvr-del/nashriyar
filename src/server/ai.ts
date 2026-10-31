@@ -39,6 +39,36 @@ export async function getAiStatus(db: Db) {
 
 class BudgetError extends Error {}
 
+// ---- Data minimisation (ROADMAP phase 10): nothing personal ever leaves the server ----
+// Keys that may carry personal data are dropped from any JSON payload, and free text is redacted:
+// student numbers / phone numbers (8+ consecutive digits), e-mail addresses and @handles.
+const PERSONAL_KEY = /(^|_)(display_name|name|username|student_number|student|email|phone|mobile|actor|actor_name|user_id|viewer|ip|national_id)$/i
+const SAFE_KEYS = new Set(['title', 'publication_title', 'issue_title', 'faculty', 'faculty_name', 'category', 'category_name', 'association', 'association_name'])
+
+/** Redacts personal identifiers from free text. */
+export function redactText(s: string): string {
+  return s
+    .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[ایمیل]')
+    .replace(/@\w{3,}/g, '[شناسه]')
+    .replace(/[0-9۰-۹]{8,}/g, '[شماره]')
+}
+
+/** Deep-copies a payload without personal keys; strings are redacted. */
+export function scrubPersonal(v: unknown, depth = 0): unknown {
+  if (depth > 8) return null
+  if (typeof v === 'string') return redactText(v)
+  if (Array.isArray(v)) return v.slice(0, 200).map((x) => scrubPersonal(x, depth + 1))
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, x] of Object.entries(v)) {
+      if (!SAFE_KEYS.has(k) && PERSONAL_KEY.test(k)) continue
+      out[k] = scrubPersonal(x, depth + 1)
+    }
+    return out
+  }
+  return v
+}
+
 /** Wraps a real provider: refuses when over budget or while the breaker is open, records usage and failures. */
 class GuardedProvider implements AIProvider {
   readonly enabled = true
@@ -49,7 +79,8 @@ class GuardedProvider implements AIProvider {
     if (st.limit && st.usage.calls >= st.limit) throw new BudgetError('سقف ماهانهٔ استفاده از هوش مصنوعی پر شده است؛ سوپرادمین می‌تواند سقف را در تنظیمات افزایش دهد.')
     const usage = st.usage
     try {
-      const out = await this.inner.complete(system, user)
+      // Last line of defence: whatever the caller built, identifiers are redacted before leaving the server.
+      const out = await this.inner.complete(system, redactText(user))
       await setSetting(this.db, 'ai_usage', { ...usage, calls: usage.calls + 1, tokens: usage.tokens + (this.inner.lastTokens || 0) })
       await setSetting(this.db, 'ai_breaker', { fails: 0, open_until: null })
       return out
