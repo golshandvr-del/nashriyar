@@ -256,13 +256,20 @@ curl -fsS https://nashriyat.YOUR-UNI.ac.ir/api/health
 ```bash
 # ۱) خروجی D1
 npx wrangler d1 export nashriyar-production --remote --output=d1.sql
-# ۲) ساخت پایگاه دادهٔ محلی از روی خروجی
-sqlite3 data/nashriyar.db < d1.sql
-# ۳) فایل‌های R2 (با rclone و پیکربندی S3 سازگار R2)
-rclone copy r2:nashriyar-media data/files
-# ۴) تطبیق: شمارش ردیف‌های جداول اصلی و تعداد فایل‌ها
-sqlite3 data/nashriyar.db "SELECT (SELECT COUNT(*) FROM issues),(SELECT COUNT(*) FROM media_assets),(SELECT COUNT(*) FROM users)"
-find data/files -type f | wc -l
+# ۲) فایل‌های R2 (با rclone و پیکربندی S3 سازگار R2)
+rclone copy r2:nashriyar-media ./r2-files
+# ۳) ورود به سرور جدید (برنامه متوقف و DATA_DIR خالی باشد)
+node scripts/import-cf.mjs --sql d1.sql --files ./r2-files --data /data
+# با Docker:
+#   docker compose run --rm -v $PWD:/in app node /in/scripts/import-cf.mjs --sql /in/d1.sql --files /in/r2-files --data /data
 ```
+
+اسکریپت `scripts/import-cf.mjs` (`npm run import:cf`):
+- پایگاه داده را از خروجی D1 می‌سازد (حالت WAL) و جدول‌های داخلی Cloudflare را حذف می‌کند؛
+- هر شیء را با فایل همراه `.meta` (نوع محتوا) در `DATA_DIR/files` کپی می‌کند؛
+- **تطبیق:** شمارش ردیف جداول اصلی، وجود همهٔ کلیدهای ارجاع‌شده در پایگاه داده (لوگو، جلد، PDF، صفحات، رسانه‌ها) و **چک‌سام SHA-256** هر فایل؛
+- گزارش را در `DATA_DIR/import-report.json` می‌نویسد و در هر ناسازگاری با کد غیرصفر خارج می‌شود. اگر پایگاه داده از قبل وجود داشته باشد، بدون `--force` بازنویسی نمی‌کند.
+
+پس از ورود، برنامه را روشن کنید؛ مهاجرت‌های جدیدتر هنگام راه‌اندازی خودکار اعمال می‌شوند.
 
 سپس DNS را به سرور جدید تغییر دهید و نشانی پیش‌نمایش Cloudflare را با یک Redirect Rule به دامنهٔ جدید هدایت کنید.
