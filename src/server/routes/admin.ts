@@ -897,7 +897,15 @@ adminRoutes.post('/deadlines', async (c) => {
   const u = admin(c)
   const b = await body<any>(c)
   const id = newId()
-  await c.get('db').run('INSERT INTO deadlines (id, title, due_at, description, created_at) VALUES (?,?,?,?,?)', [id, str(b.title, 'عنوان', { max: 120 }), str(b.due_at, 'تاریخ', { max: 10 }), str(b.description, 'توضیح', { max: 1000, optional: true }), nowIso()])
+  // ROADMAP phase 14 events calendar: deadline | meeting | workshop | event (+ optional HH:MM and location)
+  const kind = ['deadline', 'meeting', 'workshop', 'event'].includes(b.kind) ? b.kind : 'deadline'
+  const due = str(b.due_at, 'تاریخ', { max: 10 })
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new HTTPException(400, { message: 'تاریخ نامعتبر است' })
+  const time = str(b.start_time, 'ساعت', { max: 5, optional: true })
+  if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new HTTPException(400, { message: 'ساعت نامعتبر است' })
+  await c.get('db').run('INSERT INTO deadlines (id, title, due_at, description, kind, start_time, location, created_at) VALUES (?,?,?,?,?,?,?,?)', [
+    id, str(b.title, 'عنوان', { max: 120 }), due, str(b.description, 'توضیح', { max: 1000, optional: true }), kind, time || null, str(b.location, 'مکان', { max: 120, optional: true }) || null, nowIso()
+  ])
   await audit(c.get('db'), u.id, 'deadline.create', 'deadline', id)
   return c.json({ ok: true, id })
 })
