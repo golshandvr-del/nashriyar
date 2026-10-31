@@ -31,6 +31,8 @@ interface AuthState {
   user: User | null
   publications: PubRole[]
   home: string
+  /** ROADMAP phase 15: account is linked to an active team membership and the member desk is on */
+  desk: boolean
   loading: boolean
   refresh: () => Promise<void>
   login: (username: string, password: string, totp?: string) => Promise<string>
@@ -60,14 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [publications, setPubs] = useState<PubRole[]>([])
   const [home, setHome] = useState('/')
+  const [desk, setDesk] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
     try {
-      const r = await api.get<{ user: User | null; publications: PubRole[]; home?: string }>('/api/auth/me')
+      const r = await api.get<{ user: User | null; publications: PubRole[]; home?: string; desk?: boolean }>('/api/auth/me')
       setUser(r.user)
       setPubs(r.publications || [])
       setHome(r.home || '/')
+      setDesk(!!r.desk)
       if (r.user?.theme) applyTheme(r.user.theme as any, false)
     } catch {
       setUser(null)
@@ -101,9 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setPubs([])
     setHome('/')
+    setDesk(false)
   }, [])
 
-  const value = useMemo(() => ({ user, publications, home, loading, refresh, login, logout }), [user, publications, home, loading, refresh, login, logout])
+  const value = useMemo(() => ({ user, publications, home, desk, loading, refresh, login, logout }), [user, publications, home, desk, loading, refresh, login, logout])
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
