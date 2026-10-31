@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { BarChart3, BookOpen, ClipboardCheck, House, Images, LayoutDashboard, Megaphone, Menu, MessageCircle, Settings, Ticket, Users, X } from 'lucide-react'
+import { Award, BarChart3, BookOpen, ClipboardCheck, House, Images, LayoutDashboard, Megaphone, Menu, MessageCircle, Settings, Ticket, Users, X } from 'lucide-react'
 import { useAuth, PUB_ROLE_LABEL, isAdmin } from '../lib/auth'
 import type { PubRole } from '../lib/auth'
 import { cx } from '../lib/format'
@@ -34,6 +34,7 @@ const NAV = [
   { to: 'sales', label: 'فروش و کد', icon: Ticket },
   { to: 'stats', label: 'آمار', icon: BarChart3 },
   { to: 'recruit', label: 'فراخوان', icon: Megaphone },
+  { to: 'festivals', label: 'جشنواره', icon: Award },
   { to: 'profile', label: 'پروفایل نشریه', icon: Settings }
 ]
 
