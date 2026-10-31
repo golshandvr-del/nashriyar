@@ -570,7 +570,7 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
     ['user.password_reset', 'user', null, 14, null, null]
   ]
   pubIds.slice(0, 12).forEach((pid, i) => {
-    AUDIT.push(['publication.create', 'publication', pid, 300 - i * 9, null, { title: PUBS[i][0] }])
+    AUDIT.push(['publication.create', 'publication', pid, 300 - i * 9, null, { title: PUBS[i][1] }])
     if (i % 3 === 0) AUDIT.push(['publication.update', 'publication', pid, 40 - i, { license_number: null }, { license_number: `۱۴۰۴/${120 + i}` }])
     if (i % 4 === 1) AUDIT.push(['publication.role_change', 'publication', pid, 30 - i, { role: 'editor_in_chief' }, { role: 'editor_in_chief', holder: 'سردبیر جدید' }])
   })
