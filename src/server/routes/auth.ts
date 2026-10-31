@@ -14,7 +14,7 @@ export function normalizeSecret(s: string): string {
 }
 
 const homeFor = (role: string) =>
-  role === 'student' ? '/' : role === 'team' ? '/team' : '/admin'
+  role === 'student' ? '/' : role === 'team' ? '/team' : role === 'developer' ? '/system' : '/admin'
 
 authRoutes.post('/login', async (c) => {
   const b = await body<{ username?: string; password?: string; totp?: string }>(c)
