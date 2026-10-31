@@ -6,6 +6,8 @@ import { Async, Badge, Button, Card, Empty, Input, Modal, PageHeader, Select, Ta
 
 type TabKey = 'announcements' | 'deadlines'
 const AUDIENCE: Record<string, string> = { all: 'همهٔ نشریات', faculty: 'نشریات یک دانشکده', publication: 'یک نشریه' }
+// ROADMAP phase 14 events calendar
+export const EVENT_KIND: Record<string, string> = { deadline: 'مهلت', meeting: 'جلسه', workshop: 'کارگاه', event: 'رویداد' }
 
 export default function AdminAnnouncements() {
   const [tab, setTab] = useState<TabKey>('announcements')
@@ -15,7 +17,7 @@ export default function AdminAnnouncements() {
       <Tabs<TabKey>
         tabs={[
           { key: 'announcements', label: 'اطلاعیه‌ها' },
-          { key: 'deadlines', label: 'مهلت‌ها' }
+          { key: 'deadlines', label: 'تقویم رویدادها' }
         ]}
         value={tab}
         onChange={setTab}
@@ -142,13 +144,13 @@ function AnnouncementModal({ onClose, onDone }: { onClose: () => void; onDone: (
 
 function Deadlines() {
   const st = useAsync(() => api.get('/api/admin/deadlines'), [])
-  const [f, setF] = useState({ title: '', due_at: '', description: '' })
+  const [f, setF] = useState({ title: '', due_at: '', description: '', kind: 'deadline', start_time: '', location: '' })
   const { run, busy } = useAction()
   const { confirm } = useToast()
   const today = new Date().toISOString().slice(0, 10)
   const add = async () => {
-    if (await run(() => api.post('/api/admin/deadlines', { title: f.title.trim(), due_at: f.due_at, description: f.description.trim() }), 'مهلت ثبت شد')) {
-      setF({ title: '', due_at: '', description: '' })
+    if (await run(() => api.post('/api/admin/deadlines', { ...f, title: f.title.trim(), description: f.description.trim(), location: f.location.trim() }), 'رویداد ثبت شد')) {
+      setF({ title: '', due_at: '', description: '', kind: 'deadline', start_time: '', location: '' })
       st.reload()
     }
   }
@@ -159,13 +161,22 @@ function Deadlines() {
   return (
     <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
       <Card className="h-fit space-y-3 p-4">
-        <h2 className="font-bold">مهلت جدید</h2>
+        <h2 className="font-bold">رویداد جدید</h2>
+        <Select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })} aria-label="نوع رویداد">
+          {Object.entries(EVENT_KIND).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </Select>
         <Input value={f.title} maxLength={120} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="عنوان (مثلاً: ارسال شماره‌های جشنواره)" />
         <label className="block">
           <span className="label">تاریخ مهلت</span>
           <Input type="date" value={f.due_at} onChange={(e) => setF({ ...f, due_at: e.target.value })} />
           {f.due_at && <span className="mt-1 block text-xs text-muted">{faDate(f.due_at)}</span>}
         </label>
+        {f.kind !== 'deadline' && (
+          <div className="grid grid-cols-2 gap-2">
+            <Input type="time" value={f.start_time} onChange={(e) => setF({ ...f, start_time: e.target.value })} aria-label="ساعت" />
+            <Input value={f.location} maxLength={120} onChange={(e) => setF({ ...f, location: e.target.value })} placeholder="مکان" />
+          </div>
+        )}
         <Textarea rows={3} value={f.description} maxLength={1000} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="توضیح (اختیاری)" />
         <Button disabled={busy || !f.title.trim() || !f.due_at} onClick={add}>
           <Plus className="size-4" /> افزودن
@@ -174,7 +185,7 @@ function Deadlines() {
       <Async state={st}>
         {(d: any) =>
           !d.deadlines.length ? (
-            <Empty icon={<CalendarClock className="size-10 opacity-60" />} title="مهلتی تعریف نشده" />
+            <Empty icon={<CalendarClock className="size-10 opacity-60" />} title="رویدادی تعریف نشده" />
           ) : (
             <ul className="space-y-2">
               {d.deadlines.map((x: any) => {
@@ -185,9 +196,11 @@ function Deadlines() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-bold">{x.title}</span>
-                        <Badge tone={past ? 'muted' : 'warn'}>{faDate(x.due_at)}</Badge>
+                        <Badge tone={x.kind === 'deadline' || !x.kind ? 'danger' : 'brand'}>{EVENT_KIND[x.kind] || 'مهلت'}</Badge>
+                        <Badge tone={past ? 'muted' : 'warn'}>{faDate(x.due_at)}{x.start_time ? ` · ساعت ${toFaDigits(x.start_time)}` : ''}</Badge>
                         {past && <Badge>گذشته</Badge>}
                       </div>
+                      {x.location && <p className="mt-1 text-sm">مکان: {x.location}</p>}
                       {x.description && <p className="mt-1 text-sm text-muted">{x.description}</p>}
                     </div>
                     <Button variant="danger" disabled={busy} onClick={() => remove(x)} aria-label="حذف">
