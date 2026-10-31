@@ -136,3 +136,5 @@
 - تیم نمونه: `pub1-director` / `team1234` (و `pub1-editor`، `pub1-holder`)
 - دانشجو: `40012345` / `student1234`
 - ناظر دانشکدهٔ فنی: `supervisor` / `super1234` — تحلیلگر: `analyst` / `analyst1234`
+
+- **گفتگوی ۲۷–۲۸ (فاز ۸ تیک خورد؛ فاز ۹):** announcement_reads حالا در داشبورد تیم نوشته می‌شود؛ `src/server/lib/reminders.ts` (ensureReminders تنبل روزانه، مهلت ۷/۳/۱ و مجوز ۶۰/۳۰/۷، dedupe با type+link، کلید تنظیم `reminders_last_day`) وصل به /api/team/:pub/dashboard و /api/admin/overview؛ `components/NotificationBell.tsx` در هدر admin و team؛ tests/unit.mjs (۷ تست، `node tests/unit.mjs`). صف بعدی: تیک موارد موجود فاز ۹ ← ورود محدود اعضا (پرچم ویژگی) ← آزمون امنیتی ← وارسی/تیک فاز ۱۰ و ۱۱ ← README/CHANGELOG ← tag.
