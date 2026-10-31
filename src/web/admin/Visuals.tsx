@@ -285,8 +285,8 @@ function Gantt({ d }: { d: any }) {
         return `${r.label}<br/>${STATUS_FA[r.status] || r.status}<br/>${shortFa(r.start)} ← ${r.planned ? shortFa(r.end) : 'بدون تاریخ برنامه'}${r.late ? '<br/><b>عقب‌تر از برنامه</b>' : ''}`
       }
     },
-    grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true },
-    xAxis: { type: 'time', min: xMin, max: xMax, axisLabel: { formatter: (v: number) => shortFa(v) } },
+    grid: { left: 8, right: 16, top: 40, bottom: 8, containLabel: true },
+    xAxis: { type: 'time', min: xMin, max: xMax, axisLabel: { hideOverlap: true, formatter: (v: number) => shortFa(v) } },
     yAxis: { type: 'category', data: rows.map((r) => r.label), inverse: true, axisLabel: { formatter: (x: string) => (x.length > 26 ? x.slice(0, 25) + '…' : x) } },
     series: [
       {
@@ -303,7 +303,8 @@ function Gantt({ d }: { d: any }) {
         },
         markLine: {
           symbol: 'none',
-          label: { formatter: (p: any) => p.name, fontFamily: 'inherit', position: 'end' },
+          // y axis is inversed, so 'start' is the top edge — keeps labels clear of the time axis
+          label: { formatter: (p: any) => (p.name.length > 14 ? p.name.slice(0, 13) + '…' : p.name), fontFamily: 'inherit', fontSize: 10, position: 'start' },
           lineStyle: { type: 'dashed', color: '#7c3aed' },
           data: [{ name: 'امروز', xAxis: now, lineStyle: { color: '#64748b' } }, ...deadlines.map((x) => ({ name: x.title, xAxis: new Date(x.due_at).getTime() }))]
         }
