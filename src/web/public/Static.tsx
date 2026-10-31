@@ -7,7 +7,11 @@ import { Compass, Download, Printer, RefreshCw, TriangleAlert } from 'lucide-rea
  * Friendly "something went wrong" page (ROADMAP phase 9). Catches render errors and failed lazy-chunk loads
  * (typical right after a new version is deployed: old chunk names no longer exist → one automatic reload).
  */
-export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+/**
+ * Catches render errors. Used at the app root and around every layout <Outlet/> (keyed by pathname),
+ * so one broken page never blanks the whole panel: the menu stays usable and navigating away clears it.
+ */
+export class ErrorBoundary extends Component<{ children: ReactNode; inline?: boolean }, { error: Error | null }> {
   state = { error: null as Error | null }
   static getDerivedStateFromError(error: Error) {
     return { error }
@@ -28,7 +32,12 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
         <TriangleAlert className="mx-auto size-12 text-amber-500" />
         <h1 className="mt-3 text-2xl font-extrabold">مشکلی پیش آمد</h1>
         <p className="mt-2 text-sm text-muted">خطای غیرمنتظره‌ای رخ داد. صفحه را دوباره بارگذاری کنید؛ اگر مشکل ادامه داشت با مسئول سامانه تماس بگیرید.</p>
-        <div className="mt-6 flex justify-center gap-2">
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {this.props.inline && (
+            <button className="btn border border-line" onClick={() => this.setState({ error: null })}>
+              تلاش دوباره
+            </button>
+          )}
           <button className="btn-primary inline-flex items-center gap-2" onClick={() => location.reload()}>
             <RefreshCw className="size-4" /> بارگذاری دوباره
           </button>
