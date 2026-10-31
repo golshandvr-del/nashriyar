@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Activity, AlertTriangle, HardDrive, Save, Sparkles } from 'lucide-react'
 import { api } from '../lib/api'
 import { faDate, toFaDigits } from '../../shared/fa'
-import { Async, Button, Card, Input, PageHeader, Select, useAction, useAsync } from '../components/ui'
+import { Async, Button, Card, Input, PageHeader, PasswordInput, Select, useAction, useAsync } from '../components/ui'
 import AllowlistCard from './AllowlistCard'
 
 type S = Record<string, any>
@@ -261,9 +261,7 @@ function Form({ initial, isSuper, reload }: { initial: S; isSuper: boolean; relo
             </label>
             <label className="block sm:col-span-2">
               <span className="label">کلید API</span>
-              <Input
-                dir="ltr"
-                type="password"
+              <PasswordInput
                 autoComplete="off"
                 value={s.ai_api_key || ''}
                 placeholder="sk-…"
