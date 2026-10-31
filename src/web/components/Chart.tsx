@@ -2,14 +2,14 @@
 // responsive (ResizeObserver) and with a one-click CSV export of the underlying series.
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts/core'
-import { BarChart, LineChart, PieChart, ScatterChart, HeatmapChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, MarkLineComponent, VisualMapComponent, CalendarComponent } from 'echarts/components'
+import { BarChart, LineChart, PieChart, ScatterChart, HeatmapChart, SunburstChart, RadarChart, FunnelChart, CustomChart } from 'echarts/charts'
+import { GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, MarkLineComponent, VisualMapComponent, CalendarComponent, RadarComponent } from 'echarts/components'
 import { SVGRenderer } from 'echarts/renderers'
 import { Download, FileSpreadsheet } from 'lucide-react'
 import { toFaDigits } from '../lib/format'
 import { downloadXlsxFromCsv } from '../lib/xlsx'
 
-echarts.use([BarChart, LineChart, PieChart, ScatterChart, HeatmapChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, MarkLineComponent, VisualMapComponent, CalendarComponent, SVGRenderer])
+echarts.use([BarChart, LineChart, PieChart, ScatterChart, HeatmapChart, SunburstChart, RadarChart, FunnelChart, CustomChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, MarkLineComponent, VisualMapComponent, CalendarComponent, RadarComponent, SVGRenderer])
 
 export type EOption = Record<string, any>
 
