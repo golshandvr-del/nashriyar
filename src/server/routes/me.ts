@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../context'
+import type { Db } from '../adapters/db'
 import { checkRateLimit, clearFailures, clientIp, recordFailure, requireUser } from '../auth'
 import { newId, normalizePurchaseCode, sha256 } from '../lib/crypto'
 import { activity, bad, body, HttpError, notFound, nowIso, oneOf, parseJson, str } from '../lib/util'
@@ -300,7 +301,7 @@ export function currentJalaliYear(): number {
 }
 
 /** Validates a profile payload; returns the columns to write (only keys present in the payload). */
-export async function validateProfile(db: any, userId: string, b: any, current: any) {
+export async function validateProfile(db: Db, userId: string, b: any, current: any) {
   const out: Record<string, unknown> = {}
   const jy = currentJalaliYear()
   const yearOf = (v: unknown, name: string, min: number, max: number) => {
