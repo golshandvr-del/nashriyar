@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { LogOut, Monitor, Moon, Sun } from 'lucide-react'
+import { BookOpen, LayoutDashboard, LogOut, Monitor, Moon, Sun } from 'lucide-react'
 import { api } from '../lib/api'
-import { useAuth, ROLE_LABEL } from '../lib/auth'
+import { useAuth, ROLE_LABEL, PUB_ROLE_LABEL, isMonitor } from '../lib/auth'
 import { applyTheme, getTheme, getLargeText, setLargeText } from '../lib/theme'
 import type { Theme } from '../lib/theme'
 import { cx, faDate, relativeFa, formatNumber } from '../lib/format'
@@ -56,8 +56,38 @@ function ThemeCard() {
   )
 }
 
+/** Entry cards to every panel the user may open + their current positions in publications. */
+function PanelsCard() {
+  const { user, publications } = useAuth()
+  if (!user || (!isMonitor(user) && !publications.length)) return null
+  return (
+    <Card title="پنل‌ها و سمت‌های من">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {isMonitor(user) && (
+          <Link to="/admin" className="flex items-center gap-3 rounded-2xl border border-line p-3 hover:border-brand">
+            <LayoutDashboard className="size-6 shrink-0 text-brand" />
+            <div className="min-w-0">
+              <div className="font-bold">پنل مدیریت</div>
+              <div className="text-xs text-muted">{ROLE_LABEL[user.system_role as keyof typeof ROLE_LABEL]}</div>
+            </div>
+          </Link>
+        )}
+        {publications.map((p) => (
+          <Link key={p.publication_id + p.role} to={`/team/${p.publication_id}`} className="flex items-center gap-3 rounded-2xl border border-line p-3 hover:border-brand">
+            <BookOpen className="size-6 shrink-0 text-brand" />
+            <div className="min-w-0">
+              <div className="truncate font-bold">پنل نشریهٔ {p.title}</div>
+              <div className="text-xs text-muted">سمت: {PUB_ROLE_LABEL[p.role] || 'عضو تیم'}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
 function ProfileCard() {
-  const { refresh } = useAuth()
+  const { refresh, publications } = useAuth()
   const st = useAsync(() => api.get('/api/me/profile'), [])
   const [faculties, setFaculties] = useState<{ id: string; name: string }[]>([])
   const [name, setName] = useState('')
@@ -81,6 +111,11 @@ function ProfileCard() {
               <Badge tone="brand">{ROLE_LABEL[d.user.system_role as keyof typeof ROLE_LABEL] || d.user.system_role}</Badge>
               <Badge>نام کاربری: {d.user.username}</Badge>
               {d.user.student_number && <Badge>شمارهٔ دانشجویی: {d.user.student_number}</Badge>}
+              {publications.map((p) => (
+                <Badge key={p.publication_id + p.role} tone="ok">
+                  {PUB_ROLE_LABEL[p.role] || 'عضو تیم'} «{p.title}»
+                </Badge>
+              ))}
             </div>
             <div className="grid grid-cols-3 gap-2 text-center text-sm">
               <Link to="/library" className="rounded-xl bg-surface-2 p-2">
@@ -400,6 +435,7 @@ export default function Settings() {
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="text-xl font-extrabold">تنظیمات حساب</h1>
       {!!user.must_change_password && <PasswordCard />}
+      <PanelsCard />
       <ProfileCard />
       <ThemeCard />
       {!user.must_change_password && <PasswordCard />}
