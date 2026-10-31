@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal } from './src/server/ai'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -71,5 +71,21 @@ t('AI scrub: personal keys dropped, identifiers redacted', () => {
   assert.ok(!/0912|a@b|@someone/.test(s.rows[0].note))
   assert.equal(m.redactText('دانشجو ۴۰۰۱۲۳۴۵'), 'دانشجو [شماره]')
   assert.equal(m.redactText('سال ۱۴۰۵ — ۱۲ شماره'), 'سال ۱۴۰۵ — ۱۲ شماره')
+})
+t('askmap: questions map to whitelisted reports/ranges/faculties', () => {
+  const fac = [{ id: 'f1', name: 'دانشکدهٔ فنی' }, { id: 'f2', name: 'دانشکدهٔ علوم انسانی' }]
+  let r = m.mapQuestion('کدام دانشکده‌ها در شش ماه اخیر کمتر منتشر کرده‌اند؟', fac)
+  assert.equal(r.report, 'gaps'); assert.equal(r.range, 'acad')
+  r = m.mapQuestion('فروش ماه گذشته دانشکده علوم انسانی چقدر بود', fac)
+  assert.equal(r.report, 'sales'); assert.equal(r.range, 'prevMonth'); assert.equal(r.faculty_id, 'f2')
+  r = m.mapQuestion('بهترین نشریات امسال', fac)
+  assert.equal(r.report, 'ranking'); assert.equal(r.range, 'year')
+  r = m.mapQuestion('پیش‌بینی ترم آینده', fac)
+  assert.equal(r.report, 'forecast')
+  r = m.mapQuestion('روند بازدید در ۷ روز اخیر', fac)
+  assert.equal(r.report, 'trends'); assert.equal(r.range, '7d')
+  r = m.mapQuestion('سلام', fac)
+  assert.equal(r.report, 'trends'); assert.equal(r.confidence, 0)
+  assert.deepEqual(m.sanitizeRoute({ report: 'DROP TABLE', range: 'year', faculty_id: 'x' }, fac), { range: 'year' })
 })
 console.log(`unit: ${n} passed`)
