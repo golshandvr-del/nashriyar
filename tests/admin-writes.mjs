@@ -159,14 +159,12 @@ ok(!('ai_api_key' in s0.settings), 'officer never sees AI settings')
 await call(of, 'POST', '/api/admin/settings', { site_name: 'نشریار آزمایشی', ai_enabled: true })
 const s1 = await call(sa, 'GET', '/api/admin/settings')
 ok(s1.settings.site_name === 'نشریار آزمایشی', 'officer setting persisted')
-ok(s1.settings.ai_enabled === false, 'officer cannot flip super-admin AI setting')
-await call(sa, 'POST', '/api/admin/settings', { ai_api_key: 'sk-test-1234567890abcd' })
+// Technical settings live only in the developer console (phase 13): /api/admin/settings ignores them for every role.
+ok(!('ai_enabled' in s1.settings) && !('feature_flags' in s1.settings), 'super admin settings carry no technical keys')
+await call(sa, 'POST', '/api/admin/settings', { ai_api_key: 'sk-test-1234567890abcd', max_sessions: 1 })
 const s2 = await call(sa, 'GET', '/api/admin/settings')
-ok(s2.settings.ai_api_key === '••••abcd', 'AI key masked on read')
-await call(sa, 'POST', '/api/admin/settings', { ai_api_key: s2.settings.ai_api_key }) // masked echo must not overwrite
-const s3 = await call(sa, 'GET', '/api/admin/settings')
-ok(s3.settings.ai_api_key === '••••abcd', 'masked echo does not overwrite key')
-await call(sa, 'POST', '/api/admin/settings', { site_name: s0.settings.site_name, ai_api_key: '' })
+ok(!('ai_api_key' in s2.settings) && !('max_sessions' in s2.settings), 'technical keys posted to admin settings are ignored')
+await call(sa, 'POST', '/api/admin/settings', { site_name: s0.settings.site_name })
 
 // ───── audit trail ─────
 const audit = await call(of, 'GET', '/api/admin/audit')
