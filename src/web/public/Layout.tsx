@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Bell, Compass, House, LayoutDashboard, Library, ListChecks, LogIn, Moon, Search, Sun, User } from 'lucide-react'
-import { useAuth, isMonitor } from '../lib/auth'
+import { useAuth, isDeveloper, isMonitor } from '../lib/auth'
 import { api } from '../lib/api'
 import { applyTheme, getTheme } from '../lib/theme'
 import { cx } from '../lib/format'
@@ -60,10 +60,10 @@ export default function PublicLayout() {
     return () => document.removeEventListener('keydown', on)
   }, [nav])
 
-  const panel = user && (isMonitor(user) ? '/admin' : publications.length ? '/team' : null)
+  const panel = user && (isDeveloper(user) ? '/system' : isMonitor(user) ? '/admin' : publications.length ? '/team' : null)
   const exploreOn = useFeature('explore')
   const memberPortal = useFeature('member_portal')
-  const panelLabel = panel === '/admin' ? 'پنل مدیریت' : 'پنل نشریه'
+  const panelLabel = panel === '/system' ? 'پنل طراح' : panel === '/admin' ? 'پنل مدیریت' : 'پنل نشریه'
   const items = [
     { to: '/', label: 'خانه', icon: House, end: true },
     { to: '/explore', label: 'اکسپلور', icon: Compass },
