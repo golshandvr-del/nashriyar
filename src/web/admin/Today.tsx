@@ -3,7 +3,7 @@
 // comment, close a report) are done right here with one click, everything else opens the relevant page.
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlarmClock, CheckCircle2, CheckSquare, ExternalLink, FileWarning, MessageSquare, PauseCircle, RefreshCw, ShieldAlert, X } from 'lucide-react'
+import { AlarmClock, CheckCircle2, CheckSquare, ExternalLink, FileText, FileWarning, MessageSquare, PauseCircle, RefreshCw, ShieldAlert, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { api } from '../lib/api'
 import { cx, faDate, relativeFa, toFaDigits } from '../lib/format'
@@ -48,7 +48,14 @@ export default function AdminToday() {
       <PageHeader
         title="کارهای امروز"
         subtitle="همهٔ کارهایی که منتظر شماست، به ترتیب اولویت"
-        actions={<Button variant="ghost" icon={<RefreshCw className="size-4" />} onClick={() => (setDone(new Set()), state.reload())}>به‌روزرسانی</Button>}
+        actions={
+          <>
+            {/* ROADMAP phase 14: one-click printable report for the cultural deputy */}
+            <Link className="btn-ghost" to="/admin/report?period=prevMonth&print=1"><FileText className="size-4" /> گزارش ماه گذشته</Link>
+            <Link className="btn-ghost" to="/admin/report?period=term&print=1"><FileText className="size-4" /> گزارش ترم</Link>
+            <Button variant="ghost" icon={<RefreshCw className="size-4" />} onClick={() => (setDone(new Set()), state.reload())}>به‌روزرسانی</Button>
+          </>
+        }
       />
       <Async state={state}>
         {(d) => <Queue data={d} kind={kind} setKind={setKind} done={done} act={act} busy={busy} />}
