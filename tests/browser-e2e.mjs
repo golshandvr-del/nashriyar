@@ -16,7 +16,7 @@ const PUBLIC = ['/', '/explore', '/categories', '/search', '/guide', '/terms', '
 const STUDENT = ['/', '/library', '/following', '/notifications', '/settings', '/redeem']
 const TEAM = ['', '/issues', '/issues/new', '/members', '/posts', '/comments', '/sales', '/stats', '/recruit', '/profile']
 const SYSTEM = ['', '/settings', '/backups', '/sessions', '/database', '/staff', '/audit']
-const ADMIN = ['', '/overview', '/live', '/analytics', '/insights', '/report', '/approvals', '/publications', '/people', '/structure', '/categories', '/moderation', '/storefront', '/announcements', '/users', '/audit', '/settings']
+const ADMIN = ['', '/overview', '/live', '/analytics', '/analytics?tab=visuals', '/insights', '/report', '/approvals', '/publications', '/people', '/structure', '/categories', '/moderation', '/storefront', '/announcements', '/users', '/audit', '/settings']
 
 const ROLES = [
   { name: 'guest', user: null, routes: PUBLIC },
