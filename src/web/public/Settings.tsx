@@ -152,7 +152,7 @@ function ProfileCard() {
   )
 }
 
-function PasswordCard() {
+export function PasswordCard() {
   const { user, refresh } = useAuth()
   const [f, setF] = useState({ current: '', next: '', next2: '' })
   const [err, setErr] = useState<string | null>(null)
@@ -236,7 +236,7 @@ function RecoveryCard() {
 }
 
 /** Two-factor authentication (TOTP) for staff accounts — setup → confirm code → enabled; disable needs password + code. */
-function TotpCard() {
+export function TotpCard() {
   const st = useAsync(() => api.get<{ enabled: boolean; available: boolean; recommended: boolean }>('/api/auth/totp'), [])
   const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(null)
   const [code, setCode] = useState('')
