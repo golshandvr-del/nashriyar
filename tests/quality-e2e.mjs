@@ -151,11 +151,11 @@ await step('E2E Student: follow publication, bookmark issue, read free page, vie
   const st = await login('40012345', 'student1234')
   const home = (await st('/api/public/home')).data
   const issue = home.latest[0]
-  assert.equal((await st(`/api/me/follow/${issue.publication_id}`, { json: {} })).status, 200)
-  assert.equal((await st(`/api/me/bookmarks/${issue.id}`, { json: { page_number: 1 } })).status, 200)
+  assert.equal((await st(`/api/me/follows/${issue.publication_id}`, { json: {} })).status, 200)
+  assert.equal((await st(`/api/reader/${issue.id}/bookmarks`, { json: { page: 1 } })).status, 200)
   const lib = await st('/api/me/library')
   assert.equal(lib.status, 200)
-  const reader = await st(`/api/reader/${issue.id}`)
+  const reader = await st(`/api/reader/${issue.id}/manifest`)
   assert.equal(reader.status, 200)
   assert.ok(reader.data.pages.length > 0)
 })
