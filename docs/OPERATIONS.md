@@ -140,6 +140,7 @@ npm run deploy:cf
 | `DATA_DIR` | `data` | محل `nashriyar.db`، `files/` و `backups/` |
 | `STATIC_DIR` | `dist` | خروجی SPA |
 | `BACKUP_KEEP_DAYS` | `30` | مدت نگهداری پشتیبان‌ها |
+| `PDF_RENDERER` | خالی | خالی ⇒ اگر `pdftoppm` (بستهٔ `poppler-utils`، در ایمیج Docker موجود) نصب باشد، تبدیل PDF به تصویر صفحات **روی سرور** انجام می‌شود؛ `browser` ⇒ همیشه در مرورگر بارگذارکننده (pdf.js). بدون Docker: `apt install poppler-utils` |
 | `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` | خالی | لایهٔ اختیاری هوش مصنوعی (سازگار با OpenAI). خالی ⇒ بخش‌های AI پنهان |
 
 ---
