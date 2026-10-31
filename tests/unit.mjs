@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal } from './src/server/ai'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -61,5 +61,15 @@ t('reminderMark: picks the tightest applicable mark', () => {
   assert.equal(m.reminderMark(-1, m.DEADLINE_MARKS), null)
   assert.equal(m.reminderMark(45, m.LICENSE_MARKS), 60)
   assert.equal(m.reminderMark(20, m.LICENSE_MARKS), 30)
+})
+t('AI scrub: personal keys dropped, identifiers redacted', () => {
+  const s = m.scrubPersonal({ title: 'فرامتن', display_name: 'سارا', rows: [{ student_number: '40012345', views: 3, note: 'تماس 09121234567 یا a@b.ir @someone' }] })
+  assert.equal(s.title, 'فرامتن')
+  assert.equal(s.display_name, undefined)
+  assert.equal(s.rows[0].student_number, undefined)
+  assert.equal(s.rows[0].views, 3)
+  assert.ok(!/0912|a@b|@someone/.test(s.rows[0].note))
+  assert.equal(m.redactText('دانشجو ۴۰۰۱۲۳۴۵'), 'دانشجو [شماره]')
+  assert.equal(m.redactText('سال ۱۴۰۵ — ۱۲ شماره'), 'سال ۱۴۰۵ — ۱۲ شماره')
 })
 console.log(`unit: ${n} passed`)
