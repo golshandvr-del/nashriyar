@@ -160,6 +160,31 @@ for (const width of WIDTHS) {
     await ctx.close()
   }
 }
+// ROADMAP phase 14: first-visit tour + per-page help (webdriver is masked so the tour auto-opens like for a real user)
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 860 }, serviceWorkers: 'block' })
+  const page = await ctx.newPage()
+  await page.addInitScript(() => Object.defineProperty(navigator, 'webdriver', { get: () => false }))
+  await page.goto(BASE + '/login')
+  await page.fill('input[autocomplete=username]', 'officer')
+  await page.fill('input[autocomplete=current-password]', 'officer1234')
+  await Promise.all([page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 15000 }).catch(() => {}), page.click('button[type=submit]')])
+  await page.goto(BASE + '/admin')
+  await page.waitForLoadState('networkidle')
+  const opened = await page.locator('[role=dialog]').first().waitFor({ timeout: 5000 }).then(() => true, () => false)
+  let steps = 0
+  while (opened && (await page.locator('[role=dialog] button:has-text("بعدی")').count()) && steps < 10) (await page.click('[role=dialog] button:has-text("بعدی")'), steps++)
+  await page.click('[role=dialog] button:has-text("شروع کار")').catch(() => {})
+  await page.reload()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(600)
+  const again = await page.locator('[role=dialog]').count()
+  await page.locator('button[aria-label="راهنمای این صفحه"]:visible').first().click()
+  const help = await page.locator('[role=dialog] h2').first().textContent().catch(() => '')
+  if (!opened || steps < 2 || again || !help.includes('کارهای امروز')) fail(`tour/help — opened=${opened} steps=${steps} reopened=${again} help=${help}`)
+  else console.log(`  ✓ onboarding tour (${steps + 1} steps) + page help`)
+  await ctx.close()
+}
 await browser.close()
 console.log(failures ? `\n✗ browser-e2e: ${failures} problem(s)` : '\n✓ browser-e2e: all routes clean')
 process.exit(failures ? 1 : 0)
