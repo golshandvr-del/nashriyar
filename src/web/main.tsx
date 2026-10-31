@@ -8,6 +8,7 @@ import { PageLoader, ToastProvider } from './components/ui'
 import PublicLayout from './public/Layout'
 import Home from './public/Home'
 import { ErrorBoundary, Guide, NotFound, Terms } from './public/Static'
+import { MaintenanceBanner } from './components/MaintenanceBanner'
 
 // Public pages: lazily loaded to keep the first paint small.
 const Explore = lazy(() => import('./public/Explore'))
@@ -183,6 +184,7 @@ createRoot(document.getElementById('root')!).render(
       <AuthProvider>
         <ToastProvider>
           <ErrorBoundary>
+            <MaintenanceBanner />
             <App />
           </ErrorBoundary>
         </ToastProvider>
