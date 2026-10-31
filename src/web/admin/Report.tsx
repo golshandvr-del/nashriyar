@@ -1,7 +1,8 @@
 // Printable periodic report (ROADMAP phase 8): monthly / term / yearly, with charts, ready for meetings.
 // Built only from existing analytics endpoints (summary, trends, ranking, insights); the sidebar and toolbar
 // carry `no-print`, and the charts are SVG so they print crisply.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Printer } from 'lucide-react'
 import { api, qs } from '../lib/api'
 import { delta, faDate, faMonthLabel, formatNumber, formatToman, jalaliPresets, toFaDigits } from '../lib/format'
@@ -34,7 +35,12 @@ const SEV_FA: Record<string, string> = { critical: 'بحرانی', warning: 'ه�
 
 export default function AdminReport() {
   const presets = useMemo(() => jalaliPresets(), [])
-  const [period, setPeriod] = useState('prevMonth')
+  // ROADMAP phase 14: one-click report — period in the URL (?period=term) and ?print=1 opens the print dialog once loaded
+  const [sp, setSp] = useSearchParams()
+  const period = PERIODS.some((p) => p.key === sp.get('period')) ? (sp.get('period') as string) : 'prevMonth'
+  const setPeriod = (k: string) => setSp((prev) => { const n = new URLSearchParams(prev); n.set('period', k); n.delete('print'); return n }, { replace: true })
+  const autoPrint = sp.get('print') === '1'
+  const printed = useRef(false)
   const range = presets.find((p) => p.key === period) || presets[0]
   const q = qs({ from: range.from, to: range.to })
   const st = useAsync(
@@ -48,6 +54,13 @@ export default function AdminReport() {
     [q]
   )
   const label = PERIODS.find((p) => p.key === period)?.label || ''
+  useEffect(() => {
+    if (!autoPrint || printed.current || st.loading || st.error || !st.data) return
+    printed.current = true
+    // give ECharts a moment to lay out the SVGs before the print snapshot
+    const t = setTimeout(() => window.print(), 900)
+    return () => clearTimeout(t)
+  }, [autoPrint, st.loading, st.error, st.data])
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
