@@ -236,7 +236,7 @@ systemRoutes.get('/backups/:name/download', async (c) => {
   const bytes = o.readBackup(name)
   if (!bytes) throw notFound('فایل پشتیبان یافت نشد')
   await sysAudit(c, 'system.backup_download', { name, size: bytes.byteLength })
-  return new Response(bytes, {
+  return new Response(bytes as unknown as ArrayBuffer, {
     headers: {
       'Content-Type': name.endsWith('.db') ? 'application/vnd.sqlite3' : 'application/gzip',
       'Content-Disposition': `attachment; filename="${name}"`,
