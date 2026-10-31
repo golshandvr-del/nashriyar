@@ -8,6 +8,7 @@ import m0005 from '../../migrations/0005_post_alt_text.sql'
 import m0006 from '../../migrations/0006_analytics_rollup.sql'
 import m0007 from '../../migrations/0007_developer_console.sql'
 import m0008 from '../../migrations/0008_events_calendar.sql'
+import m0009 from '../../migrations/0009_festivals.sql'
 
 export const MIGRATIONS: { name: string; sql: string }[] = [
   { name: '0001_init', sql: m0001 },
@@ -17,7 +18,8 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
   { name: '0005_post_alt_text', sql: m0005 },
   { name: '0006_analytics_rollup', sql: m0006 },
   { name: '0007_developer_console', sql: m0007 },
-  { name: '0008_events_calendar', sql: m0008 }
+  { name: '0008_events_calendar', sql: m0008 },
+  { name: '0009_festivals', sql: m0009 }
 ]
 
 /** Split a SQL script into single statements (strips `--` comments). */
