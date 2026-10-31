@@ -8,6 +8,7 @@ import { api, qs } from '../lib/api'
 import { delta, faDate, faMonthLabel, formatNumber, formatToman, jalaliPresets, toFaDigits } from '../lib/format'
 import { Async, useAsync } from '../components/ui'
 import { Chart } from '../components/Chart'
+import { licenseState } from './PublicationTabs'
 
 const KPIS: { key: string; label: string; money?: boolean }[] = [
   { key: 'published', label: 'شمارهٔ منتشرشده' },
@@ -49,7 +50,9 @@ export default function AdminReport() {
         api.get<any>(`/api/analytics/summary${q}`),
         api.get<any>(`/api/analytics/trends${q}`),
         api.get<any>(`/api/analytics/ranking${q}`),
-        api.get<any>('/api/analytics/insights')
+        api.get<any>('/api/analytics/insights'),
+        api.get<any>(`/api/analytics/visuals${q}`),
+        api.get<any>('/api/admin/publications')
       ]),
     [q]
   )
@@ -75,13 +78,19 @@ export default function AdminReport() {
         </button>
       </div>
       <Async state={st}>
-        {([sum, tr, rk, ins]: any[]) => {
+        {([sum, tr, rk, ins, vis, pl]: any[]) => {
           const top = [...rk.rows].filter((r: any) => r.status === 'active').sort((a: any, b: any) => (b.health?.score ?? 0) - (a.health?.score ?? 0))
           const best = top.slice(0, 5)
           const weak = top.slice(-5).reverse().filter((r: any) => !best.includes(r))
           const alerts = ins.items.filter((i: any) => i.severity === 'critical' || i.severity === 'warning').slice(0, 8)
           const months = Array.from(new Set([...tr.published, ...tr.views].map((r: any) => r.m))).sort() as string[]
           const at = (rows: any[], m: string, k = 'n') => Number(rows.find((r: any) => r.m === m)?.[k] || 0)
+          // phase 14: licence status of active publications + production funnel of the period
+          const lic = (pl?.publications || []).filter((p: any) => p.status === 'active').map((p: any) => ({ p, s: licenseState(p) }))
+          const licCount = (k: string) => lic.filter((x: any) => x.s.key === k).length
+          const licFollow = lic.filter((x: any) => x.s.key === 'expired' || x.s.key === 'expiring').sort((a: any, b: any) => (a.s.days ?? 0) - (b.s.days ?? 0))
+          const fc = vis?.funnel?.counts
+          const fd = vis?.funnel?.avg_days || {}
           return (
             <article className="print-sheet card space-y-5 p-6">
               <header className="border-b border-line pb-4">
@@ -143,6 +152,50 @@ export default function AdminReport() {
                       series: [{ type: 'bar', data: tr.byFaculty.map((r: any) => r.n) }]
                     }}
                   />
+                </section>
+              )}
+
+              {fc && fc.planning > 0 && (
+                <section>
+                  <h2 className="mb-2 font-bold">قیف تولید شماره‌های آغازشده در دوره</h2>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    {[
+                      ['برنامه‌ریزی', fc.planning, fd.planning],
+                      ['تولید', fc.production, fd.production],
+                      ['انتظار تأیید', fc.awaiting, fd.awaiting],
+                      ['منتشرشده', fc.published, null]
+                    ].map(([l, n, d]: any) => (
+                      <div key={l} className="rounded-lg border border-line p-2">
+                        <div className="text-xs text-muted">{l}</div>
+                        <div className="text-lg font-extrabold">{formatNumber(n)}</div>
+                        <div className="text-[11px] text-muted">{d == null ? '—' : `میانگین ${toFaDigits(d)} روز`}</div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {lic.length > 0 && (
+                <section>
+                  <h2 className="mb-2 font-bold">وضعیت مجوز نشریات فعال</h2>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    {[['معتبر', 'valid', 'text-ok'], ['رو به انقضا', 'expiring', ''], ['منقضی', 'expired', 'text-danger'], ['نامشخص', 'unknown', 'text-muted']].map(([l, k, cls]) => (
+                      <div key={k} className="rounded-lg border border-line p-2">
+                        <div className="text-xs text-muted">{l}</div>
+                        <div className={`text-lg font-extrabold ${cls}`}>{formatNumber(licCount(k))}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {licFollow.length > 0 && (
+                    <ul className="mt-2 list-inside list-disc space-y-1 text-sm">
+                      {licFollow.slice(0, 10).map(({ p, s }: any) => (
+                        <li key={p.id}>
+                          {p.title} — <span className={s.key === 'expired' ? 'text-danger' : ''}>{s.label}</span>
+                          <span className="text-muted"> ({faDate(p.license_expires_at)})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </section>
               )}
 
