@@ -273,3 +273,39 @@ export async function draftCaption(c: Context<AppEnv>, src: Parameters<typeof te
   }
   return { text: templateCaption(src), source: 'template' }
 }
+
+// ---- Comment-queue assistance (ROADMAP phase 10): labels only, the decision always stays with a human ----
+export type CommentLabel = 'ok' | 'spam' | 'abusive'
+export interface CommentHint { id: string; label: CommentLabel; reasons: string[]; source: 'rule' | 'ai' }
+
+/** Pure: rule labels from the moderation pre-flag reasons (profanity ⇒ abusive; link/repetition/shouting ⇒ spam). */
+export function ruleCommentLabel(reasons: string[]): CommentLabel {
+  if (reasons.includes('profanity')) return 'abusive'
+  if (reasons.some((r) => r === 'link' || r === 'repetition' || r === 'shouting')) return 'spam'
+  return 'ok'
+}
+
+/**
+ * Optional AI labels for pending comments. Only the comment text (redacted) is sent — never the author.
+ * Returns a map id → label; any failure ⇒ empty map (rule labels stay).
+ */
+export async function aiCommentLabels(c: Context<AppEnv>, items: { id: string; body: string }[]): Promise<Record<string, CommentLabel>> {
+  const p = await getProvider(c)
+  if (!p.enabled || !items.length) return {}
+  try {
+    const list = items.slice(0, 30).map((x, i) => `${i + 1}) ${redactText(x.body).replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')
+    const out = await p.complete(
+      'برای هر نظر کاربر فقط یکی از برچسب‌های ok یا spam یا abusive را بده. خروجی: هر خط «شماره: برچسب» و هیچ توضیح دیگری. در تردید ok بده.',
+      list
+    )
+    const res: Record<string, CommentLabel> = {}
+    for (const line of out.split('\n')) {
+      const m = line.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).match(/(\d+)\s*[:：)\-]\s*(ok|spam|abusive)/i)
+      const it = m && items[Number(m[1]) - 1]
+      if (it) res[it.id] = m![2].toLowerCase() as CommentLabel
+    }
+    return res
+  } catch {
+    return {}
+  }
+}
