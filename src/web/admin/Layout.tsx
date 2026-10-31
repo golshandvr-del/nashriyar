@@ -1,4 +1,4 @@
-import { Link, NavLink, Navigate, Outlet } from 'react-router-dom'
+import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import {
   Activity, BarChart3, BookCopy, Building2, CheckSquare, FileText, FolderTree, House, LayoutDashboard, Lightbulb, Megaphone, ScrollText, Settings, ShieldAlert, Store, UserCog, Users
 } from 'lucide-react'
@@ -11,6 +11,7 @@ import { CommandPalette, PaletteButton } from '../components/CommandPalette'
 import { NotificationBell } from '../components/NotificationBell'
 import type { PaletteItem } from '../components/CommandPalette'
 import { api } from '../lib/api'
+import { ErrorBoundary } from '../public/Static'
 
 type Access = 'monitor' | 'admin' | 'approver' | 'super'
 interface NavItem { to: string; label: string; icon: LucideIcon; access: Access; end?: boolean }
@@ -75,6 +76,7 @@ const searchPublications = async (q: string): Promise<PaletteItem[]> => {
 
 export default function AdminLayout() {
   const { user, loading } = useAuth()
+  const loc = useLocation()
   if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login?next=/admin" replace />
   if (!isMonitor(user)) return <Navigate to="/" replace />
@@ -139,7 +141,9 @@ export default function AdminLayout() {
             رمز عبور شما موقت است. <Link to="/settings" className="font-bold text-brand">همین حالا تغییرش دهید</Link>
           </div>
         )}
-        <Outlet />
+        <ErrorBoundary inline key={loc.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
       <CommandPalette items={paletteItems} source={searchPublications} />
     </div>
