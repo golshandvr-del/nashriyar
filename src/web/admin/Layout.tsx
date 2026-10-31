@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import {
-  Activity, BarChart3, BookCopy, Building2, CheckSquare, FileText, FolderTree, House, LayoutDashboard, Lightbulb, Megaphone, Menu, ScrollText, Settings, ShieldAlert, Store, UserCog, Users, X
+  Activity, BarChart3, BookCopy, Building2, CheckSquare, FileText, FolderTree, House, LayoutDashboard, Lightbulb, ListChecks, Megaphone, Menu, ScrollText, Settings, ShieldAlert, Store, UserCog, Users, X
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { ROLE_LABEL, isAdmin, isMonitor, useAuth } from '../lib/auth'
@@ -17,41 +17,53 @@ import { ErrorBoundary } from '../public/Static'
 type Access = 'monitor' | 'admin' | 'approver' | 'super'
 interface NavItem { to: string; label: string; icon: LucideIcon; access: Access; end?: boolean }
 
+// ROADMAP phase 14: simplified, non-technical grouping. «کارهای امروز» is the home page of the panel.
 const NAV: { group: string; items: NavItem[] }[] = [
   {
-    group: 'پایش',
+    group: 'کارهای امروز',
     items: [
-      { to: '', label: 'نمای کلی', icon: LayoutDashboard, access: 'monitor', end: true },
-      { to: 'live', label: 'برد زنده', icon: Activity, access: 'monitor' },
-      { to: 'analytics', label: 'آمار و تحلیل', icon: BarChart3, access: 'monitor' },
-      { to: 'insights', label: 'بینش‌ها', icon: Lightbulb, access: 'monitor' },
-      { to: 'report', label: 'گزارش دوره‌ای', icon: FileText, access: 'monitor' }
-    ]
-  },
-  {
-    group: 'مدیریت',
-    items: [
+      { to: '', label: 'کارهای امروز', icon: ListChecks, access: 'monitor', end: true },
       { to: 'approvals', label: 'تأیید انتشار', icon: CheckSquare, access: 'approver' },
-      { to: 'publications', label: 'نشریات', icon: BookCopy, access: 'monitor' },
-      { to: 'people', label: 'پروندهٔ افراد', icon: Users, access: 'monitor' },
-      { to: 'structure', label: 'ساختار دانشگاه', icon: Building2, access: 'monitor' },
-      { to: 'categories', label: 'دسته‌بندی‌ها', icon: FolderTree, access: 'monitor' }
+      { to: 'moderation', label: 'نظرها و گزارش‌ها', icon: ShieldAlert, access: 'admin' }
     ]
   },
   {
-    group: 'محتوا و ارتباط',
+    group: 'نشریات',
     items: [
-      { to: 'moderation', label: 'نظارت محتوا', icon: ShieldAlert, access: 'admin' },
-      { to: 'storefront', label: 'ویترین', icon: Store, access: 'admin' },
-      { to: 'announcements', label: 'اطلاعیه و مهلت', icon: Megaphone, access: 'admin' }
+      { to: 'publications', label: 'همهٔ نشریات', icon: BookCopy, access: 'monitor' },
+      { to: 'structure', label: 'دانشکده‌ها و انجمن‌ها', icon: Building2, access: 'monitor' },
+      { to: 'categories', label: 'موضوع‌ها', icon: FolderTree, access: 'monitor' }
     ]
   },
   {
-    group: 'سامانه',
+    group: 'افراد',
     items: [
-      { to: 'users', label: 'کاربران', icon: UserCog, access: 'admin' },
-      { to: 'audit', label: 'گزارش رویدادها', icon: ScrollText, access: 'admin' },
-      { to: 'settings', label: 'تنظیمات', icon: Settings, access: 'admin' }
+      { to: 'people', label: 'اعضای تیم‌ها', icon: Users, access: 'monitor' },
+      { to: 'users', label: 'حساب‌های کاربری', icon: UserCog, access: 'admin' }
+    ]
+  },
+  {
+    group: 'آمار',
+    items: [
+      { to: 'overview', label: 'نمای کلی', icon: LayoutDashboard, access: 'monitor' },
+      { to: 'live', label: 'همین حالا', icon: Activity, access: 'monitor' },
+      { to: 'analytics', label: 'آمار و نمودارها', icon: BarChart3, access: 'monitor' },
+      { to: 'insights', label: 'نکته‌ها و هشدارها', icon: Lightbulb, access: 'monitor' },
+      { to: 'report', label: 'گزارش برای معاونت', icon: FileText, access: 'monitor' }
+    ]
+  },
+  {
+    group: 'ارتباطات',
+    items: [
+      { to: 'announcements', label: 'اطلاعیه‌ها و مهلت‌ها', icon: Megaphone, access: 'admin' },
+      { to: 'storefront', label: 'صفحهٔ اول سایت', icon: Store, access: 'admin' }
+    ]
+  },
+  {
+    group: 'تنظیمات نشریات',
+    items: [
+      { to: 'settings', label: 'تنظیمات', icon: Settings, access: 'admin' },
+      { to: 'audit', label: 'سابقهٔ تغییرات', icon: ScrollText, access: 'admin' }
     ]
   }
 ]
