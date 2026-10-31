@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { AppEnv, Deps } from './context'
 import { csrfGuard, loadSession } from './auth'
 import { ensureMigrated } from './migrate'
-import { HttpError } from './lib/util'
+import { HttpError, getSetting } from './lib/util'
 import { getMonitorStats, recordError, recordRequest } from './lib/monitor'
 import { authRoutes } from './routes/auth'
 import { publicRoutes } from './routes/public'
@@ -91,6 +91,30 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
   })
   app.use('/api/*', csrfGuard)
   app.use('/api/*', loadSession)
+
+  // Maintenance mode (ROADMAP phase 13, toggled from /system/settings). While on, every write is refused with 503
+  // except login/logout (/api/auth/*), the developer console itself and anything done by the developer account.
+  // Reads stay available so the client can show the maintenance page; the flag is cached briefly per isolate.
+  let maint: { at: number; v: { on: boolean; message: string } } | null = null
+  const maintenance = async (c: any) => {
+    if (maint && Date.now() - maint.at < 10_000) return maint.v
+    const v = await getSetting(c.get('db'), 'maintenance_mode', { on: false, message: '' })
+    maint = { at: Date.now(), v: { on: v?.on === true, message: typeof v?.message === 'string' ? v.message : '' } }
+    return maint.v
+  }
+  app.use('/api/*', async (c, next) => {
+    const path = new URL(c.req.url).pathname
+    if (path.startsWith('/api/system/settings') && c.req.method === 'POST') maint = null
+    if (c.req.method === 'GET' || c.req.method === 'HEAD' || path.startsWith('/api/auth/') || path.startsWith('/api/system/')) return next()
+    if (c.get('user')?.system_role === 'developer') return next()
+    const m = await maintenance(c)
+    if (m.on) throw new HttpError(503, m.message || 'سامانه در حال تعمیرات است؛ کمی بعد دوباره تلاش کنید', 'maintenance')
+    await next()
+  })
+  app.get('/api/maintenance', async (c) => {
+    const m = await maintenance(c)
+    return c.json({ on: m.on, message: m.on ? m.message : '' })
+  })
 
   // Liveness + readiness (/api/health and /healthz, ROADMAP phase 11): probes DB, disk warning and response-time summary.
   const healthHandler = async (c: any) => {
