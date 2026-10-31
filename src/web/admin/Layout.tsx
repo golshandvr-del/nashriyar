@@ -92,6 +92,7 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-dvh md:flex">
+      <a href="#main" className="skip-link">پرش به محتوای اصلی</a>
       <aside className="no-print border-line bg-surface md:sticky md:top-0 md:h-dvh md:w-60 md:shrink-0 md:overflow-y-auto md:border-l">
         <div className="flex items-center justify-between gap-2 border-b border-line p-3">
           <div className="min-w-0">
@@ -132,7 +133,7 @@ export default function AdminLayout() {
           })}
         </nav>
       </aside>
-      <main className="min-w-0 flex-1 p-4 md:p-6">
+      <main id="main" className="min-w-0 flex-1 p-4 md:p-6">
         {!!user.must_change_password && (
           <div className="card mb-4 border-amber-400 p-3 text-sm">
             رمز عبور شما موقت است. <Link to="/settings" className="font-bold text-brand">همین حالا تغییرش دهید</Link>
