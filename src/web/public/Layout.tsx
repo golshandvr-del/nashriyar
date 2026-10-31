@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Bell, Compass, House, Library, LogIn, Moon, Search, Sun, User } from 'lucide-react'
+import { Bell, Compass, House, Library, ListChecks, LogIn, Moon, Search, Sun, User } from 'lucide-react'
 import { useAuth, isMonitor } from '../lib/auth'
 import { api } from '../lib/api'
 import { applyTheme, getTheme } from '../lib/theme'
@@ -61,6 +61,7 @@ export default function PublicLayout() {
 
   const panel = user && (isMonitor(user) ? '/admin' : publications.length ? '/team' : null)
   const exploreOn = useFeature('explore')
+  const memberPortal = useFeature('member_portal')
   const items = [
     { to: '/', label: 'خانه', icon: House, end: true },
     { to: '/explore', label: 'اکسپلور', icon: Compass },
@@ -93,6 +94,11 @@ export default function PublicLayout() {
               {panel && (
                 <Link to={panel} className="btn-ghost hidden sm:inline-flex">
                   {panel === '/admin' ? 'پنل مدیریت' : 'پنل تیم'}
+                </Link>
+              )}
+              {user && memberPortal && !panel && (
+                <Link to="/my-sections" className="rounded-xl p-2 hover:bg-surface-2" aria-label="بخش‌های من" title="بخش‌های من">
+                  <ListChecks className="size-5" />
                 </Link>
               )}
               {user && (
