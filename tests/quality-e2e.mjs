@@ -171,7 +171,7 @@ await step('E2E Team (Managing Director): dashboard, issues, generate & export a
 })
 
 await step('E2E Faculty Supervisor & Analyst: scoped overview, insights, natural-language ask', async () => {
-  const sup = await login('sup-eng', 'super1234')
+  const sup = await login('supervisor', 'super1234')
   assert.equal((await sup('/api/admin/overview')).status, 200)
   assert.equal((await sup('/api/analytics/insights')).status, 200)
 
