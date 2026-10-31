@@ -83,7 +83,7 @@ export default function SystemBackups() {
                             {b.name}
                           </div>
                           <div className="text-xs text-muted">
-                            <Badge tone={b.kind === 'db' ? 'info' : 'muted'}>{b.kind === 'db' ? 'پایگاه داده' : 'فایل‌ها'}</Badge> {fmtBytes(b.size)} · {faDate(b.mtime, true)}
+                            <Badge tone={b.kind === 'db' ? 'brand' : 'muted'}>{b.kind === 'db' ? 'پایگاه داده' : 'فایل‌ها'}</Badge> {fmtBytes(b.size)} · {faDate(b.mtime, true)}
                           </div>
                         </div>
                         <Button variant="ghost" loading={busy === 'dl:' + b.name} icon={<Download className="size-4" />} onClick={() => download(b.name)}>
