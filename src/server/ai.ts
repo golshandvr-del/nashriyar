@@ -204,3 +204,72 @@ export async function aiExplain(c: Context<AppEnv>, insight: { title: string; de
     return []
   }
 }
+
+// ---- Team helpers (ROADMAP phase 10): category suggestion + caption draft ----
+const faNorm = (s: string) =>
+  String(s || '')
+    .replace(/[يى]/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/[\u200c\u200d]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+
+/** Pure fallback: scores categories by word overlap between the text and the category name (≥3-letter stems). */
+export function scoreCategories(text: string, cats: { id: string; name: string }[]): string[] {
+  const words = new Set(faNorm(text).split(' ').filter((w) => w.length >= 3))
+  const stem = (w: string) => w.replace(/(ها|های|ی|ای|ان|ات)$/, '')
+  const stems = new Set([...words].map(stem))
+  const scored = cats
+    .map((c) => {
+      const parts = faNorm(c.name).split(' ').filter((w) => w.length >= 3)
+      const hit = parts.filter((w) => words.has(w) || stems.has(stem(w))).length
+      return { id: c.id, score: parts.length ? hit / parts.length : 0 }
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+  return scored.slice(0, 3).map((x) => x.id)
+}
+
+/** Suggests up to 3 category ids for an issue; the AI may only choose from the given list. */
+export async function suggestCategories(c: Context<AppEnv>, text: string, cats: { id: string; name: string }[]): Promise<string[]> {
+  const p = await getProvider(c)
+  if (p.enabled && cats.length) {
+    try {
+      const list = cats.map((x, i) => `${i + 1}. ${x.name}`).join('\n')
+      const out = await p.complete('از فهرست دسته‌های داده‌شده حداکثر ۳ مورد مرتبط با متن را انتخاب کن و فقط شماره‌هایشان را با ویرگول برگردان؛ بدون توضیح.', `دسته‌ها:\n${list}\n\nمتن:\n${text.slice(0, 3000)}`)
+      const ids = [...new Set(toAscii(out).match(/\d+/g) || [])].map((n) => cats[Number(n) - 1]?.id).filter(Boolean) as string[]
+      if (ids.length) return ids.slice(0, 3)
+    } catch {}
+  }
+  return scoreCategories(text, cats)
+}
+const toAscii = (s: string) => s.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+
+/** Pure fallback caption: a short, editable template from the source section and issue. */
+export function templateCaption(src: { section: string; issue_title: string; issue_number: number | string | null; summary?: string | null; publication: string }): string {
+  const lead = (src.summary || '').split(/(?<=[.!؟?])\s+/)[0]?.trim()
+  return [
+    `«${src.section}» از شمارهٔ ${src.issue_number ?? ''} ${src.publication}${src.issue_title ? ` — ${src.issue_title}` : ''}.`.replace(/\s+/g, ' '),
+    lead && lead.length < 280 ? lead : '',
+    'متن کامل را در پیشخوان نشریه بخوانید.'
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+/** Draft caption for an explore post from its source section (AI when enabled; template otherwise). */
+export async function draftCaption(c: Context<AppEnv>, src: Parameters<typeof templateCaption>[0]): Promise<{ text: string; source: 'ai' | 'template' }> {
+  const p = await getProvider(c)
+  if (p.enabled) {
+    try {
+      const out = await p.complete(
+        'یک کپشن کوتاه (حداکثر ۴ جمله، بدون هشتگ زیاد، لحن علمی و صمیمی) برای معرفی این بخش از نشریهٔ دانشجویی بنویس. چیزی از خودت درباره محتوا نساز؛ فقط از اطلاعات داده‌شده استفاده کن.',
+        JSON.stringify(scrubPersonal(src))
+      )
+      if (out.trim()) return { text: out.trim().slice(0, 2200), source: 'ai' }
+    } catch {}
+  }
+  return { text: templateCaption(src), source: 'template' }
+}
