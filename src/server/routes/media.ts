@@ -163,6 +163,59 @@ mediaRoutes.post('/pages/:issueId/finalize', async (c) => {
   return c.json({ ok: true, page_count: count })
 })
 
+/** GET /api/media/capabilities — whether this server can convert PDFs itself (self-hosted + poppler). */
+mediaRoutes.get('/capabilities', async (c) => {
+  if (!c.get('user')) throw new HttpError(401, 'ابتدا وارد شوید', 'auth')
+  const pdf = c.get('deps').pdf
+  return c.json({ server_pdf: !!pdf, renderer: pdf?.name ?? null })
+})
+
+/**
+ * POST /api/media/pages/:issueId/server-render — converts the issue's main PDF on the server (ROADMAP phase 11,
+ * pdftoppm on self-hosted installs) instead of in the browser. Same storage layout + finalize semantics.
+ */
+mediaRoutes.post('/pages/:issueId/server-render', async (c) => {
+  const deps = c.get('deps')
+  if (!deps.pdf) throw new HttpError(501, 'تبدیل سمت سرور در این نصب فعال نیست؛ از تبدیل در مرورگر استفاده کنید', 'unsupported')
+  const db = c.get('db')
+  const issue = await db.first<any>('SELECT id, publication_id, status, main_pdf_key FROM issues WHERE id = ? AND deleted_at IS NULL', [c.req.param('issueId')])
+  if (!issue) throw notFound('شماره یافت نشد')
+  const { user } = await requirePubAccess(c, issue.publication_id, { write: true })
+  if (['awaiting_approval', 'published'].includes(issue.status)) throw bad('صفحات شمارهٔ منتشرشده یا در انتظار تأیید قابل تغییر نیست')
+  if (!issue.main_pdf_key) throw bad('ابتدا نسخهٔ اصلی (PDF) را بارگذاری کنید')
+  const obj = await deps.storage.get(issue.main_pdf_key)
+  if (!obj) throw notFound('فایل PDF یافت نشد')
+  const pdf = obj.body instanceof Uint8Array ? obj.body : new Uint8Array(await new Response(obj.body).arrayBuffer())
+  const b = (await c.req.json().catch(() => ({}))) as any
+  const width = int(b.width ?? 1400, 'عرض', { min: 600, max: 2400 })!
+  let result: { page_count: number }
+  try {
+    result = await deps.pdf.render(pdf, {
+      width,
+      onPage: async (p) => {
+        const key = `pub/${issue.publication_id}/${issue.id}/pages/${String(p.page_number).padStart(4, '0')}-${newId().slice(0, 8)}.${p.ext}`
+        const old = await db.first<{ image_key: string }>('SELECT image_key FROM issue_pages WHERE issue_id = ? AND page_number = ?', [issue.id, p.page_number])
+        await deps.storage.put(key, p.bytes, p.mime)
+        await db.run(
+          `INSERT INTO issue_pages (id, issue_id, page_number, image_key, text_content) VALUES (?,?,?,?,?)
+           ON CONFLICT(issue_id, page_number) DO UPDATE SET image_key = excluded.image_key, text_content = excluded.text_content`,
+          [newId(), issue.id, p.page_number, key, p.text]
+        )
+        if (old?.image_key && old.image_key !== key) await deps.storage.delete(old.image_key).catch(() => {})
+      }
+    })
+  } catch (e: any) {
+    throw bad(`تبدیل PDF ناموفق بود: ${String(e?.message || e).slice(0, 200)}`)
+  }
+  const count = result.page_count
+  const stale = await db.all<{ image_key: string }>('SELECT image_key FROM issue_pages WHERE issue_id = ? AND page_number > ?', [issue.id, count])
+  for (const s of stale) await deps.storage.delete(s.image_key).catch(() => {})
+  await db.run('DELETE FROM issue_pages WHERE issue_id = ? AND page_number > ?', [issue.id, count])
+  await db.run('UPDATE issues SET page_count = ?, updated_at = ? WHERE id = ?', [count, nowIso(), issue.id])
+  await activity(db, user.id, 'issue.pages_processed', issue.publication_id, issue.id, { pages: count, renderer: deps.pdf.name })
+  return c.json({ ok: true, page_count: count, renderer: deps.pdf.name })
+})
+
 /** GET /api/media/pages/:issueId/status — which pages already exist (lets an interrupted upload resume). */
 mediaRoutes.get('/pages/:issueId/status', async (c) => {
   const db = c.get('db')
