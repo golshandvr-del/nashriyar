@@ -30,6 +30,8 @@ const Settings = lazy(() => import('./public/Settings'))
 const Verify = lazy(() => import('./public/Verify'))
 const Recruitment = lazy(() => import('./public/Recruitment'))
 const MySections = lazy(() => import('./public/MySections'))
+const Festivals = lazy(() => import('./public/Festivals'))
+const Judging = lazy(() => import('./public/Judging'))
 
 // Team panel: separate chunks, only downloaded by team members.
 const TeamLayout = lazy(() => import('./team/Layout'))
@@ -174,6 +176,8 @@ function App() {
           <Route path="verify" element={<Verify />} />
           <Route path="verify/:code" element={<Verify />} />
           <Route path="recruitment" element={<Recruitment />} />
+          <Route path="festivals" element={<Festivals />} />
+          <Route path="judging" element={<Judging />} />
           <Route path="terms" element={<Terms />} />
           <Route path="guide" element={<Guide />} />
           <Route path="privacy" element={<Terms />} />
