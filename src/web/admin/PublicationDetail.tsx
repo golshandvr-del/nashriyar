@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { KeyRound, Pencil, UserRoundCog } from 'lucide-react'
 import { api, mediaUrl } from '../lib/api'
 import { FREQUENCY, ISSUE_STATUS, PUB_STATUS, faDate, faMonthLabel, formatNumber, relativeFa, toFaDigits } from '../lib/format'
@@ -8,17 +8,22 @@ import { Chart } from '../components/Chart'
 import { CredentialsSheet } from './PublicationNew'
 import type { Credential } from './PublicationNew'
 import { useAdminRole } from './Layout'
+import { LicenseTab, SalesTab, StatsTab, licenseState } from './PublicationTabs'
 
 import { PUB_ROLES } from '../../shared/roles'
 
 const ROLE_FA: Record<string, string> = Object.fromEntries(PUB_ROLES.map((r) => [r.key, r.label]))
-type Tab = 'summary' | 'issues' | 'roles' | 'members' | 'followers' | 'activity'
+type Tab = 'summary' | 'issues' | 'roles' | 'members' | 'license' | 'stats' | 'sales' | 'followers' | 'activity'
+const TAB_KEYS: Tab[] = ['summary', 'issues', 'roles', 'members', 'license', 'stats', 'sales', 'followers', 'activity']
 
 export default function AdminPublicationDetail() {
   const { id = '' } = useParams()
   const { admin } = useAdminRole()
   const st = useAsync(() => api.get(`/api/admin/publications/${id}`), [id])
-  const [tab, setTab] = useState<Tab>('summary')
+  // ROADMAP phase 14: the tab lives in the URL so «کارهای امروز» can deep-link (e.g. ?tab=license)
+  const [sp, setSp] = useSearchParams()
+  const tab: Tab = TAB_KEYS.includes(sp.get('tab') as Tab) ? (sp.get('tab') as Tab) : 'summary'
+  const setTab = (t: Tab) => setSp((prev) => { const n = new URLSearchParams(prev); if (t === 'summary') n.delete('tab'); else n.set('tab', t); return n }, { replace: true })
   const [editing, setEditing] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
 
@@ -57,18 +62,24 @@ export default function AdminPublicationDetail() {
               value={tab}
               onChange={setTab}
               tabs={[
-                { key: 'summary', label: 'خلاصه' },
+                { key: 'summary', label: 'نمای کلی' },
                 { key: 'issues', label: `شماره‌ها (${toFaDigits(d.issues.length)})` },
                 { key: 'roles', label: 'ارکان' },
-                { key: 'members', label: `اعضا (${toFaDigits(d.members.length)})` },
+                { key: 'members', label: `تیم (${toFaDigits(d.members.length)})` },
+                { key: 'license', label: licenseState(p).key === 'expired' || licenseState(p).key === 'expiring' ? 'مجوز ⚠' : 'مجوز' },
+                { key: 'stats', label: 'آمار' },
+                { key: 'sales', label: 'فروش' },
                 ...(admin ? [{ key: 'followers' as Tab, label: 'دنبال‌کنندگان' }] : []),
-                { key: 'activity', label: 'فعالیت' }
+                { key: 'activity', label: 'سابقه' }
               ]}
             />
             {tab === 'summary' && <SummaryTab d={d} />}
             {tab === 'issues' && <IssuesTab issues={d.issues} stages={d.stages} />}
             {tab === 'roles' && <RolesTab pubId={p.id} roles={d.roles} admin={admin} onChange={st.reload} />}
             {tab === 'members' && <MembersTab members={d.members} />}
+            {tab === 'license' && <LicenseTab p={p} roles={d.roles} admin={admin} onEdit={() => setEditing(true)} />}
+            {tab === 'stats' && <StatsTab pubId={p.id} />}
+            {tab === 'sales' && <SalesTab pubId={p.id} />}
             {tab === 'followers' && <FollowersTab pubId={p.id} />}
             {tab === 'activity' && (
               <Card>
