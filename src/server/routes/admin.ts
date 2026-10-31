@@ -980,4 +980,3 @@ adminRoutes.post('/settings', async (c) => {
 })
 
 // Server monitoring moved to the developer console: GET /api/system/health (ROADMAP phase 13).
-})
