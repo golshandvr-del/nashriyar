@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { EyeOff, Info, Sparkles } from 'lucide-react'
+import { EyeOff, Info, Lightbulb, Sparkles } from 'lucide-react'
 import { api, qs } from '../lib/api'
 import { toFaDigits } from '../lib/format'
 import { Async, Button, Card, Empty, PageHeader, Textarea, useAction, useAsync } from '../components/ui'
@@ -51,6 +51,7 @@ export default function AdminInsights() {
                           <p className="mt-1 text-sm opacity-90">{it.detail}</p>
                           <div className="mt-2 flex flex-wrap gap-3 text-xs">
                             {it.link && <Link to={it.link} className="font-bold underline">بررسی</Link>}
+                            {it.publication_id && <ExplainButton insightKey={it.key} />}
                             <button className="inline-flex items-center gap-1 opacity-70 hover:opacity-100" onClick={() => dismiss(it.key)}>
                               <EyeOff className="size-3" /> پنهان کردن
                             </button>
@@ -98,6 +99,39 @@ function AiPanel() {
         </div>
       </div>
     </Card>
+  )
+}
+
+type Hypo = { text: string; source: 'rule' | 'ai' }
+
+/** Root-cause analysis (ROADMAP phase 10): rule-based hypotheses always, AI ones labelled when enabled. */
+function ExplainButton({ insightKey }: { insightKey: string }) {
+  const [open, setOpen] = useState(false)
+  const [res, setRes] = useState<{ hypotheses: Hypo[] } | null>(null)
+  const { busy, run } = useAction()
+  const toggle = async () => {
+    if (open) return setOpen(false)
+    setOpen(true)
+    if (!res) setRes((await run(() => api.post(`/api/analytics/insights/${encodeURIComponent(insightKey)}/explain`))) ?? null)
+  }
+  return (
+    <>
+      <button className="inline-flex items-center gap-1 font-bold opacity-80 hover:opacity-100" aria-expanded={open} onClick={toggle} disabled={busy}>
+        <Lightbulb className="size-3" /> {busy ? 'در حال تحلیل…' : 'تحلیل علت'}
+      </button>
+      {open && res && (
+        <ul className="mt-2 w-full space-y-1 rounded-xl bg-surface/70 p-3 text-xs leading-6 text-ink">
+          {res.hypotheses.map((h, i) => (
+            <li key={i} className="flex items-start gap-2">
+              <span className={h.source === 'ai' ? 'shrink-0 rounded bg-brand-soft px-1.5 text-[10px] font-bold text-brand' : 'shrink-0 rounded bg-surface-2 px-1.5 text-[10px] text-muted'}>
+                {h.source === 'ai' ? 'پیشنهاد هوش مصنوعی' : 'قاعده'}
+              </span>
+              <span>{h.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   )
 }
 
