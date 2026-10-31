@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Ban, Check, Flag, Reply, X } from 'lucide-react'
+import { Ban, Check, Flag, Reply, Sparkles, X } from 'lucide-react'
 import { api, mediaUrl, qs } from '../lib/api'
 import { COMMENT_STATUS, relativeFa } from '../lib/format'
 import { Async, Badge, Button, Empty, Modal, PageHeader, Tabs, Textarea, useAction, useAsync } from '../components/ui'
 import { useTeam } from './Layout'
 
 type St = 'pending' | 'approved' | 'rejected' | 'spam'
+const HINT_LABEL: Record<string, string> = { spam: 'احتمال هرزنامه', abusive: 'احتمال توهین‌آمیز', ok: 'عادی' }
 
 export default function TeamComments() {
   const { pubId } = useTeam()
@@ -15,6 +16,14 @@ export default function TeamComments() {
   const { busy, run } = useAction()
   const [replyTo, setReplyTo] = useState<any | null>(null)
   const [rejectFor, setRejectFor] = useState<any | null>(null)
+  // Optional AI labels (ROADMAP phase 10): on demand only; the decision always stays with the team.
+  const [aiLabels, setAiLabels] = useState<Record<string, string> | null>(null)
+  const askAi = () =>
+    run(async () => {
+      const r = await api.post<{ enabled: boolean; labels: Record<string, string> }>(`/api/team/${pubId}/comments/ai-hints`)
+      if (!r.enabled) throw new Error('لایهٔ هوش مصنوعی غیرفعال است')
+      setAiLabels(r.labels)
+    })
 
   const act = (c: any, action: 'approve' | 'reject' | 'spam', extra: Record<string, string> = {}) =>
     run(async () => {
@@ -24,7 +33,17 @@ export default function TeamComments() {
 
   return (
     <div>
-      <PageHeader title="نظرها" subtitle="نظرهای کاربران فقط پس از تأیید تیم برای دیگران نمایش داده می‌شوند." />
+      <PageHeader
+        title="نظرها"
+        subtitle="نظرهای کاربران فقط پس از تأیید تیم برای دیگران نمایش داده می‌شوند."
+        actions={
+          status === 'pending' ? (
+            <Button variant="ghost" className="text-xs" icon={<Sparkles className="size-4" />} disabled={busy} onClick={askAi}>
+              برچسب پیشنهادی هوش مصنوعی
+            </Button>
+          ) : undefined
+        }
+      />
       <Tabs
         value={status}
         onChange={setStatus}
@@ -53,6 +72,8 @@ export default function TeamComments() {
                           </Badge>
                         )}
                         {c.parent_id && <Badge>پاسخ به نظر دیگر</Badge>}
+                        {c.hint && <Badge tone="warn">پیشنهاد قاعده: {HINT_LABEL[c.hint.label] || c.hint.label}</Badge>}
+                        {aiLabels?.[c.id] && aiLabels[c.id] !== 'ok' && <Badge tone="warn">پیشنهاد هوش مصنوعی: {HINT_LABEL[aiLabels[c.id]] || aiLabels[c.id]}</Badge>}
                       </div>
                       <p className="text-sm leading-7 whitespace-pre-wrap">{c.body}</p>
                       {c.caption && <p className="truncate text-[11px] text-muted">روی پست: {c.caption}</p>}
