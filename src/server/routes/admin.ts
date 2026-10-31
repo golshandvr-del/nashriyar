@@ -67,7 +67,7 @@ adminRoutes.get('/today', async (c) => {
   )
   for (const r of lic) {
     const expired = r.license_expires_at < now.toISOString()
-    items.push({ kind: 'license', id: r.id, priority: expired ? 1 : 2, title: `${expired ? 'مجوز منقضی شده' : 'مجوز رو به انقضا'}: ${r.title}`, detail: expired ? 'انتشار بدون مجوز معتبر؛ تمدید را پیگیری کنید' : 'کمتر از ۶۰ روز تا پایان اعتبار', at: r.license_expires_at, link: `/admin/publications/${r.id}`, actions: ['open'] })
+    items.push({ kind: 'license', id: r.id, priority: expired ? 1 : 2, title: `${expired ? 'مجوز منقضی شده' : 'مجوز رو به انقضا'}: ${r.title}`, detail: expired ? 'انتشار بدون مجوز معتبر؛ تمدید را پیگیری کنید' : 'کمتر از ۶۰ روز تا پایان اعتبار', at: r.license_expires_at, link: `/admin/publications/${r.id}?tab=license`, actions: ['open'] })
   }
   if (isAdm) {
     const rep = await db.all<any>(`SELECT r.id, r.entity_type, r.reason, r.created_at FROM reports r WHERE r.status = 'open' ORDER BY r.created_at LIMIT 50`)
