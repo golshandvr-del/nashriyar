@@ -3,6 +3,7 @@ import { Save } from 'lucide-react'
 import { api } from '../lib/api'
 import { Async, Button, Card, Input, PageHeader, Select, useAction, useAsync } from '../components/ui'
 import AllowlistCard from './AllowlistCard'
+import MemberDeskCard from './MemberDeskCard'
 
 type S = Record<string, any>
 
@@ -49,6 +50,7 @@ export default function AdminSettings() {
       <PageHeader title="تنظیمات نشریات" subtitle="ثبت‌نام، تأیید انتشار، کد خرید و قواعد بینش — تنظیمات فنی سامانه فقط در پنل طراح است" />
       <Async state={st}>{(d: any) => <Form initial={d.settings} reload={st.reload} />}</Async>
       <AllowlistCard />
+      <MemberDeskCard />
     </div>
   )
 }
