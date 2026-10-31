@@ -12,6 +12,7 @@ import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { getFeatures, sanitizeFeatures } from '../lib/features'
 import { getAiStatus } from '../ai'
 import { ensureReminders } from '../lib/reminders'
+import { getMonitorStats } from '../lib/monitor'
 import { DEFAULT_THRESHOLDS, DEFAULT_WEIGHTS, getThresholds, getWeights, sanitizeThresholds, sanitizeWeights } from '../insights'
 
 export const adminRoutes = new Hono<AppEnv>()
@@ -993,4 +994,23 @@ adminRoutes.post('/settings', async (c) => {
   }
   await audit(db, u.id, 'settings.update', 'settings', null, null, changed)
   return c.json({ ok: true })
+})
+
+/** GET /api/admin/monitoring — runtime health, response-time stats, recent 5xx errors and disk usage (ROADMAP phase 11). */
+adminRoutes.get('/monitoring', async (c) => {
+  admin(c)
+  const db = c.get('db')
+  const deps = c.get('deps')
+  const started = Date.now()
+  await db.first('SELECT 1 AS ok')
+  const dbLatency = Date.now() - started
+  const maintenance = await getSetting<any>(db, 'maintenance_last', null)
+  return c.json({
+    ok: true,
+    db_latency_ms: dbLatency,
+    disk: deps.disk?.() ?? null,
+    server_pdf: deps.pdf?.name ?? null,
+    maintenance_last: maintenance,
+    ...getMonitorStats()
+  })
 })
