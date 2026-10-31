@@ -10,6 +10,8 @@ import { NotificationBell } from '../components/NotificationBell'
 import type { PaletteItem } from '../components/CommandPalette'
 import { Empty, PageLoader } from '../components/ui'
 import { ErrorBoundary } from '../public/Static'
+import { PageHelpButton, Tour } from '../components/Tour'
+import { TEAM_HELP, TEAM_TOUR } from './help'
 
 interface TeamCtx {
   pubId: string
@@ -120,6 +122,7 @@ export default function TeamLayout() {
             <div className="truncate text-[11px] leading-4 text-muted">{pub?.title || 'پنل نشریه'}</div>
             <div className="truncate text-sm font-bold leading-5">{current?.label || 'پنل نشریه'}</div>
           </div>
+          <PageHelpButton base={base} help={TEAM_HELP} compact />
           <NotificationBell />
           <Link to="/" className="rounded-xl p-2 hover:bg-surface-2" aria-label="سایت">
             <House className="size-5" />
@@ -185,6 +188,9 @@ export default function TeamLayout() {
               </Link>
             )}
           </nav>
+          <div className="hidden border-t border-line p-2 md:block">
+            <PageHelpButton base={base} help={TEAM_HELP} />
+          </div>
         </aside>
         <main id="main" className="min-w-0 flex-1 p-4 md:p-6">
           {!!user.must_change_password && (
@@ -197,6 +203,7 @@ export default function TeamLayout() {
           </ErrorBoundary>
         </main>
         <CommandPalette items={paletteItems} placeholder="جست‌وجو در صفحه‌های پنل تیم…" />
+        <Tour scope="team" userId={user.id} steps={TEAM_TOUR} />
       </div>
     </Ctx.Provider>
   )
