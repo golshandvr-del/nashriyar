@@ -60,21 +60,21 @@ export default function AdminAnalytics() {
       />
       <section id="analytics-filters" className="card flex flex-wrap items-center gap-2 p-3 text-sm" aria-label="فیلترهای سراسری">
         {role !== 'faculty_supervisor' && !!structure.data?.faculties?.length && (
-          <select className="input !w-auto" value={f.faculty} onChange={(e) => patch({ faculty: e.target.value })} aria-label="دانشکده">
+          <select className="input !w-auto max-w-full" value={f.faculty} onChange={(e) => patch({ faculty: e.target.value })} aria-label="دانشکده">
             <option value="">همهٔ دانشکده‌ها</option>
             {structure.data.faculties.map((x: any) => (
               <option key={x.id} value={x.id}>{x.name}</option>
             ))}
           </select>
         )}
-        <select className="input !w-auto" value={f.owner_kind} onChange={(e) => patch({ owner_kind: e.target.value })} aria-label="نوع صاحب امتیاز">
+        <select className="input !w-auto max-w-full" value={f.owner_kind} onChange={(e) => patch({ owner_kind: e.target.value })} aria-label="نوع صاحب امتیاز">
           <option value="">همهٔ صاحبان امتیاز</option>
           {Object.entries(OWNER_KINDS).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
           ))}
         </select>
         {!!structure.data?.associations?.length && (
-          <select className="input !w-auto" value={f.association} onChange={(e) => patch({ association: e.target.value })} aria-label="انجمن">
+          <select className="input !w-auto max-w-full" value={f.association} onChange={(e) => patch({ association: e.target.value })} aria-label="انجمن">
             <option value="">همهٔ انجمن‌ها/کانون‌ها</option>
             {structure.data.associations.map((x: any) => (
               <option key={x.id} value={x.id}>{x.name}{x.faculty_name ? ` — ${x.faculty_name}` : ''}</option>
@@ -82,7 +82,7 @@ export default function AdminAnalytics() {
           </select>
         )}
         {!!lists.data?.[1]?.publications?.length && (
-          <select className="input !w-auto" value={f.publication} onChange={(e) => patch({ publication: e.target.value })} aria-label="نشریه">
+          <select className="input !w-auto max-w-full" value={f.publication} onChange={(e) => patch({ publication: e.target.value })} aria-label="نشریه">
             <option value="">همهٔ نشریات</option>
             {lists.data[1].publications.map((x: any) => (
               <option key={x.id} value={x.id}>{x.title}</option>
@@ -90,14 +90,14 @@ export default function AdminAnalytics() {
           </select>
         )}
         {!!lists.data?.[0]?.categories?.length && (
-          <select className="input !w-auto" value={f.category} onChange={(e) => patch({ category: e.target.value })} aria-label="دسته یا رشته">
+          <select className="input !w-auto max-w-full" value={f.category} onChange={(e) => patch({ category: e.target.value })} aria-label="دسته یا رشته">
             <option value="">همهٔ دسته‌ها و رشته‌ها</option>
             {lists.data[0].categories.map((x: any) => (
               <option key={x.id} value={x.id}>{x.type === 'major' ? 'رشته: ' : ''}{x.name}</option>
             ))}
           </select>
         )}
-        <select className="input !w-auto" value={f.pricing} onChange={(e) => patch({ pricing: e.target.value })} aria-label="رایگان یا پولی">
+        <select className="input !w-auto max-w-full" value={f.pricing} onChange={(e) => patch({ pricing: e.target.value })} aria-label="رایگان یا پولی">
           <option value="">رایگان و پولی</option>
           <option value="free">رایگان</option>
           <option value="paid">پولی</option>

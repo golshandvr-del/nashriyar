@@ -52,7 +52,7 @@ export default function AdminReport() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="no-print flex flex-wrap items-center justify-between gap-2">
-        <select className="input !w-auto" value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="دورهٔ گزارش">
+        <select className="input !w-auto max-w-full" value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="دورهٔ گزارش">
           {PERIODS.map((p) => (
             <option key={p.key} value={p.key}>{p.label}</option>
           ))}

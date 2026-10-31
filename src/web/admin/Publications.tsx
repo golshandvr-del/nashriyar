@@ -49,7 +49,7 @@ export default function AdminPublications() {
                   <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted" />
                   <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="جست‌وجوی نام، انجمن، دانشکده یا شمارهٔ مجوز" className="pr-9" />
                 </div>
-                <select className="input !w-auto" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="وضعیت">
+                <select className="input !w-auto max-w-full" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="وضعیت">
                   <option value="">همهٔ وضعیت‌ها</option>
                   {Object.entries(PUB_STATUS).map(([k, v]) => (
                     <option key={k} value={k}>

@@ -11,7 +11,7 @@ export function RangePicker({ value, onChange }: { value: { from: string; to: st
   const presets = useMemo(() => jalaliPresets(), [])
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <select className="input !w-auto" value={value.key} onChange={(e) => {
+      <select className="input !w-auto max-w-full" value={value.key} onChange={(e) => {
         const p = presets.find((x) => x.key === e.target.value)
         if (p) onChange({ from: p.from, to: p.to, key: p.key })
         else onChange({ ...value, key: 'custom' })
@@ -25,9 +25,9 @@ export function RangePicker({ value, onChange }: { value: { from: string; to: st
       </select>
       {value.key === 'custom' && (
         <>
-          <input type="date" className="input !w-auto" dir="ltr" value={value.from} onChange={(e) => onChange({ ...value, from: e.target.value })} aria-label="از" />
+          <input type="date" className="input !w-auto max-w-full" dir="ltr" value={value.from} onChange={(e) => onChange({ ...value, from: e.target.value })} aria-label="از" />
           <span className="text-muted">تا</span>
-          <input type="date" className="input !w-auto" dir="ltr" value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} aria-label="تا" />
+          <input type="date" className="input !w-auto max-w-full" dir="ltr" value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} aria-label="تا" />
         </>
       )}
       <span className="text-xs text-muted">
