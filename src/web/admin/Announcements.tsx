@@ -162,9 +162,7 @@ function Deadlines() {
     <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
       <Card className="h-fit space-y-3 p-4">
         <h2 className="font-bold">رویداد جدید</h2>
-        <Select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })} aria-label="نوع رویداد">
-          {Object.entries(EVENT_KIND).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-        </Select>
+        <Select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })} aria-label="نوع رویداد" options={Object.entries(EVENT_KIND).map(([value, label]) => ({ value, label }))} />
         <Input value={f.title} maxLength={120} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="عنوان (مثلاً: ارسال شماره‌های جشنواره)" />
         <label className="block">
           <span className="label">تاریخ مهلت</span>
