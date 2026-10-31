@@ -108,8 +108,9 @@ if (posts[0]) {
   ok(r.status === 200 || r.status === 429, `comment accepted for moderation -> ${r.status}`)
   const mine = await st('/api/me/comments')
   ok(mine.ct.includes('application/json'), 'comment API responds with JSON content-type')
-  const found = JSON.stringify(mine.data).includes('onerror=alert(1)')
-  ok(found ? !/<script>alert\(2\)<\/script>/.test(mine.ct) : true, 'payload stored verbatim as data (rendered as text by React)')
+  // stored verbatim as data inside JSON (React renders it as text, CSP blocks inline script anyway)
+  ok(!mine.ct.includes('text/html'), 'comment API never serves HTML')
+  ok(typeof mine.data === 'object' && mine.data !== null, 'comment API body parses as JSON data')
 }
 const api404 = await anon('/api/public/publications/%3Cscript%3Ealert(1)%3C%2Fscript%3E')
 ok(api404.ct.includes('json') && !String(api404.data).includes('<script>'), 'error responses are JSON, never reflected HTML')
