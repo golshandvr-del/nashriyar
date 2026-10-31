@@ -11,6 +11,7 @@ export interface PublicSettings {
   registration_mode?: string
   guest_can_read_free?: boolean
   ai_enabled?: boolean
+  demo_mode?: boolean
   features?: Partial<Record<FeatureKey, boolean>>
   [k: string]: unknown
 }
