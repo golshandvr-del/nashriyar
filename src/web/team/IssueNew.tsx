@@ -88,6 +88,23 @@ export default function IssueNew() {
     }
   }
 
+  const [catBusy, setCatBusy] = useState(false)
+  /** Suggest categories (AI picks only from existing categories; word-overlap fallback otherwise). Never auto-saves. */
+  const suggestCats = async () => {
+    const text = [info.title, info.summary, info.keywords, ...toc.map((t) => t.title)].join('\n')
+    setCatBusy(true)
+    try {
+      const r = await api.post<{ category_ids: string[] }>(`/api/team/${pubId}/categories/suggest`, { text })
+      const ids = (r.category_ids || []).filter((id) => cats.some((c) => c.id === id))
+      if (ids.length) setInfo((s) => ({ ...s, category_ids: [...new Set([...s.category_ids, ...ids])] }))
+      else toast('دستهٔ مناسبی پیدا نشد؛ خودتان انتخاب کنید', 'info')
+    } catch {
+      /* optional */
+    } finally {
+      setCatBusy(false)
+    }
+  }
+
   const addPasted = () => {
     const lines = paste.split('\n').map((l) => l.replace(/^[\s\d۰-۹\-–—.)•*]+/, '').trim()).filter(Boolean)
     setToc([...toc, ...lines.map((t) => ({ key: newKey(), title: t, kind: 'article', due_at: '', assignments: [] }))])
@@ -208,7 +225,12 @@ export default function IssueNew() {
           </div>
           {cats.length > 0 && (
             <div className="mt-3">
-              <span className="label">دسته‌بندی موضوعی</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="label">دسته‌بندی موضوعی</span>
+                <button type="button" className="text-xs text-brand hover:underline disabled:opacity-50" disabled={catBusy || (!info.title && !info.summary)} onClick={suggestCats}>
+                  {catBusy ? 'در حال پیشنهاد…' : 'پیشنهاد دسته'}
+                </button>
+              </div>
               <div className="flex flex-wrap gap-1">
                 {cats.map((c) => {
                   const on = info.category_ids.includes(c.id)
