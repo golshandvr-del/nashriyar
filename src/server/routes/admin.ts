@@ -937,21 +937,16 @@ adminRoutes.delete('/registration-allowlist/:sn', async (c) => {
   return c.json({ ok: true })
 })
 
-// ───────── Settings (super admin for technical ones) ─────────
-const OFFICER_SETTINGS = ['site_name', 'university_name', 'registration_open', 'registration_mode', 'supervisor_can_approve', 'guest_can_read_free', 'max_sessions', 'default_code_ttl_hours'] as const
-const SUPER_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit', 'ai_timeout_sec'] as const
+// ───────── Settings (publication affairs only) ─────────
+// Technical settings (AI layer, feature flags, members-only reading, session cap, maintenance) moved to the
+// developer console /api/system/settings (ROADMAP phase 13) — neither the officer nor the super admin sees them here.
+const OFFICER_SETTINGS = ['site_name', 'university_name', 'registration_open', 'registration_mode', 'supervisor_can_approve', 'default_code_ttl_hours'] as const
 
 adminRoutes.get('/settings', async (c) => {
   const u = admin(c)
   const db = c.get('db')
   const out: Record<string, unknown> = {}
-  for (const k of OFFICER_SETTINGS) out[k] = k === 'max_sessions' ? await getSetting(db, k, 5) : k === 'default_code_ttl_hours' ? await getSetting(db, k, 24) : k === 'registration_mode' ? await getSetting(db, k, 'open') : await getSetting(db, k, k === 'registration_open' || k === 'guest_can_read_free' ? true : k === 'supervisor_can_approve' ? false : k === 'site_name' ? 'نشریار' : 'دانشگاه')
-  if (u.system_role === 'super_admin') {
-    for (const k of SUPER_SETTINGS) out[k] = await getSetting(db, k, k === 'ai_enabled' ? false : k === 'ai_monthly_call_limit' ? 0 : k === 'ai_timeout_sec' ? 15 : '')
-    if (out.ai_api_key) out.ai_api_key = '••••' + String(out.ai_api_key).slice(-4)
-    out.ai_status = await getAiStatus(db)
-  }
-  out.feature_flags = await getFeatures(db)
+  for (const k of OFFICER_SETTINGS) out[k] = k === 'default_code_ttl_hours' ? await getSetting(db, k, 24) : k === 'registration_mode' ? await getSetting(db, k, 'open') : await getSetting(db, k, k === 'registration_open' ? true : k === 'supervisor_can_approve' ? false : k === 'site_name' ? 'نشریار' : 'دانشگاه')
   out.insight_thresholds = await getThresholds(db)
   out.health_weights = await getWeights(db)
   return c.json({ settings: out, is_super: u.system_role === 'super_admin', defaults: { insight_thresholds: DEFAULT_THRESHOLDS, health_weights: DEFAULT_WEIGHTS } })
@@ -961,25 +956,16 @@ adminRoutes.post('/settings', async (c) => {
   const u = admin(c)
   const b = await body<Record<string, unknown>>(c)
   const db = c.get('db')
-  const keys: string[] = [...OFFICER_SETTINGS, ...(u.system_role === 'super_admin' ? SUPER_SETTINGS : [])]
+  const keys: string[] = [...OFFICER_SETTINGS]
   const changed: Record<string, unknown> = {}
   for (const k of keys) {
     if (!(k in b)) continue
     let v = b[k]
-    if (k === 'ai_api_key' && typeof v === 'string' && v.startsWith('••••')) continue
-    if (k === 'ai_monthly_call_limit') v = Math.max(0, Math.min(1_000_000, Math.floor(Number(v) || 0)))
-    if (k === 'ai_timeout_sec') v = Math.max(3, Math.min(60, Math.floor(Number(v) || 15)))
-    if (k === 'max_sessions') v = Math.max(1, Math.min(20, Math.floor(Number(v) || 5)))
     if (k === 'registration_mode') v = v === 'allowlist' ? 'allowlist' : 'open'
     if (k === 'default_code_ttl_hours') v = Math.max(1, Math.min(24, Math.floor(Number(v) || 24))) // client decision #5: max 24h
     if (typeof v === 'string') v = v.slice(0, 500)
     await setSetting(db, k, v)
-    changed[k] = k === 'ai_api_key' ? '(changed)' : v
-  }
-  if (u.system_role === 'super_admin' && 'feature_flags' in b) {
-    const next = { ...(await getFeatures(db)), ...sanitizeFeatures(b.feature_flags) }
-    await setSetting(db, 'feature_flags', next)
-    changed.feature_flags = next
+    changed[k] = v
   }
   // Rule thresholds and health weights (officer and super admin; ROADMAP phase 8)
   if ('insight_thresholds' in b) {
