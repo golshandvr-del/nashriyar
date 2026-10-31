@@ -36,12 +36,14 @@ export async function ensureReminders(db: Db): Promise<boolean> {
   const leadUsers = [...new Set(leads.map((l) => l.user_id))]
 
   // 1. Global deadlines (festival, end of term, …)
-  const deadlines = await db.all<{ id: string; title: string; due_at: string }>('SELECT id, title, due_at FROM deadlines WHERE due_at >= ?', [today])
+  // ROADMAP phase 14 events calendar: meetings/workshops/events are reminded like deadlines, with their kind in the text
+  const KIND_FA: Record<string, string> = { deadline: 'مهلت', meeting: 'جلسه', workshop: 'کارگاه', event: 'رویداد' }
+  const deadlines = await db.all<{ id: string; title: string; due_at: string; kind: string | null }>('SELECT id, title, due_at, kind FROM deadlines WHERE due_at >= ?', [today])
   for (const d of deadlines) {
     const left = Math.ceil((new Date(d.due_at.slice(0, 10) + 'T00:00:00Z').getTime() - new Date(today + 'T00:00:00Z').getTime()) / DAY)
     const mark = reminderMark(left, DEADLINE_MARKS)
     if (mark == null) continue
-    for (const uid of leadUsers) await once(db, uid, 'deadline.reminder', `یادآوری مهلت: «${d.title}» — ${left === 0 ? 'امروز' : `${left} روز مانده`}`, `#deadline-${d.id}-${mark}`)
+    for (const uid of leadUsers) await once(db, uid, 'deadline.reminder', `یادآوری ${KIND_FA[d.kind || 'deadline'] || 'مهلت'}: «${d.title}» — ${left === 0 ? 'امروز' : `${left} روز مانده`}`, `#deadline-${d.id}-${mark}`)
   }
 
   // 2. Licence renewal: managing director/editor of the publication + all publication officers
