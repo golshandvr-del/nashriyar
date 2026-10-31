@@ -36,6 +36,16 @@ const DB_FILE = path.join(DATA_DIR, 'nashriyar.db')
 
 fs.mkdirSync(DATA_DIR, { recursive: true })
 
+const BACKUP_RE = /^nashriyar-(files-)?\d[\w-]*\.(db|tar\.gz)$/
+
+function appVersion(): string {
+  try {
+    return String(JSON.parse(fs.readFileSync('package.json', 'utf8')).version || 'unknown')
+  } catch {
+    return 'unknown'
+  }
+}
+
 async function main() {
   if (args.has('--seed')) {
     for (const f of [DB_FILE, DB_FILE + '-wal', DB_FILE + '-shm']) fs.rmSync(f, { force: true })
@@ -66,7 +76,43 @@ async function main() {
       } catch {
         return null
       }
-    }
+    },
+    // Developer console operations (ROADMAP phase 13). Backup names are validated against the directory listing,
+    // so a request can never read an arbitrary path.
+    ops: {
+      listBackups: () => {
+        const dir = path.join(DATA_DIR, 'backups')
+        return (fs.existsSync(dir) ? fs.readdirSync(dir) : [])
+          .filter((f) => BACKUP_RE.test(f))
+          .map((f) => {
+            const st = fs.statSync(path.join(dir, f))
+            return { name: f, size: st.size, mtime: st.mtime.toISOString(), kind: (f.startsWith('nashriyar-files-') ? 'files' : 'db') as 'db' | 'files' }
+          })
+          .sort((a, b) => b.mtime.localeCompare(a.mtime))
+      },
+      backupDb: () => backupDb(sqlite, DATA_DIR),
+      backupFiles: () => backupFiles(DATA_DIR),
+      restoreTest: () => restoreTest(sqlite, DATA_DIR),
+      readBackup: (name: string) => {
+        if (!BACKUP_RE.test(name) || name.includes('/') || name.includes('..')) return null
+        const full = path.join(DATA_DIR, 'backups', name)
+        return fs.existsSync(full) ? new Uint8Array(fs.readFileSync(full)) : null
+      },
+      vacuum: () => sqlite.exec('VACUUM'),
+      analyze: () => sqlite.exec('ANALYZE'),
+      dbFileBytes: () => {
+        try {
+          return fs.statSync(DB_FILE).size
+        } catch {
+          return null
+        }
+      },
+      version: { app: appVersion(), commit: process.env.GIT_COMMIT || null, node: process.version, started_at: new Date().toISOString() }
+    },
+    systemIpAllowlist: (process.env.SYSTEM_IP_ALLOWLIST || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
   }
 
   if (args.has('--create-admin')) {
