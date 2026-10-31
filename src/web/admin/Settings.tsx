@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Save, Sparkles } from 'lucide-react'
+import { Activity, AlertTriangle, HardDrive, Save, Sparkles } from 'lucide-react'
 import { api } from '../lib/api'
 import { faDate, toFaDigits } from '../../shared/fa'
 import { Async, Button, Card, Input, PageHeader, Select, useAction, useAsync } from '../components/ui'
@@ -60,7 +60,83 @@ export default function AdminSettings() {
       <PageHeader title="تنظیمات" subtitle="تنظیمات عمومی سامانه و لایهٔ اختیاری هوش مصنوعی" />
       <Async state={st}>{(d: any) => <Form initial={d.settings} isSuper={d.is_super} reload={st.reload} />}</Async>
       <AllowlistCard />
+      <MonitoringCard />
     </div>
+  )
+}
+
+function fmtBytes(n: number) {
+  if (!Number.isFinite(n) || n <= 0) return '۰'
+  const gb = n / (1024 ** 3)
+  if (gb >= 1) return toFaDigits(gb.toFixed(1)) + ' گیگابایت'
+  return toFaDigits(Math.round(n / (1024 ** 2))) + ' مگابایت'
+}
+
+function MonitoringCard() {
+  const st = useAsync(() => api.get<any>('/api/admin/monitoring'), [])
+  return (
+    <Card className="space-y-4 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-lg font-bold">
+          <Activity className="size-5 text-brand" /> پایش سلامت سرور، دیسک و زمان پاسخ
+        </h2>
+        <Button variant="ghost" className="text-xs" onClick={st.reload}>به‌روزرسانی</Button>
+      </div>
+      <Async state={st}>
+        {(m: any) => (
+          <div className="space-y-3 text-sm">
+            {m.disk?.warn && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300">
+                <AlertTriangle className="size-4 shrink-0" />
+                <span>هشدار فضای دیسک: {toFaDigits(m.disk.used_pct)}٪ از دیسک پر شده است (آستانهٔ هشدار: {toFaDigits(m.disk.warn_pct)}٪ — فضای آزاد: {fmtBytes(m.disk.free_bytes)}).</span>
+              </div>
+            )}
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div className="rounded-xl bg-surface-2 p-3">
+                <div className="text-xs text-muted">زمان پاسخ (میانگین / صدک ۹۵)</div>
+                <div className="mt-1 font-bold">{toFaDigits(m.latency_ms?.avg ?? 0)} / {toFaDigits(m.latency_ms?.p95 ?? 0)} ms</div>
+                <div className="text-xs text-muted">بیشینه: {toFaDigits(m.latency_ms?.max ?? 0)} ms · DB: {toFaDigits(m.db_latency_ms ?? 0)} ms</div>
+              </div>
+              <div className="rounded-xl bg-surface-2 p-3">
+                <div className="text-xs text-muted">درخواست‌ها از زمان راه‌اندازی</div>
+                <div className="mt-1 font-bold">{toFaDigits(m.requests_total ?? 0)} درخواست</div>
+                <div className="text-xs text-muted">خطای ۵xx: {toFaDigits(m.errors_5xx ?? 0)} · ۴xx: {toFaDigits(m.errors_4xx ?? 0)}</div>
+              </div>
+              <div className="rounded-xl bg-surface-2 p-3">
+                <div className="flex items-center gap-1 text-xs text-muted"><HardDrive className="size-3.5" /> فضای دیسک داده</div>
+                {m.disk ? (
+                  <>
+                    <div className="mt-1 font-bold">{toFaDigits(m.disk.used_pct)}٪ مصرف‌شده</div>
+                    <div className="text-xs text-muted">آزاد: {fmtBytes(m.disk.free_bytes)} از {fmtBytes(m.disk.total_bytes)}</div>
+                  </>
+                ) : (
+                  <div className="mt-1 text-xs text-muted">فضای ابری (مدیریت‌شده)</div>
+                )}
+              </div>
+              <div className="rounded-xl bg-surface-2 p-3">
+                <div className="text-xs text-muted">زمان‌بند و تبدیل PDF</div>
+                <div className="mt-1 font-bold">{m.server_pdf ? `سرور (${m.server_pdf})` : 'مرورگر (pdf.js)'}</div>
+                <div className="text-xs text-muted">آخرین تجمیع: {m.maintenance_last?.rollup_until ? toFaDigits(m.maintenance_last.rollup_until) : '—'}</div>
+              </div>
+            </div>
+            {m.recent_errors?.length > 0 && (
+              <div className="rounded-xl border border-line p-3">
+                <div className="mb-2 text-xs font-bold text-red-600 dark:text-red-400">خطاهای ۵xx اخیر سرور ({toFaDigits(m.recent_errors.length)})</div>
+                <div className="max-h-40 space-y-1 overflow-auto text-xs" dir="ltr">
+                  {m.recent_errors.map((e: any, idx: number) => (
+                    <div key={idx} className="flex flex-wrap gap-2 border-b border-line/50 pb-1 last:border-0">
+                      <span className="text-muted">{e.at.slice(0, 19).replace('T', ' ')}</span>
+                      <span className="font-mono font-semibold">{e.method} {e.path}</span>
+                      <span className="text-red-600 dark:text-red-400">[{e.status}] {e.message}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Async>
+    </Card>
   )
 }
 
