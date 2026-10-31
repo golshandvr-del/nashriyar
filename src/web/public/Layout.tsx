@@ -34,7 +34,7 @@ function ThemeButton() {
 }
 
 export default function PublicLayout() {
-  const { user, publications } = useAuth()
+  const { user, publications, desk } = useAuth()
   const nav = useNavigate()
   const loc = useLocation()
   const [unread, setUnread] = useState(0)
@@ -109,7 +109,12 @@ export default function PublicLayout() {
                   <Search className="size-5" />
                 </Link>
               )}
-              {user && memberPortal && !panel && (
+              {user && desk && !panel && (
+                <Link to="/desk" id="header-desk-link" className="rounded-xl p-2 hover:bg-surface-2" aria-label="میز کار عضو" title="میز کار عضو">
+                  <LayoutDashboard className="size-5" />
+                </Link>
+              )}
+              {user && memberPortal && !desk && !panel && (
                 <Link to="/my-sections" className="rounded-xl p-2 hover:bg-surface-2" aria-label="بخش‌های من" title="بخش‌های من">
                   <ListChecks className="size-5" />
                 </Link>
