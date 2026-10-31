@@ -100,6 +100,47 @@ async function main() {
     return
   }
 
+  if (args.has('--create-developer')) {
+    // ROADMAP phase 13: the developer (technical maintainer) account can ONLY be created/reset from the server CLI.
+    // TOTP is mandatory: the console stays locked until 2FA is enabled. Re-running resets password + 2FA (recovery path).
+    const argv = process.argv.slice(2)
+    const next = argv[argv.indexOf('--create-developer') + 1]
+    const username = (next && !next.startsWith('--') ? next : 'developer').toLowerCase()
+    const password = randomId(18)
+    const hash = await hashPassword(password)
+    const existing = await db.first<{ id: string; system_role: string }>('SELECT id, system_role FROM users WHERE username = ?', [username])
+    if (existing && existing.system_role !== 'developer') {
+      console.error(`[nashriyar] user "${username}" exists and is not a developer — choose another username`)
+      process.exitCode = 1
+      return
+    }
+    const now = new Date().toISOString()
+    if (existing) {
+      await db.run(
+        "UPDATE users SET password_hash = ?, must_change_password = 1, status = 'active', totp_enabled = 0, totp_secret = NULL, totp_last_step = NULL WHERE id = ?",
+        [hash, existing.id]
+      )
+      await db.run('DELETE FROM sessions WHERE user_id = ?', [existing.id])
+    } else {
+      await db.run(
+        "INSERT INTO users (id, username, display_name, password_hash, must_change_password, system_role, created_at) VALUES (?,?,?,?,1,'developer',?)",
+        [newId(), username, 'طراح سامانه', hash, now]
+      )
+    }
+    await db.run('INSERT INTO system_audit (id, actor_user_id, action, detail_json, ip, created_at) VALUES (?,?,?,?,?,?)', [
+      newId(),
+      null,
+      existing ? 'system.developer_reset' : 'system.developer_create',
+      JSON.stringify({ username, via: 'cli' }),
+      'cli',
+      now
+    ])
+    console.log(
+      `[nashriyar] developer ${existing ? 'password + 2FA reset' : 'created'}\n  username: ${username}\n  password: ${password}\n  (one-time — change it on first login, then enable 2FA to unlock /system)`
+    )
+    return
+  }
+
   if (args.has('--backup')) {
     const r = backupDb(sqlite, DATA_DIR)
     console.log(`[nashriyar] backup written: ${r.file}${r.offsite ? ` (offsite: ${r.offsite})` : ''}`)
