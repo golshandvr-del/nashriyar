@@ -9,7 +9,9 @@ import { CredentialsSheet } from './PublicationNew'
 import type { Credential } from './PublicationNew'
 import { useAdminRole } from './Layout'
 
-const ROLE_FA: Record<string, string> = { managing_director: 'مدیرمسئول', editor_in_chief: 'سردبیر', license_holder: 'صاحب امتیاز' }
+import { PUB_ROLES } from '../../shared/roles'
+
+const ROLE_FA: Record<string, string> = Object.fromEntries(PUB_ROLES.map((r) => [r.key, r.label]))
 type Tab = 'summary' | 'issues' | 'roles' | 'members' | 'followers' | 'activity'
 
 export default function AdminPublicationDetail() {
