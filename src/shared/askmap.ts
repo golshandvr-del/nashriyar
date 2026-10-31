@@ -88,14 +88,21 @@ export function mapQuestion(question: string, faculties: { id: string; name: str
     }
   }
   let faculty_id: string | null = null
-  // Longest name first so "فنی و مهندسی" wins over "فنی".
-  for (const f of [...faculties].sort((a, b) => b.name.length - a.name.length)) {
-    const name = normQuestion(f.name.replace(/^دانشکده(ٔ|ی)?\s*/, '')).trim()
-    if (name.length >= 2 && n.includes(` ${name}`)) {
-      faculty_id = f.id
-      hits++
-      break
-    }
+  // Full names first (longest first so "فنی و مهندسی" wins over "فنی"), then a unique first word
+  // ("فنی" → "فنی و مهندسی") as long as no other faculty starts with the same word.
+  const names = faculties.map((f) => ({ id: f.id, name: normQuestion(f.name.replace(/^دانشکده(ٔ|ی)?\s*/, '')).trim() }))
+  const firstWord = (s: string) => s.split(' ')[0]
+  const full = [...names].sort((a, b) => b.name.length - a.name.length).find((f) => f.name.length >= 2 && n.includes(` ${f.name} `))
+  const short = full
+    ? null
+    : names.find((f) => {
+        const w = firstWord(f.name)
+        return w.length >= 3 && names.filter((g) => firstWord(g.name) === w).length === 1 && n.includes(` ${w} `)
+      })
+  const fac = full || short
+  if (fac) {
+    faculty_id = fac.id
+    hits++
   }
   return { report, range, faculty_id, confidence: Math.min(1, hits / 2) }
 }
