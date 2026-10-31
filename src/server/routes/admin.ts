@@ -720,7 +720,7 @@ adminRoutes.get('/people/:key', async (c) => {
   const db = c.get('db')
   const s = scope(c)
   const memberships = await db.all(
-    `SELECT tm.id, tm.full_name, tm.student_number, tm.default_role, tm.is_active, tm.joined_at, tm.left_at, p.id AS publication_id, p.title AS publication_title
+    `SELECT tm.id, tm.user_id, tm.full_name, tm.student_number, tm.default_role, tm.is_active, tm.joined_at, tm.left_at, p.id AS publication_id, p.title AS publication_title
      FROM team_members tm JOIN publications p ON p.id = tm.publication_id WHERE COALESCE(NULLIF(tm.student_number, ''), tm.full_name) = ?${s.sql}`,
     [key, ...s.params]
   )
@@ -740,7 +740,27 @@ adminRoutes.get('/people/:key', async (c) => {
         ids
       )
     : []
-  return c.json({ memberships, issues, sections })
+  // Linked accounts' profiles (ROADMAP phase 15 privacy): sensitive fields (gender, birth year, phone, email) are shown only
+  // to the publications officer / super admin, only when the person consented, and every such view is audited.
+  const u = c.get('user')!
+  const officer = ADMIN_ROLES.includes(u.system_role)
+  const userIds = [...new Set(memberships.map((m: any) => m.user_id).filter(Boolean))] as string[]
+  const accounts = userIds.length
+    ? (
+        await db.all<any>(
+          `SELECT us.id, us.username, us.display_name, us.student_number, us.degree, us.entry_year, us.bio, us.profile_consent_at, us.profile_completed_at,
+                  us.gender, us.birth_year, us.phone, us.email, f.name AS faculty_name, mj.name AS major_name
+             FROM users us LEFT JOIN faculties f ON f.id = us.faculty_id LEFT JOIN majors mj ON mj.id = us.major_id
+            WHERE us.id IN (${inList(userIds)}) AND us.deleted_at IS NULL`,
+          userIds
+        )
+      ).map((a) => {
+        const show = officer && !!a.profile_consent_at
+        return { ...a, gender: show ? a.gender : null, birth_year: show ? a.birth_year : null, phone: show ? a.phone : null, email: show ? a.email : null, sensitive_visible: show }
+      })
+    : []
+  if (accounts.some((a) => a.sensitive_visible)) await audit(db, u.id, 'profile.sensitive_view', 'user', accounts.map((a) => a.id).join(','), null, { key })
+  return c.json({ memberships, issues, sections, accounts })
 })
 
 // ───────── Moderation oversight ─────────
