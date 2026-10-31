@@ -104,7 +104,8 @@ publicRoutes.get('/categories', async (c) => {
   const categories = await db.all('SELECT id, parent_id, type, name, slug, icon, color FROM categories WHERE is_active = 1 ORDER BY type, sort_order, name')
   const faculties = await db.all('SELECT id, name FROM faculties WHERE is_active = 1 ORDER BY sort_order, name')
   const associations = await db.all('SELECT id, name, kind, faculty_id FROM associations WHERE is_active = 1 ORDER BY name')
-  return c.json({ categories, faculties, associations })
+  const majors = await db.all('SELECT id, name, faculty_id FROM majors ORDER BY name') // phase 15 profile form
+  return c.json({ categories, faculties, associations, majors })
 })
 
 publicRoutes.get('/categories/:slug', async (c) => {
