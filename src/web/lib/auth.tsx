@@ -5,7 +5,7 @@ import { applyTheme } from './theme'
 import { PUB_ROLE_LABEL as SHARED_PUB_ROLE_LABEL } from '../../shared/roles'
 import type { PubRoleKey } from '../../shared/roles'
 
-export type SystemRole = 'super_admin' | 'pub_officer' | 'faculty_supervisor' | 'analyst' | 'team' | 'student'
+export type SystemRole = 'developer' | 'super_admin' | 'pub_officer' | 'faculty_supervisor' | 'analyst' | 'team' | 'student'
 
 export interface User {
   id: string
@@ -40,6 +40,7 @@ interface AuthState {
 const Ctx = createContext<AuthState | null>(null)
 
 export const ROLE_LABEL: Record<SystemRole, string> = {
+  developer: 'طراح سامانه',
   super_admin: 'مدیر کل سامانه',
   pub_officer: 'مسئول نشریات',
   faculty_supervisor: 'ناظر دانشکده',
@@ -51,6 +52,8 @@ export const ROLE_LABEL: Record<SystemRole, string> = {
 export const PUB_ROLE_LABEL: Record<string, string> = SHARED_PUB_ROLE_LABEL
 
 export const isAdmin = (u: User | null) => !!u && (u.system_role === 'super_admin' || u.system_role === 'pub_officer')
+/** Technical maintainer: only the /system console (ROADMAP phase 13). */
+export const isDeveloper = (u: User | null) => !!u && u.system_role === 'developer'
 export const isMonitor = (u: User | null) => !!u && ['super_admin', 'pub_officer', 'faculty_supervisor', 'analyst'].includes(u.system_role)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
