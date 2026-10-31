@@ -3,7 +3,7 @@ import type { AppEnv } from '../context'
 import { checkRateLimit, clearFailures, clientIp, recordFailure, requireUser } from '../auth'
 import { newId, normalizePurchaseCode, sha256 } from '../lib/crypto'
 import { activity, bad, body, HttpError, notFound, nowIso, oneOf, parseJson, str } from '../lib/util'
-import { toEnDigits } from '../../shared/fa'
+import { toEnDigits, toJalali } from '../../shared/fa'
 import { flagComment } from '../lib/moderation'
 import { requireFeature } from '../lib/features'
 
@@ -267,13 +267,116 @@ meRoutes.get('/profile', async (c) => {
     following: (await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM follows WHERE user_id = ? AND unfollowed_at IS NULL', [u.id]))?.n ?? 0,
     saved: (await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM saved_posts WHERE user_id = ?', [u.id]))?.n ?? 0
   }
-  return c.json({ user: u, stats })
+  // ROADMAP phase 15: full profile, current positions and collaboration history
+  const profile = await db.first(`SELECT ${PROFILE_COLS} FROM users WHERE id = ?`, [u.id])
+  const positions = await db.all(
+    `SELECT r.role, p.id AS publication_id, p.title, p.slug FROM publication_roles r JOIN publications p ON p.id = r.publication_id
+     WHERE r.user_id = ? AND r.ended_at IS NULL AND p.deleted_at IS NULL ORDER BY p.title`,
+    [u.id]
+  )
+  const memberships = await db.all(
+    `SELECT tm.id, tm.default_role, tm.joined_at, tm.left_at, tm.is_active, p.id AS publication_id, p.title, p.slug,
+            (SELECT COUNT(*) FROM certificates ce WHERE ce.team_member_id = tm.id) AS certificates
+     FROM team_members tm JOIN publications p ON p.id = tm.publication_id
+     WHERE (tm.user_id = ? OR (tm.user_id IS NULL AND ? IS NOT NULL AND tm.student_number = ?)) AND p.deleted_at IS NULL
+     ORDER BY tm.is_active DESC, tm.joined_at DESC`,
+    [u.id, profile?.student_number ?? null, profile?.student_number ?? null]
+  )
+  return c.json({ user: { ...u, ...profile }, stats, positions, memberships, required: PROFILE_REQUIRED, complete: profileComplete(profile) })
 })
+
+// ───────── Full profile (ROADMAP phase 15) ─────────
+export const PROFILE_COLS =
+  'id, username, display_name, student_number, faculty_id, major_id, gender, birth_year, degree, entry_year, phone, email, bio, avatar_key, profile_consent_at, profile_completed_at'
+export const PROFILE_REQUIRED = ['display_name', 'faculty_id', 'gender', 'degree', 'entry_year', 'student_number'] as const
+export const DEGREES = ['associate', 'bachelor', 'master', 'phd'] as const
+export const SENSITIVE_FIELDS = ['gender', 'birth_year', 'phone', 'email'] as const
+export function profileComplete(p: any): boolean {
+  return !!p && PROFILE_REQUIRED.every((k) => p[k] != null && p[k] !== '')
+}
+export function currentJalaliYear(): number {
+  const d = new Date(nowIso())
+  return toJalali(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()).jy
+}
+
+/** Validates a profile payload; returns the columns to write (only keys present in the payload). */
+export async function validateProfile(db: any, userId: string, b: any, current: any) {
+  const out: Record<string, unknown> = {}
+  const jy = currentJalaliYear()
+  const yearOf = (v: unknown, name: string, min: number, max: number) => {
+    if (v === '' || v == null) return null
+    const n = Number(toEnDigits(String(v)))
+    if (!Number.isInteger(n) || n < min || n > max) throw bad(`«${name}» باید سالی بین ${min} تا ${max} (شمسی) باشد`)
+    return n
+  }
+  if ('display_name' in b) out.display_name = str(b.display_name, 'نام', { min: 2, max: 80 })
+  if ('faculty_id' in b) {
+    out.faculty_id = b.faculty_id || null
+    if (out.faculty_id && !(await db.first('SELECT id FROM faculties WHERE id = ?', [out.faculty_id]))) throw bad('دانشکده نامعتبر است')
+  }
+  if ('major_id' in b) {
+    out.major_id = b.major_id || null
+    const fac = 'faculty_id' in out ? out.faculty_id : current?.faculty_id
+    if (out.major_id) {
+      const m = await db.first<{ faculty_id: string }>('SELECT faculty_id FROM majors WHERE id = ?', [out.major_id])
+      if (!m) throw bad('رشته نامعتبر است')
+      if (fac && m.faculty_id !== fac) throw bad('رشتهٔ انتخاب‌شده متعلق به این دانشکده نیست')
+    }
+  }
+  if ('gender' in b) out.gender = b.gender ? oneOf(b.gender, ['male', 'female'] as const, 'جنسیت') : null
+  if ('degree' in b) out.degree = b.degree ? oneOf(b.degree, DEGREES, 'مقطع تحصیلی') : null
+  if ('birth_year' in b) out.birth_year = yearOf(b.birth_year, 'سال تولد', jy - 90, jy - 14)
+  if ('entry_year' in b) out.entry_year = yearOf(b.entry_year, 'سال ورود', jy - 40, jy)
+  const birth = ('birth_year' in out ? out.birth_year : current?.birth_year) as number | null
+  const entry = ('entry_year' in out ? out.entry_year : current?.entry_year) as number | null
+  if (birth && entry && entry - birth < 15) throw bad('سال ورود با سال تولد سازگار نیست (فاصلهٔ کمتر از ۱۵ سال)')
+  if ('phone' in b) {
+    const ph = toEnDigits(String(b.phone || '')).replace(/[\s-]/g, '')
+    if (ph && !/^09\d{9}$/.test(ph)) throw bad('شمارهٔ همراه باید ۱۱ رقم و با ۰۹ شروع شود')
+    out.phone = ph || null
+  }
+  if ('email' in b) {
+    const em = String(b.email || '').trim().toLowerCase()
+    if (em && (em.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))) throw bad('رایانامه نامعتبر است')
+    out.email = em || null
+  }
+  if ('bio' in b) out.bio = str(b.bio, 'معرفی کوتاه', { max: 300, optional: true }) || null
+  if ('student_number' in b) {
+    const sn = toEnDigits(String(b.student_number || '').trim())
+    if (current?.student_number && sn !== current.student_number) throw bad('شمارهٔ دانشجویی ثبت‌شده فقط توسط مسئول نشریات قابل تغییر است')
+    if (sn && !current?.student_number) {
+      if (!/^\d{6,14}$/.test(sn)) throw bad('شماره دانشجویی باید فقط شامل ۶ تا ۱۴ رقم باشد')
+      if (await db.first('SELECT id FROM users WHERE (student_number = ? OR username = ?) AND id != ?', [sn, sn, userId])) throw bad('این شماره دانشجویی متعلق به حساب دیگری است')
+      out.student_number = sn
+    }
+  }
+  const sensitive = SENSITIVE_FIELDS.some((k) => out[k] != null)
+  if (sensitive && !current?.profile_consent_at && !b.consent) throw bad('برای ذخیرهٔ جنسیت، سال تولد، تلفن یا رایانامه، رضایت شما لازم است', 'consent_required')
+  if (b.consent && !current?.profile_consent_at) out.profile_consent_at = nowIso()
+  return out
+}
 
 meRoutes.post('/profile', async (c) => {
   const u = requireUser(c)
-  const b = await body<{ display_name?: string; faculty_id?: string }>(c)
-  await c.get('db').run('UPDATE users SET display_name = ?, faculty_id = ? WHERE id = ?', [str(b.display_name, 'نام', { min: 2, max: 80 }), b.faculty_id || null, u.id])
+  const db = c.get('db')
+  const b = await body<Record<string, unknown>>(c)
+  const current = await db.first<any>(`SELECT ${PROFILE_COLS} FROM users WHERE id = ?`, [u.id])
+  const out = await validateProfile(db, u.id, b, current)
+  const merged = { ...current, ...out }
+  if (profileComplete(merged) && !current?.profile_completed_at) out.profile_completed_at = nowIso()
+  const keys = Object.keys(out)
+  if (keys.length) await db.run(`UPDATE users SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, [...keys.map((k) => out[k]), u.id])
+  // link unlinked team member records that carry the same student number (old team accounts, phase 15)
+  if (merged.student_number) await db.run('UPDATE team_members SET user_id = ? WHERE user_id IS NULL AND student_number = ?', [u.id, merged.student_number])
+  return c.json({ ok: true, complete: profileComplete(merged) })
+})
+
+meRoutes.post('/profile/consent', async (c) => {
+  const u = requireUser(c)
+  const b = await body<{ consent?: boolean }>(c)
+  const db = c.get('db')
+  if (b.consent) await db.run('UPDATE users SET profile_consent_at = COALESCE(profile_consent_at, ?) WHERE id = ?', [nowIso(), u.id])
+  else await db.run('UPDATE users SET profile_consent_at = NULL, gender = NULL, birth_year = NULL, phone = NULL, email = NULL WHERE id = ?', [u.id])
   return c.json({ ok: true })
 })
 
