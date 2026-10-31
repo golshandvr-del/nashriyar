@@ -9,7 +9,7 @@ import {
 import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { requireFeature } from '../lib/features'
 import { ensureReminders } from '../lib/reminders'
-import { aiCommentLabels, draftCaption, ruleCommentLabel, suggestCategories, suggestKeywords } from '../ai'
+import { aiCommentLabels, draftCaption, getProvider, ruleCommentLabel, suggestCategories, suggestKeywords } from '../ai'
 import { flagComment } from '../lib/moderation'
 import { traceCode } from './reader'
 
@@ -889,8 +889,9 @@ teamRoutes.post('/:pubId/comments/ai-hints', async (c) => {
     "SELECT cm.id, cm.body FROM comments cm JOIN posts po ON po.id = cm.post_id WHERE po.publication_id = ? AND cm.status = 'pending' AND cm.is_team_reply = 0 ORDER BY cm.created_at DESC LIMIT 30",
     [p.id]
   )
-  const labels = await aiCommentLabels(c, rows)
-  return c.json({ enabled: Object.keys(labels).length > 0 || rows.length === 0 ? true : (await import('../ai')).getProvider(c).then((x) => x.enabled), labels })
+  const enabled = (await getProvider(c)).enabled
+  const labels = enabled ? await aiCommentLabels(c, rows) : {}
+  return c.json({ enabled, labels })
 })
 
 teamRoutes.post('/:pubId/comments/:cid', async (c) => {
