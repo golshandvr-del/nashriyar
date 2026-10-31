@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom'
 import { AlertTriangle, CalendarClock, MessageCircle, Pin, Plus, Users } from 'lucide-react'
 import { api, mediaUrl } from '../lib/api'
-import { ISSUE_STATUS, faDate, formatNumber, relativeFa } from '../lib/format'
+import { ISSUE_STATUS, faDate, formatNumber, relativeFa, toFaDigits } from '../lib/format'
 import { Async, Badge, Card, Empty, PageHeader, Progress, Stat, useAsync } from '../components/ui'
 import { Cover } from '../components/cards'
 import { useTeam } from './Layout'
+
+const EVENT_KIND_FA: Record<string, string> = { deadline: 'مهلت', meeting: 'جلسه', workshop: 'کارگاه', event: 'رویداد' }
 
 export default function TeamDashboard() {
   const { pubId, base } = useTeam()
@@ -88,21 +90,26 @@ export default function TeamDashboard() {
             </Card>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Card title={<span className="flex items-center gap-2"><CalendarClock className="size-5" /> مهلت‌های پیش رو</span>}>
+              <Card title={<span className="flex items-center gap-2"><CalendarClock className="size-5" /> تقویم رویدادها و مهلت‌ها</span>}>
                 {d.deadlines.length ? (
                   <ul className="space-y-2 text-sm">
                     {d.deadlines.map((x: any) => (
                       <li key={x.id}>
                         <div className="flex justify-between gap-2">
-                          <span className="font-medium">{x.title}</span>
-                          <span className="text-xs text-muted">{faDate(x.due_at)}</span>
+                          <span className="font-medium">
+                            {/* ROADMAP phase 14 events calendar */}
+                            <Badge tone={x.kind && x.kind !== 'deadline' ? 'brand' : 'danger'} className="me-1">{EVENT_KIND_FA[x.kind] || 'مهلت'}</Badge>
+                            {x.title}
+                          </span>
+                          <span className="shrink-0 text-xs text-muted">{faDate(x.due_at)}{x.start_time ? ` · ${toFaDigits(x.start_time)}` : ''}</span>
                         </div>
+                        {x.location && <p className="text-xs">مکان: {x.location}</p>}
                         {x.description && <p className="text-xs text-muted">{x.description}</p>}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted">مهلتی ثبت نشده است.</p>
+                  <p className="text-sm text-muted">رویداد یا مهلتی ثبت نشده است.</p>
                 )}
               </Card>
               <Card title="اطلاعیه‌های مسئول نشریات">
