@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, DependencyList, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
-import { AlertTriangle, CheckCircle2, Info, Inbox, Loader2, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Eye, EyeOff, Info, Inbox, Loader2, X } from 'lucide-react'
 import { cx } from '../lib/format'
 
 // ───────── Data loading hook ─────────
@@ -66,6 +66,59 @@ export function Field({ label, hint, error, children }: { label?: ReactNode; hin
 }
 
 export const Input = (p: InputHTMLAttributes<HTMLInputElement>) => <input {...p} className={cx('input', p.className)} />
+/** Rough password strength 0..4 (length + character classes); purely advisory, the server enforces the real policy. */
+export function passwordScore(pw: string): number {
+  if (!pw) return 0
+  let s = 0
+  if (pw.length >= 8) s++
+  if (pw.length >= 12) s++
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++
+  if (/\d/.test(pw)) s++
+  if (/[^A-Za-z0-9]/.test(pw)) s++
+  if (pw.length < 8) s = Math.min(s, 1)
+  return Math.min(4, s)
+}
+const STRENGTH = [
+  { label: 'خیلی ضعیف', cls: 'bg-red-500' },
+  { label: 'ضعیف', cls: 'bg-red-500' },
+  { label: 'متوسط', cls: 'bg-amber-500' },
+  { label: 'خوب', cls: 'bg-emerald-500' },
+  { label: 'قوی', cls: 'bg-emerald-600' }
+]
+
+/** Password field with a show/hide (eye) toggle and an optional strength meter for new passwords. */
+export function PasswordInput({ strength, className, ...p }: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & { strength?: boolean }) {
+  const [show, setShow] = useState(false)
+  const val = typeof p.value === 'string' ? p.value : ''
+  const score = passwordScore(val)
+  return (
+    <div>
+      <div className="relative">
+        <input dir="ltr" {...p} type={show ? 'text' : 'password'} className={cx('input pl-10', className)} />
+        <button
+          type="button"
+          onClick={() => setShow((s) => !s)}
+          className="absolute inset-y-0 left-0 flex w-10 items-center justify-center rounded-l-xl text-muted hover:text-ink"
+          aria-label={show ? 'پنهان کردن رمز' : 'نمایش رمز'}
+          aria-pressed={show}
+          tabIndex={0}
+        >
+          {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      </div>
+      {strength && val && (
+        <div className="mt-1.5 flex items-center gap-2" aria-live="polite">
+          <div className="flex h-1.5 flex-1 gap-1">
+            {[0, 1, 2, 3].map((i) => (
+              <span key={i} className={cx('flex-1 rounded-full', i < Math.max(1, score) ? STRENGTH[score].cls : 'bg-surface-2')} />
+            ))}
+          </div>
+          <span className="shrink-0 text-[11px] text-muted">قدرت رمز: {STRENGTH[score].label}</span>
+        </div>
+      )}
+    </div>
+  )
+}
 export const Textarea = (p: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea rows={4} {...p} className={cx('input', p.className)} />
 export function Select({ options, placeholder, ...p }: SelectHTMLAttributes<HTMLSelectElement> & { options: { value: string; label: string }[]; placeholder?: string }) {
   return (
