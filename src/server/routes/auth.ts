@@ -88,10 +88,18 @@ authRoutes.post('/register', async (c) => {
     [id, sn, sn, name, b.faculty_id || null, await hashPassword(password), nowIso()]
   )
   // Two-path registration (ROADMAP phase 15): «درخواست عضویت در تیم نشریه» files a membership request right away.
+  // A failed request never blocks the account itself: the error is returned and the user can retry from settings.
   let request: string | null = null
-  if (b.join?.publication_id) request = (await createMembershipRequest(db, id, b.join)).id
+  let join_error: string | null = null
+  if (b.join?.publication_id) {
+    try {
+      request = (await createMembershipRequest(db, id, b.join)).id
+    } catch (e: any) {
+      join_error = e?.message || 'ثبت درخواست عضویت ناموفق بود'
+    }
+  }
   await createSession(c, id)
-  return c.json({ ok: true, home: request ? '/settings?tab=membership' : '/', request })
+  return c.json({ ok: true, home: request || join_error ? '/settings?tab=membership' : '/', request, join_error })
 })
 
 authRoutes.post('/logout', async (c) => {
