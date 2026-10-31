@@ -45,6 +45,20 @@ export interface DiskStatus {
   warn: boolean
 }
 
+/** Self-hosted operations exposed to the developer console (ROADMAP phase 13). Node entry only; absent on Cloudflare. */
+export interface SystemOps {
+  listBackups(): { name: string; size: number; mtime: string; kind: 'db' | 'files' }[]
+  backupDb(): { file: string; offsite: string | null }
+  backupFiles(): { file: string; offsite: string | null }
+  restoreTest(): unknown
+  /** Bytes of one backup file (name must come from listBackups; never a path). */
+  readBackup(name: string): Uint8Array | null
+  vacuum(): void
+  analyze(): void
+  dbFileBytes(): number | null
+  version: { app: string; commit: string | null; node: string; started_at: string }
+}
+
 export interface Deps {
   db: Db
   storage: Storage
@@ -56,6 +70,10 @@ export interface Deps {
   pdf?: PdfRenderer
   /** Optional disk space probe (Node entry only, via fs.statfsSync). */
   disk?: () => DiskStatus | null
+  /** Optional backup/maintenance operations for the /system console (Node entry only). */
+  ops?: SystemOps
+  /** Optional IP allowlist for /api/system/* (env SYSTEM_IP_ALLOWLIST, comma-separated). Empty = no restriction. */
+  systemIpAllowlist?: string[]
 }
 
 export type AppEnv = {
