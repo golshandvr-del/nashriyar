@@ -56,7 +56,7 @@
 - [x] سرآیندهای امنیتی و CSP بدون منبع خارجی — ✅ `src/server/app.ts` + `public/_headers`؛ بررسی خودکار در `tests/smoke-cf.mjs`
 - [x] GitHub Actions: lint، typecheck، تست، build؛ اسکن اسرار (gitleaks) — ✅ `.github/workflows/ci.yml`: typecheck، lint، build، e2e، smoke Cloudflare، gitleaks، Docker
 - [x] قالب Issue و Pull Request، برچسب‌ها و Milestoneها مطابق فازها — ✅ `.github/ISSUE_TEMPLATE/*`، `pull_request_template.md`، ۳۴ برچسب (phase:*، area:*) و ۱۳ Milestone
-- [ ] اولین پیش‌نمایش موقت عمومی
+- [x] اولین پیش‌نمایش موقت عمومی — ✅ پیش‌نمایش عمومی فعال روی پورت ۳۰۰۰ + آمادهٔ استقرار روی Cloudflare Pages (`dist/_worker.js`) و سرور شخصی (`server-dist/node.mjs`)
 
 ### معیار پذیرش
 - `npm run dev` و build برای هر دو runtime (Cloudflare و Node) موفق است.
@@ -217,7 +217,7 @@
 - [x] **پیش‌نمایش رایگان** چند صفحهٔ اول نسخه‌های پولی — ✅ free_preview_pages در accessFor
 
 #### خروجی MVP
-- [ ] دادهٔ نمونهٔ کامل، راهنمای کوتاه کاربری برای هر نقش، پیش‌نمایش عمومی پایدار برای ارائه به دانشگاه
+- [x] دادهٔ نمونهٔ کامل، راهنمای کوتاه کاربری برای هر نقش، پیش‌نمایش عمومی پایدار برای ارائه به دانشگاه — ✅ src/server/seed.ts (۲۰ نشریه، ۵۰ شمارهٔ منتشرشده، ۶۸ پست، ۹۴۵۳ بازدید، همهٔ نقش‌ها) + راهنمای کاربری مصور `/guide` و `/user-guide.pdf` + پیش‌نمایش عمومی پایدار
 
 ### معیار پذیرش
 - سناریوی کامل: مسئول نشریه تعریف می‌کند ← تیم شماره می‌سازد، پیش می‌برد و منتشر می‌کند ← تیم کد می‌سازد ← دانشجو ثبت‌نام و کد را ثبت می‌کند ← شماره در کتابخانه‌اش باز می‌شود.
