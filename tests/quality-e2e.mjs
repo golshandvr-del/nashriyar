@@ -176,7 +176,7 @@ await step('E2E Faculty Supervisor & Analyst: scoped overview, insights, natural
   assert.equal((await sup('/api/analytics/insights')).status, 200)
 
   const an = await login('analyst', 'analyst1234')
-  const ask = await an('/api/analytics/ask', { json: { question: 'بهترین نشریات امسال کدام‌اند؟' } })
+  const ask = await an('/api/analytics/ai/ask', { json: { question: 'بهترین نشریات امسال کدام‌اند؟' } })
   assert.equal(ask.status, 200)
   assert.equal(ask.data.route.report, 'ranking')
 })
