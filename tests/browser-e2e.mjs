@@ -126,11 +126,26 @@ for (const width of WIDTHS) {
             if (ix > 4 && iy > 4) overlaps.push(`${an} ↔ ${bn}`)
           }
         const blank = (document.querySelector('main')?.innerText || document.body.innerText).trim().length < 5
-        return { overflow, overlaps: overlaps.slice(0, 3), blank }
+        // Name the widest element sticking out of the viewport (inside a non-scrolling ancestor) to make overflow fixable.
+        let culprit = ''
+        if (overflow > 2) {
+          for (const el of document.querySelectorAll('main *')) {
+            const r = el.getBoundingClientRect()
+            if (!r.width || (r.right <= window.innerWidth + 1 && r.left >= -1)) continue
+            let p = el.parentElement, clipped = false
+            while (p && p !== document.body) {
+              const ox = getComputedStyle(p).overflowX
+              if (ox === 'auto' || ox === 'scroll' || ox === 'hidden' || ox === 'clip') { clipped = true; break }
+              p = p.parentElement
+            }
+            if (!clipped) { culprit = `${el.tagName.toLowerCase()}.${String(el.className?.baseVal ?? el.className ?? '').slice(0, 60)} w=${Math.round(r.width)}`; break }
+          }
+        }
+        return { overflow, overlaps: overlaps.slice(0, 3), blank, culprit }
       })
       const problems = []
       if (errors.length) problems.push('console: ' + errors[0])
-      if (res.overflow > 2) problems.push(`horizontal overflow ${res.overflow}px`)
+      if (res.overflow > 2) problems.push(`horizontal overflow ${res.overflow}px${res.culprit ? ' (' + res.culprit + ')' : ''}`)
       if (res.overlaps.length) problems.push('overlap: ' + res.overlaps.join(', '))
       if (res.blank) problems.push('blank page')
       if (problems.length) fail(`${path} — ${problems.join(' | ')}`)
