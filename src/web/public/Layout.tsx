@@ -73,6 +73,7 @@ export default function PublicLayout() {
 
   return (
     <div className="min-h-dvh">
+      <a href="#main" className="skip-link">پرش به محتوای اصلی</a>
       {!hideChrome && (
         <header className="sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4">
