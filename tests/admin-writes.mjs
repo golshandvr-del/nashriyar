@@ -174,6 +174,45 @@ const s2 = await call(sa, 'GET', '/api/admin/settings')
 ok(!('ai_api_key' in s2.settings) && !('max_sessions' in s2.settings), 'technical keys posted to admin settings are ignored')
 await call(sa, 'POST', '/api/admin/settings', { site_name: s0.settings.site_name })
 
+// ───── phase 14: publications festival (call → entries → judging → results) ─────
+{
+  const tmc = await login('pub1-director', 'team1234')
+  const tmMe = await call(tmc, 'GET', '/api/auth/me')
+  const pubId = tmMe.publications[0].publication_id
+  const ofMe = await call(of, 'GET', '/api/auth/me')
+  await call(tmc, 'POST', '/api/festivals', { title: 'x' }, 403)
+  await call(of, 'POST', '/api/festivals', { title: 'x', criteria: [{ label: 'a', max: 0 }] }, 400)
+  const fe = await call(of, 'POST', '/api/festivals', { title: 'جشنوارهٔ آزمایشی', submit_until: '2099-12-30', criteria: [{ key: 'content', label: 'محتوا', max: 10 }, { key: 'design', label: 'طراحی', max: 5 }] })
+  const tv0 = await call(tmc, 'GET', `/api/festivals/team/${pubId}`)
+  ok(!tv0.festivals.some((x) => x.id === fe.id), 'draft festival hidden from teams')
+  await call(of, 'PATCH', `/api/festivals/${fe.id}`, { status: 'judging' }, 400) // must go in order
+  await call(of, 'PATCH', `/api/festivals/${fe.id}`, { status: 'open' })
+  const tv = await call(tmc, 'GET', `/api/festivals/team/${pubId}`)
+  ok(tv.festivals.find((x) => x.id === fe.id)?.accepting === true, 'open festival accepts entries')
+  ok(tv.issues.length > 0, 'team sees its published issues')
+  const en = await call(tmc, 'POST', `/api/festivals/${fe.id}/entries`, { publication_id: pubId, issue_id: tv.issues[0].id, note: 'اثر آزمایشی' })
+  await call(tmc, 'POST', `/api/festivals/${fe.id}/entries`, { publication_id: pubId, issue_id: tv.issues[0].id }, 400) // duplicate
+  await call(of, 'PATCH', `/api/festivals/${fe.id}`, { status: 'judging' }, 400) // no judges yet
+  await call(of, 'PUT', `/api/festivals/${fe.id}/judges`, { user_ids: [ofMe.user.id] })
+  await call(of, 'PATCH', `/api/festivals/${fe.id}`, { status: 'judging' })
+  await call(tmc, 'DELETE', `/api/festivals/${fe.id}/entries/${en.id}`, undefined, 400) // locked after the call closes
+  await call(tmc, 'PUT', `/api/festivals/${fe.id}/entries/${en.id}/score`, { scores: { content: 5, design: 5 } }, 403) // not a judge
+  await call(of, 'PUT', `/api/festivals/${fe.id}/entries/${en.id}/score`, { scores: { content: 11, design: 5 } }, 400) // over max
+  const sc = await call(of, 'PUT', `/api/festivals/${fe.id}/entries/${en.id}/score`, { scores: { content: 8.5, design: 4 }, comment: 'خوب' })
+  ok(sc.total === 12.5, 'judge total computed from criteria')
+  const mine = await call(of, 'GET', '/api/festivals/judging/mine')
+  ok(mine.festivals.find((x) => x.id === fe.id)?.entries[0]?.total === 12.5, 'judge sees own score')
+  const pubBefore = await call(client(), 'GET', '/api/festivals/public/results')
+  ok(!pubBefore.festivals.some((x) => x.id === fe.id), 'results hidden before announcement')
+  await call(of, 'PATCH', `/api/festivals/${fe.id}`, { status: 'announced' })
+  await call(of, 'PATCH', `/api/festivals/${fe.id}`, { status: 'open' }, 400) // no going back
+  const pubAfter = await call(client(), 'GET', '/api/festivals/public/results')
+  ok(pubAfter.festivals.find((x) => x.id === fe.id)?.results[0]?.rank === 1, 'announced results are public and ranked')
+  const det = await call(of, 'GET', `/api/festivals/${fe.id}`)
+  ok(det.entries[0]?.avg_total === 12.5 && det.judges[0]?.scored === 1, 'admin detail shows ranking and judge progress')
+  await call(of, 'DELETE', `/api/festivals/${fe.id}`, undefined, 400) // only drafts can be deleted
+}
+
 // ───── audit trail ─────
 const audit = await call(of, 'GET', '/api/admin/audit')
 for (const a of ['publication.create', 'user.create', 'post.visibility', 'shelf.save', 'settings.update', 'category.merge']) ok(audit.items.some((x) => x.action === a), `audit has ${a}`)
