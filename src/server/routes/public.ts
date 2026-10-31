@@ -435,6 +435,8 @@ publicRoutes.get('/settings', async (c) => {
     registration_open: await getSetting(db, 'registration_open', true),
     registration_mode: await getSetting(db, 'registration_mode', 'open'),
     ai_enabled: await getSetting(db, 'ai_enabled', false),
+    // true only on databases created by `--seed` (demo/preview); the login page then lists demo accounts
+    demo_mode: (await getSetting(db, 'demo_mode', false)) === true,
     features: await getFeatures(db)
   })
 })
