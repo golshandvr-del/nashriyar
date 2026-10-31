@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 import { api } from './api'
 import { applyTheme } from './theme'
+import { PUB_ROLE_LABEL as SHARED_PUB_ROLE_LABEL } from '../../shared/roles'
+import type { PubRoleKey } from '../../shared/roles'
 
 export type SystemRole = 'super_admin' | 'pub_officer' | 'faculty_supervisor' | 'analyst' | 'team' | 'student'
 
@@ -19,7 +21,7 @@ export interface User {
 
 export interface PubRole {
   publication_id: string
-  role: 'director' | 'editor' | 'holder'
+  role: PubRoleKey
   title: string
   slug: string
   status: string
@@ -45,7 +47,8 @@ export const ROLE_LABEL: Record<SystemRole, string> = {
   team: 'تیم نشریه',
   student: 'دانشجو'
 }
-export const PUB_ROLE_LABEL: Record<string, string> = { director: 'مدیرمسئول', editor: 'سردبیر', holder: 'صاحب امتیاز' }
+/** Re-exported from shared/roles.ts (keys match the API: managing_director / editor_in_chief / license_holder). */
+export const PUB_ROLE_LABEL: Record<string, string> = SHARED_PUB_ROLE_LABEL
 
 export const isAdmin = (u: User | null) => !!u && (u.system_role === 'super_admin' || u.system_role === 'pub_officer')
 export const isMonitor = (u: User | null) => !!u && ['super_admin', 'pub_officer', 'faculty_supervisor', 'analyst'].includes(u.system_role)
