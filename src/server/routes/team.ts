@@ -203,15 +203,18 @@ teamRoutes.get('/:pubId/members/:id', async (c) => {
 // ───────── Issues ─────────
 teamRoutes.get('/:pubId/issues', async (c) => {
   const { pub: p } = await pub(c)
-  const rows = await c.get('db').all(
+  // ROADMAP phase 17: keyset pagination by issue number (?cursor, ?limit ≤ 500)
+  const pg = cursorPage(c, { col: 'i.number', idCol: 'i.id', def: 300, max: 500 })
+  const rows = await c.get('db').all<any>(
     `SELECT i.id, i.number, i.title, i.status, i.pricing, i.planned_publish_at, i.published_at, i.page_count, i.cover_key, i.updated_at,
        (SELECT COUNT(*) FROM issue_toc_items t WHERE t.issue_id = i.id) AS toc_total,
        (SELECT COUNT(*) FROM issue_toc_items t WHERE t.issue_id = i.id AND t.status = 'done') AS toc_done
-     FROM issues i WHERE i.publication_id = ? AND i.deleted_at IS NULL ORDER BY i.number DESC`,
-    [p.id]
+     FROM issues i WHERE i.publication_id = ? AND i.deleted_at IS NULL${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    [p.id, ...pg.params]
   )
+  const { rows: issues, next_cursor } = pg.finish(rows, (r) => [r.number, r.id])
   const next = await c.get('db').first<{ n: number }>('SELECT COALESCE(MAX(number), 0) + 1 AS n FROM issues WHERE publication_id = ?', [p.id])
-  return c.json({ issues: rows, next_number: next?.n ?? 1 })
+  return c.json({ issues, next_number: next?.n ?? 1, next_cursor })
 })
 
 teamRoutes.get('/:pubId/keywords', async (c) => {
