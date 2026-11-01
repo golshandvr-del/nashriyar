@@ -5,7 +5,10 @@ import type { AppEnv } from '../../context'
 import { ADMIN_ROLES } from '../../context'
 import { requireRole } from '../../auth'
 import { newId } from '../../lib/crypto'
-import { activity, audit, bad, body, cursorPage, getSetting, inList, notFound, notify, nowIso, oneOf, str } from '../../lib/util'
+import { activity, audit, bad, body, cursorPage, getSetting, inList, notFound, notify, nowIso, oneOf, str, type PageOverride } from '../../lib/util'
+import { streamExport } from '../../lib/export'
+import { PEOPLE_COLUMNS } from '../../../shared/columns'
+import type { Context } from 'hono'
 import { normalizeFa } from '../../../shared/fa'
 import { admin, monitor, scope } from './service'
 
@@ -117,8 +120,8 @@ approvalsRoutes.get('/issues/:issueId', async (c) => {
 })
 
 /** Person dossier: activity of one team member across all publications (matched by student number or exact name). */
-approvalsRoutes.get('/people', async (c) => {
-  monitor(c)
+/** The people query (screen and export share it; `page` lets the export walk every keyset page). */
+async function listPeople(c: Context<AppEnv>, page?: PageOverride) {
   const q = normalizeFa(c.req.query('q') || '')
   const s = scope(c)
   const params: unknown[] = [...s.params]
@@ -126,7 +129,7 @@ approvalsRoutes.get('/people', async (c) => {
   if (q) (w = ' AND (tm.full_name LIKE ? OR tm.student_number LIKE ?)'), params.push(`%${q}%`, `%${q}%`)
   // ROADMAP phase 17: keyset pagination over the grouped rows. Order stays «most issues, then most sections»; the
   // zero-padded inverted counts + person_key form one ascending, unique sort key filtered in HAVING.
-  const pg = cursorPage(c, { col: 'sort_key', idCol: 'person_key', dir: 'ASC', def: 200, max: 300 })
+  const pg = cursorPage(c, { col: 'sort_key', idCol: 'person_key', dir: 'ASC', def: 200, max: 300, page })
   const rows = await c.get('db').all<any>(
     `SELECT COALESCE(NULLIF(tm.student_number, ''), tm.full_name) AS person_key, tm.full_name, tm.student_number, COUNT(DISTINCT tm.publication_id) AS publication_count,
        GROUP_CONCAT(DISTINCT p.title) AS publications,
@@ -139,8 +142,19 @@ approvalsRoutes.get('/people', async (c) => {
     [...params, ...pg.params]
   )
   const sk = (r: any) => `${String(99999999 - r.issue_count).padStart(8, '0')}${String(99999999 - r.section_count).padStart(8, '0')}${r.person_key}`
-  const { rows: people, next_cursor } = pg.finish(rows, (r) => [sk(r), r.person_key])
+  return pg.finish(rows, (r) => [sk(r), r.person_key])
+}
+
+approvalsRoutes.get('/people', async (c) => {
+  monitor(c)
+  const { rows: people, next_cursor } = await listPeople(c)
   return c.json({ people, next_cursor })
+})
+
+/** Streaming XLSX/CSV of the person dossiers (ROADMAP phase 18). */
+approvalsRoutes.get('/people/export', async (c) => {
+  monitor(c)
+  return streamExport(c, { name: 'people', title: 'پروندهٔ افراد', columns: PEOPLE_COLUMNS, fetchPage: (cursor) => listPeople(c, { cursor, limit: 300 }) })
 })
 
 approvalsRoutes.get('/people/:key', async (c) => {
