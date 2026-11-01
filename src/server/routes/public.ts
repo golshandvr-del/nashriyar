@@ -206,7 +206,7 @@ publicRoutes.get('/issues/:id', async (c) => {
   const db = c.get('db')
   const i = await db.first<any>(
     `SELECT i.id, i.number, i.title, i.summary, i.keywords, i.cover_key, i.pricing, i.price_digital, i.price_print, i.print_run,
-       i.free_preview_pages, i.published_at, i.page_count, p.id AS publication_id, p.slug AS publication_slug, p.title AS publication_title,
+       i.free_preview_pages, i.published_at, i.page_count, i.archival, i.original_date, i.original_label, p.id AS publication_id, p.slug AS publication_slug, p.title AS publication_title,
        p.theme_color, p.logo_key, p.contacts_json, a.name AS association_name
      FROM issues i JOIN publications p ON p.id = i.publication_id JOIN associations a ON a.id = p.association_id
      WHERE i.id = ? AND ${PUBLISHED}`,
