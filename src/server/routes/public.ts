@@ -206,7 +206,11 @@ publicRoutes.get('/issues/:id', async (c) => {
     [c.req.param('id')]
   )
   if (!i) throw notFound('شماره یافت نشد')
-  const toc = await db.all<any>('SELECT id, parent_id, title, kind, page_start, page_end, sort_order FROM issue_toc_items WHERE issue_id = ? ORDER BY sort_order', [i.id])
+  // ROADMAP phase 19: `pid` = permanent article id (landing page /a/<pid>)
+  const toc = await db.all<any>(
+    'SELECT t.id, t.parent_id, t.title, t.kind, t.page_start, t.page_end, t.sort_order, a.pid FROM issue_toc_items t LEFT JOIN article_index a ON a.toc_item_id = t.id WHERE t.issue_id = ? ORDER BY t.sort_order',
+    [i.id]
+  )
   const assigns = await db.all<any>(
     `SELECT ta.toc_item_id, ta.role, tm.full_name FROM toc_assignments ta JOIN team_members tm ON tm.id = ta.team_member_id
      JOIN issue_toc_items t ON t.id = ta.toc_item_id WHERE t.issue_id = ?`,
