@@ -54,7 +54,7 @@ export default function AdminLive() {
       <Async state={st}>
         {(d: any) => (
           <div className="grid gap-4 lg:grid-cols-3">
-            <div className="space-y-3 lg:col-span-2">
+            <div className="min-w-0 space-y-3 lg:col-span-2">
               <h2 className="font-bold">در حال تولید ({toFaDigits(d.inProduction.length)})</h2>
               {!d.inProduction.length ? (
                 <Empty title="شماره‌ای در حال تولید نیست" />
