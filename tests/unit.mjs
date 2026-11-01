@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'\nexport { writeDomains } from './src/server/lib/rollup'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -162,5 +162,18 @@ t('migrations are additive, numbered and all registered', () => {
       if (/NOT\s+NULL/i.test(m[1])) assert.match(m[1], /DEFAULT/i, `${f}: NOT NULL without DEFAULT: ${m[1].trim()}`)
     }
   })
+})
+// ROADMAP phase 17: targeted analytics-cache invalidation — write → data-domain mapping
+t('writeDomains: reads and tracking never invalidate; writes map to their domains', () => {
+  assert.deepEqual(m.writeDomains('GET', '/api/team/p1/codes'), [])
+  assert.deepEqual(m.writeDomains('POST', '/api/public/track'), [])
+  assert.deepEqual(m.writeDomains('POST', '/api/auth/login'), [])
+  assert.deepEqual(m.writeDomains('POST', '/api/team/p1/physical-sales'), ['sales'])
+  assert.deepEqual(m.writeDomains('POST', '/api/v1/team/p1/codes'), ['sales'])
+  assert.deepEqual(m.writeDomains('POST', '/api/me/codes/redeem'), ['sales'])
+  assert.deepEqual(m.writeDomains('POST', '/api/me/follows/p1'), ['social'])
+  assert.deepEqual(m.writeDomains('PUT', '/api/team/p1/issues/i1'), ['content'])
+  assert.ok(m.writeDomains('POST', '/api/admin/settings').includes('settings'))
+  assert.ok(m.writeDomains('POST', '/api/admin/something-new').length >= 5, 'unknown writes bump everything')
 })
 console.log(`unit: ${n} passed`)
