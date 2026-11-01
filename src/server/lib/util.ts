@@ -124,13 +124,18 @@ export function dateRange(c: Context, defDays = 365) {
  *   const rows = await db.all(`SELECT ... WHERE x = ?${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`, [x, ...pg.params])
  *   return c.json({ items: ..., ...pg.finish(rows, (r) => [r.created_at, r.id]) })   // → { items, next_cursor }
  * Without ?cursor the first page is returned, so existing clients keep working. ?limit is clamped to [1, max].
+ * `page` overrides ?cursor/?limit so a server-side export (ROADMAP phase 18) can walk every page of the same query.
  */
-export function cursorPage(c: Context, opts: { col: string; idCol: string; dir?: 'ASC' | 'DESC'; def?: number; max?: number; nullable?: boolean }) {
+export interface PageOverride {
+  cursor?: string | null
+  limit?: number
+}
+export function cursorPage(c: Context, opts: { col: string; idCol: string; dir?: 'ASC' | 'DESC'; def?: number; max?: number; nullable?: boolean; page?: PageOverride }) {
   const dir = opts.dir || 'DESC'
   const max = opts.max ?? 200
-  const n = Number(c.req.query('limit'))
+  const n = Number(opts.page ? opts.page.limit : c.req.query('limit'))
   const limit = Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), max) : (opts.def ?? Math.min(100, max))
-  const raw = c.req.query('cursor') || ''
+  const raw = (opts.page ? opts.page.cursor : c.req.query('cursor')) || ''
   let after: [unknown, unknown] | null = null
   if (raw) {
     try {
