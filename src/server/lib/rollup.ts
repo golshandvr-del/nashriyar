@@ -73,12 +73,19 @@ export async function cacheGens(db: Db): Promise<Record<CacheDomain, number>> {
   return out
 }
 
-/** Bump the generation of the given domains (atomic per statement; concurrent bumps only ever increase). */
+/**
+ * Bump the generation of the given domains in ONE statement (json_set on the stored object), so concurrent writers
+ * never lose an increment. Domain names come from the fixed CACHE_DOMAINS list, never from input.
+ */
 export async function bumpCache(db: Db, domains: readonly CacheDomain[]) {
-  if (!domains.length) return
-  const g = await cacheGens(db)
-  for (const d of new Set(domains)) g[d] = (g[d] || 0) + 1
-  await setSetting(db, GEN_KEY, g)
+  const ds = [...new Set(domains)].filter((d) => (CACHE_DOMAINS as readonly string[]).includes(d))
+  if (!ds.length) return
+  const sets = ds.map((d) => `'$.${d}', COALESCE(json_extract(value, '$.${d}'), 0) + 1`).join(', ')
+  await db.run(
+    `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = json_set(value, ${sets}), updated_at = excluded.updated_at`,
+    [GEN_KEY, JSON.stringify(Object.fromEntries(ds.map((d) => [d, 1]))), nowIso()]
+  )
 }
 
 /** Which domains a successful API write touches. Unknown writes conservatively bump everything. */
