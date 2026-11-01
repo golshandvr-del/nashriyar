@@ -9,15 +9,9 @@ export const nowIso = () => new Date(getClock().now()).toISOString()
 export const today = () => nowIso().slice(0, 10)
 export const addHours = (h: number, from = Date.now()) => new Date(from + h * 3600_000).toISOString()
 
-export class HttpError extends Error {
-  constructor(public status: number, message: string, public code?: string) {
-    super(message)
-  }
-}
-
-export const bad = (msg: string, code?: string) => new HttpError(400, msg, code)
-export const notFound = (msg = 'یافت نشد') => new HttpError(404, msg)
-export const forbidden = (msg = 'دسترسی ندارید') => new HttpError(403, msg)
+// HTTP errors live in lib/errors.ts (shared with the zod validation layer); re-exported for existing imports.
+import { bad } from './errors'
+export { HttpError, bad, notFound, forbidden } from './errors'
 
 /** Read JSON body safely. */
 export async function body<T = any>(c: Context): Promise<T> {
