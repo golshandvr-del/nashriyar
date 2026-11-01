@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { BookOpen, LayoutDashboard, LogOut, Monitor, Moon, Sun } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth, ROLE_LABEL, PUB_ROLE_LABEL, isMonitor } from '../lib/auth'
@@ -365,14 +365,29 @@ function DangerCard() {
 
 export default function Settings() {
   const { user, loading } = useAuth()
+  // ROADMAP phase 15: a team member with an incomplete profile is sent here on first sign-in (?complete=1)
+  const [sp] = useSearchParams()
+  const completing = sp.get('complete') === '1'
+  useEffect(() => {
+    if (!completing || !user) return
+    const t = setTimeout(() => document.getElementById('profile-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400)
+    return () => clearTimeout(t)
+  }, [completing, !!user])
   if (!loading && !user) return <Navigate to="/login?next=/settings" replace />
   if (!user) return null
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="text-xl font-extrabold">تنظیمات حساب</h1>
+      {completing && (
+        <div id="complete-profile-banner" role="status" className="rounded-2xl border border-brand bg-brand-soft p-3 text-sm leading-7">
+          به تیم نشریه خوش آمدید! پیش از ورود به «میز کار عضو»، لطفاً پروفایل خود را کامل کنید.
+          <Link to="/desk" className="mr-2 text-xs text-brand underline">بعداً، برو به میز کار</Link>
+        </div>
+      )}
       {!!user.must_change_password && <PasswordCard />}
+      {completing && <ProfileForm />}
       <PanelsCard />
-      <ProfileForm />
+      {!completing && <ProfileForm />}
       <MembershipCard />
       <ThemeCard />
       {!user.must_change_password && <PasswordCard />}
