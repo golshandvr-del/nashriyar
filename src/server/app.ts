@@ -187,6 +187,6 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
   app.route('/api/membership', membershipRoutes)
  app.route('/api/desk', deskRoutes)
 
-  app.all('/api/*', (c) => c.json({ error: 'مسیر یافت نشد' }, 404))
+  app.all('/api/*', (c) => c.json({ error: 'مسیر یافت نشد', code: 'not_found', request_id: c.get('requestId') }, 404))
   return app
 }
