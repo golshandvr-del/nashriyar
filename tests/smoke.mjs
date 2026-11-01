@@ -141,5 +141,19 @@ await expect(sup, '/api/analytics/summary', 200, 'supervisor')
 const an = await login('analyst', 'analyst1234')
 await expect(an, '/api/analytics/ranking', 200, 'analyst')
 
+// ───── ROADMAP phase 17: request id on every response and in every error body ─────
+{
+  const h = await fetch(BASE + '/api/health')
+  ok(/^[\w.:-]{8,64}$/.test(h.headers.get('x-request-id') || ''), 'X-Request-Id header on /api/health')
+  const e401 = await fetch(BASE + '/api/admin/users')
+  const b401 = await e401.json()
+  ok(e401.status === 401 && b401.request_id && b401.request_id === e401.headers.get('x-request-id'), `401 body request_id matches header ${JSON.stringify(b401)}`)
+  const e404 = await fetch(BASE + '/api/__nope__', { headers: { 'X-Request-Id': 'smoke-req-0001' } })
+  const b404 = await e404.json()
+  ok(e404.status === 404 && b404.request_id === 'smoke-req-0001' && b404.code === 'not_found', `404 keeps a sane incoming X-Request-Id ${JSON.stringify(b404)}`)
+  const bad = await fetch(BASE + '/api/health', { headers: { 'X-Request-Id': 'bad id <script>' } })
+  ok(bad.headers.get('x-request-id') !== 'bad id <script>', 'an unsafe incoming X-Request-Id is replaced')
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nALL SMOKE CHECKS PASSED')
 process.exit(failures ? 1 : 0)
