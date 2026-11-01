@@ -164,10 +164,8 @@ ok(/<f>SUBTOTAL\(109,[A-Z]+\d+:[A-Z]+\d+\)<\/f>/.test(pubs.sheet || ''), 'public
 }
 
 // ── team lists (scoped to one publication) ──
-const mine = (await team('/api/team/mine').catch(() => null))?.json
-const pubId = mine?.publications?.[0]?.id || mine?.[0]?.id || (pubs.rows.find((p) => /پرسش/.test(p.title)) || pubs.rows[0])?.id
-const teamPubs = (await team('/api/me')).json
-const tp = (teamPubs?.memberships || teamPubs?.publications || [])[0]?.publication_id || (teamPubs?.memberships || teamPubs?.publications || [])[0]?.id || pubId
+const tp = (await team('/api/team/my')).json?.publications?.[0]?.publication_id
+ok(!!tp, 'team account has a publication')
 for (const [label, list, key, exp] of [
   ['members', `/api/team/${tp}/members`, 'members', `/api/team/${tp}/members/export`],
   ['issues', `/api/team/${tp}/issues`, 'issues', `/api/team/${tp}/issues/export`],
