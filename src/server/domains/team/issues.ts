@@ -453,3 +453,38 @@ issuesRoutes.post('/:pubId/issues/:issueId/withdraw-approval', async (c) => {
   await activity(db, user.id, 'issue.approval_withdrawn', p.id, i.id)
   return c.json({ ok: true })
 })
+
+// ── Article index metadata (ROADMAP phase 19) ──
+// The team (write access) completes abstract / keywords / DOI / language for the sections of a published issue.
+// The PID itself is assigned by the server and can never be edited.
+issuesRoutes.get('/:pubId/issues/:issueId/articles', async (c) => {
+  const { pub: p } = await pub(c)
+  const i = await issueOf(c, p.id, c.req.param('issueId'))
+  const rows = await c.get('db').all(
+    `SELECT a.pid, a.doi, a.abstract, a.keywords, a.lang, a.toc_item_id, t.title, t.kind, t.page_start, t.page_end
+     FROM article_index a JOIN issue_toc_items t ON t.id = a.toc_item_id WHERE a.issue_id = ? ORDER BY t.sort_order`,
+    [i.id]
+  )
+  return c.json({ articles: rows })
+})
+
+issuesRoutes.put('/:pubId/issues/:issueId/articles/:pid', async (c) => {
+  const { pub: p, user } = await pub(c, true)
+  const i = await issueOf(c, p.id, c.req.param('issueId'))
+  const db = c.get('db')
+  const a = await db.first<any>('SELECT * FROM article_index WHERE pid = ? AND issue_id = ?', [c.req.param('pid'), i.id])
+  if (!a) throw notFound('مقاله یافت نشد')
+  const b = await body<any>(c)
+  const abstract = b.abstract !== undefined ? str(b.abstract, 'چکیده', { max: 5000, optional: true }) || null : a.abstract
+  const keywords = b.keywords !== undefined ? keywordsCsv(b.keywords) || null : a.keywords
+  const lang = b.lang !== undefined ? oneOf(b.lang, ['fa', 'en', 'ar'] as const, 'زبان', 'fa') : a.lang
+  let doi = a.doi
+  if (b.doi !== undefined) {
+    doi = String(b.doi || '').trim().replace(/^https?:\/\/(dx\.)?doi\.org\//i, '') || null
+    if (doi && !/^10\.\d{4,9}\/[^\s"<>]+$/.test(doi)) throw bad('قالب DOI نامعتبر است (نمونه: 10.1234/abc.2026.1)')
+    if (doi && (await db.first('SELECT 1 FROM article_index WHERE doi = ? AND pid <> ?', [doi, a.pid]))) throw bad('این DOI برای مقالهٔ دیگری ثبت شده است')
+  }
+  await db.run('UPDATE article_index SET abstract = ?, keywords = ?, lang = ?, doi = ?, updated_at = ? WHERE pid = ?', [abstract, keywords, lang, doi, nowIso(), a.pid])
+  await audit(db, user.id, 'article.update', 'article', a.pid, { doi: a.doi, keywords: a.keywords }, { doi, keywords })
+  return c.json({ ok: true })
+})
