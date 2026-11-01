@@ -38,5 +38,25 @@ for (const [name, sel] of [['light', ':root'], ['dark', '.dark']]) {
   console.log(`${name}: ${rows.length ? 'problems' : 'all tokens ≥ 4.5:1'}`)
   rows.forEach((r) => console.log(r))
 }
+// ROADMAP phase 16: white banner text (.bg-banner) must stay AA on both gradient stops, in every theme
+{
+  const m = /\.bg-banner\s*\{([^}]*)\}/.exec(css)
+  if (!m) (failures++, console.log('  ✗ .bg-banner block not found'))
+  else
+    for (const stop of ['banner-from', 'banner-to']) {
+      const hex = new RegExp(`--${stop}:\\s*(#[0-9a-fA-F]{6})`).exec(m[1])?.[1]
+      const r = hex ? ratio('#ffffff', hex) : 0
+      if (r < 4.5) (failures++, console.log(`  ✗ white on --${stop}: ${r.toFixed(2)}:1`))
+    }
+  console.log('banner: white text checked on both stops')
+}
+// performance budget: every inline SVG motif (girih, eslimi, shamseh, arch, corners) stays under 10KB, and there
+// are no raster images in the stylesheet
+{
+  const svgs = [...css.matchAll(/url\("data:image\/svg\+xml,[^"]*"\)/g)].map((x) => x[0])
+  for (const s of svgs) if (s.length > 10 * 1024) (failures++, console.log(`  ✗ SVG motif ${s.length}B > 10KB`))
+  if (/data:image\/(png|jpe?g|webp|gif)/.test(css)) (failures++, console.log('  ✗ raster image inlined in styles.css'))
+  console.log(`motifs: ${svgs.length} inline SVGs, largest ${Math.max(0, ...svgs.map((s) => s.length))}B (budget 10KB)`)
+}
 console.log(failures ? `\n✗ contrast: ${failures} failure(s)` : '\n✓ contrast: WCAG AA in both themes')
 process.exit(failures ? 1 : 0)
