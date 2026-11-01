@@ -7,6 +7,7 @@ import { createMembershipRequest } from './membership'
 import { activeMemberships, getMemberDesk, linkMemberRecords } from '../lib/memberDesk'
 import { PROFILE_COLS, profileComplete } from './me'
 import { toEnDigits } from '../../shared/fa'
+import { parseBody, v } from '../lib/validate'
 import { generateTotpSecret, otpauthUri, verifyTotp } from '../lib/totp'
 
 export const authRoutes = new Hono<AppEnv>()
@@ -34,10 +35,13 @@ async function homeForUser(db: any, id: string, role: string): Promise<{ home: s
   return { home: desk ? '/desk' : '/', desk }
 }
 
+// Unified zod schema (ROADMAP phase 17): every field is checked at once; a 400 lists each failing field in `fields`.
+const LOGIN_SHAPE = { username: v.str('نام کاربری', { max: 64 }), password: v.str('رمز عبور', { max: 200 }), totp: v.str('کد شش‌رقمی', { max: 12, optional: true }) }
+
 authRoutes.post('/login', async (c) => {
-  const b = await body<{ username?: string; password?: string; totp?: string }>(c)
-  const username = toEnDigits(str(b.username, 'نام کاربری', { max: 64 })).toLowerCase()
-  const password = str(b.password, 'رمز عبور', { max: 200 })
+  const b = await parseBody(c, LOGIN_SHAPE)
+  const username = toEnDigits(b.username).toLowerCase()
+  const password = b.password
   const key = `login:${clientIp(c)}:${username}`
   await checkRateLimit(c, key)
   const db = c.get('db')
