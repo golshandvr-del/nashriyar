@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { Illustration, LANDMARKS } from './Illustration'
 import type { ButtonHTMLAttributes, DependencyList, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
-import { AlertTriangle, CheckCircle2, Eye, EyeOff, Info, Inbox, Loader2, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Eye, EyeOff, Info, Loader2, X } from 'lucide-react'
 import { cx } from '../lib/format'
 
 // ───────── Data loading hook ─────────
