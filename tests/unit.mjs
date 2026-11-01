@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds, academicYearOf, academicYearRange, academicYears } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'\nexport { writeDomains } from './src/server/lib/rollup'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds, academicYearOf, academicYearRange, academicYears } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'\nexport { writeDomains } from './src/server/lib/rollup'\nexport { str, int, oneOf } from './src/server/lib/util'\nexport { v, parseInput, faMsg } from './src/server/lib/validate'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -191,4 +191,36 @@ t('academic year: boundaries at 1 Mehr, ranges contiguous, list newest first', (
   assert.deepEqual(ys.map((y) => y.year), [1405, 1404, 1403, 1402, 1401])
   assert.equal(ys.filter((y) => y.current).length, 1)
 })
+// ROADMAP phase 17: unified zod validation — same Persian messages for field helpers and object schemas
+t('validation: str/int/oneOf via zod keep the Persian messages; parseInput reports every field', () => {
+  const err = (f) => { try { f(); return null } catch (e) { return e } }
+  assert.equal(m.str(' سلام ', 'نام'), 'سلام')
+  assert.equal(m.str(12345, 'شماره'), '12345')
+  assert.equal(m.str('', 'نام', { optional: true }), '')
+  assert.equal(err(() => m.str('', 'نام')).message, '«نام» الزامی است')
+  assert.equal(err(() => m.str('a', 'نام', { min: 2 })).message, '«نام» باید حداقل 2 نویسه باشد')
+  assert.equal(err(() => m.str('abcdef', 'نام', { max: 3 })).message, '«نام» بیش از حد طولانی است')
+  assert.equal(err(() => m.str('', 'نام')).status, 400)
+  assert.equal(err(() => m.str('', 'نام')).code, 'validation')
+  assert.equal(m.int('42', 'تعداد'), 42)
+  assert.equal(m.int('', 'تعداد', { optional: true }), null)
+  assert.equal(err(() => m.int('2.5', 'تعداد')).message, '«تعداد» باید عدد صحیح باشد')
+  assert.equal(err(() => m.int('abc', 'تعداد')).message, '«تعداد» باید عدد صحیح باشد')
+  assert.equal(err(() => m.int(null, 'تعداد')).message, '«تعداد» الزامی است')
+  assert.equal(err(() => m.int(0, 'تعداد', { min: 1 })).message, '«تعداد» نباید کمتر از 1 باشد')
+  assert.equal(err(() => m.int(9, 'تعداد', { max: 5 })).message, '«تعداد» نباید بیشتر از 5 باشد')
+  assert.equal(m.oneOf('b', ['a', 'b'], 'نوع'), 'b')
+  assert.equal(m.oneOf('', ['a', 'b'], 'نوع', 'a'), 'a')
+  assert.equal(err(() => m.oneOf('z', ['a', 'b'], 'نوع')).message, 'مقدار «نوع» نامعتبر است')
+  const shape = { title: m.v.str('عنوان', { max: 10 }), count: m.v.int('تعداد', { min: 1 }), kind: m.v.oneOf(['a', 'b'], 'نوع', 'a'), ok: m.v.bool('تأیید') }
+  assert.deepEqual(m.parseInput({ title: ' x ', count: '3', ok: 'on', extra: 1 }, shape), { title: 'x', count: 3, kind: 'a', ok: true })
+  const e = err(() => m.parseInput({ count: 0, kind: 'q' }, shape))
+  assert.equal(e.status, 400)
+  assert.equal(e.message, '«عنوان» الزامی است')
+  assert.deepEqual(e.details.fields, { title: '«عنوان» الزامی است', count: '«تعداد» نباید کمتر از 1 باشد', kind: 'مقدار «نوع» نامعتبر است' })
+  assert.equal(err(() => m.parseInput({ a: 5 }, { a: m.v.list(m.v.str('برچسب'), 'برچسب‌ها', 3) })).details.fields.a, 'مقدار «برچسب‌ها» نامعتبر است')
+  assert.equal(err(() => m.parseInput({ a: ['1', '2', '3', '4'] }, { a: m.v.list(m.v.str('برچسب'), 'برچسب‌ها', 3) })).message, '«برچسب‌ها» حداکثر 3 مورد می‌پذیرد')
+  assert.equal(m.v.str('عنوان'), m.v.str('عنوان'), 'field schemas are memoised')
+})
+
 console.log(`unit: ${n} passed`)
