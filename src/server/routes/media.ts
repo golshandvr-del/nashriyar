@@ -297,7 +297,9 @@ mediaRoutes.get('/k/*', async (c) => {
       pubId = i.publication_id
       publicOk = i.status === 'published'
     } else {
-      const po = await db.first<any>('SELECT publication_id, status FROM posts WHERE images_json LIKE ?', [`%${key}%`])
+      // keys are `pub/<publicationId>/...`: narrow to that publication so idx_posts_pub serves it (phase 17 query plan)
+      const keyPub = /^pub\/([^/]+)\//.exec(key)?.[1]
+      const po = keyPub ? await db.first<any>('SELECT publication_id, status FROM posts WHERE publication_id = ? AND images_json LIKE ?', [keyPub, `%${key}%`]) : null
       if (!po) throw notFound('فایل یافت نشد')
       pubId = po.publication_id
       publicOk = po.status === 'published'
