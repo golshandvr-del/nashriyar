@@ -56,3 +56,49 @@ export async function cachePut(db: Db, key: string, value: string, ttlSec = 300)
 export async function cacheClear(db: Db) {
   await db.run('DELETE FROM analytics_cache')
 }
+
+// ───────── Targeted invalidation (ROADMAP phase 17) ─────────
+// Each analytics report depends on a few data domains. Every domain has a generation counter (settings
+// `analytics_cache_gen`); the cache key of a report embeds the generations of its domains, so a write that bumps
+// one domain makes exactly the dependent reports miss — other cached reports stay warm. No DELETE storm, no stale
+// numbers after a write. `views` is bumped by the (nightly) rollup only: raw view tracking never invalidates.
+export const CACHE_DOMAINS = ['content', 'sales', 'social', 'people', 'settings', 'views'] as const
+export type CacheDomain = (typeof CACHE_DOMAINS)[number]
+const GEN_KEY = 'analytics_cache_gen'
+
+export async function cacheGens(db: Db): Promise<Record<CacheDomain, number>> {
+  const g = await getSetting<Partial<Record<CacheDomain, number>>>(db, GEN_KEY, {})
+  const out = {} as Record<CacheDomain, number>
+  for (const d of CACHE_DOMAINS) out[d] = Number(g?.[d]) || 0
+  return out
+}
+
+/** Bump the generation of the given domains (atomic per statement; concurrent bumps only ever increase). */
+export async function bumpCache(db: Db, domains: readonly CacheDomain[]) {
+  if (!domains.length) return
+  const g = await cacheGens(db)
+  for (const d of new Set(domains)) g[d] = (g[d] || 0) + 1
+  await setSetting(db, GEN_KEY, g)
+}
+
+/** Which domains a successful API write touches. Unknown writes conservatively bump everything. */
+export function writeDomains(method: string, path: string): CacheDomain[] {
+  const ALL = [...CACHE_DOMAINS].filter((d) => d !== 'views') as CacheDomain[]
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return []
+  const p = path.replace(/^\/api(?:\/v\d+)?/, '')
+  // high-volume or analytics-neutral writes
+  if (/^\/(public\/track|auth\/(login|logout|totp|password)|me\/notifications|me\/library|analytics\/|festivals\/)/.test(p)) return []
+  if (p.startsWith('/auth/')) return ['people'] // registration, recovery
+  if (/^\/team\/[^/]+\/(codes|physical-sales)/.test(p)) return ['sales']
+  if (/^\/team\/[^/]+\/(posts|comments|highlights|captions|keywords|categories\/suggest)/.test(p)) return ['social', 'content']
+  if (p.startsWith('/team/') || p.startsWith('/media/') || p.startsWith('/desk/')) return ['content']
+  if (p.startsWith('/me/codes/')) return ['sales']
+  if (/^\/me\/(follows|saved|posts|reports)/.test(p)) return ['social']
+  if (/^\/me\/(profile|delete-account)/.test(p)) return ['people', 'content']
+  if (p.startsWith('/me/sections/')) return ['content']
+  if (p.startsWith('/membership/')) return ['content', 'people']
+  if (/^\/admin\/(comments|posts|reports)/.test(p)) return ['social']
+  if (/^\/admin\/(users|registration)/.test(p)) return ['people']
+  if (p.startsWith('/admin/settings')) return [...ALL, 'views'] // weights/thresholds change every score
+  return [...ALL, 'views']
+}
