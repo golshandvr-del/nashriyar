@@ -39,11 +39,14 @@ export function d1Db(d1: any): Db {
 }
 
 // ───────── node:sqlite (self-hosted) ─────────
-export function nodeSqliteDb(db: any): Db {
+// `onNewSql` (ROADMAP phase 17 query-plan audit) is called once per distinct statement; tests/query-plan.mjs uses
+// it (SQL_LOG=file) to collect every query the app really runs and EXPLAIN each one.
+export function nodeSqliteDb(db: any, onNewSql?: (sql: string) => void): Db {
   const cache = new Map<string, any>()
   const stmt = (sql: string) => {
     let s = cache.get(sql)
     if (!s) {
+      onNewSql?.(sql)
       s = db.prepare(sql)
       cache.set(sql, s)
     }
