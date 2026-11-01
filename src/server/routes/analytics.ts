@@ -9,7 +9,7 @@ import { JALALI_MONTHS, jalaliToIso, linearFit, termBounds, toJalali } from '../
 import { aiNarrative, aiAsk, aiExplain } from '../ai'
 import { gatherEvidence, ruleHypotheses } from '../lib/explain'
 import { mapQuestion, ASK_REPORT_LABELS } from '../../shared/askmap'
-import { cacheGet, cachePut, ensureRollup } from '../lib/rollup'
+import { cacheGens, cacheGet, cachePut, ensureRollup, type CacheDomain } from '../lib/rollup'
 
 export const analyticsRoutes = new Hono<AppEnv>()
 
@@ -21,6 +21,22 @@ analyticsRoutes.use('*', async (c, next) => {
 // ROADMAP phase 7 infrastructure: lazy daily rollup (no cron) + 5-minute result cache for read-only reports.
 // Cache key includes the viewer's role and faculty scope, so a faculty supervisor never sees another scope's numbers.
 const NO_CACHE = ['/live', '/insights', '/ai/']
+// ROADMAP phase 17: data domains each report reads. The cache key embeds those domains' generation counters, so a
+// write only invalidates the reports that depend on it (lib/rollup.ts → writeDomains/bumpCache). Unlisted → all.
+const ALL_DOMAINS: CacheDomain[] = ['content', 'sales', 'social', 'people', 'settings', 'views']
+const REPORT_DOMAINS: Record<string, CacheDomain[]> = {
+  '/forecast': ['content'],
+  '/production': ['content', 'people'],
+  '/gaps': ['content', 'people'],
+  '/sales': ['sales', 'content'],
+  '/trends': ['content', 'sales', 'social', 'views'],
+  '/explore': ['social', 'sales', 'content', 'views'],
+  '/directors': ['content', 'sales', 'social', 'people', 'views']
+}
+const reportDomains = (pathname: string) => {
+  const sub = pathname.replace(/^\/api(?:\/v\d+)?\/analytics/, '')
+  return REPORT_DOMAINS[sub] || ALL_DOMAINS
+}
 analyticsRoutes.use('*', async (c, next) => {
   if (c.req.method !== 'GET') return next()
   const db = c.get('db')
@@ -32,7 +48,12 @@ analyticsRoutes.use('*', async (c, next) => {
   const url = new URL(c.req.url)
   if (NO_CACHE.some((p) => url.pathname.includes(p)) || url.searchParams.has('fresh')) return next()
   const u = c.get('user')!
-  const key = `${u.system_role}:${u.scope_faculty_id || ''}:${url.pathname}?${[...url.searchParams].sort().map(([k, v]) => `${k}=${v}`).join('&')}`
+  const gens = await cacheGens(db).catch(() => null)
+  const domains = reportDomains(url.pathname)
+  const genTag = gens ? domains.map((d) => `${d[0]}${gens[d]}`).join('.') : `t${Date.now()}`
+  // version prefix stripped: /api/v1/analytics/x and /api/analytics/x share one entry
+  const path = url.pathname.replace(/^\/api\/v\d+\//, '/api/')
+  const key = `${u.system_role}:${u.scope_faculty_id || ''}:${genTag}:${path}?${[...url.searchParams].sort().map(([k, v]) => `${k}=${v}`).join('&')}`
   const hit = await cacheGet(db, key).catch(() => null)
   if (hit) {
     const isCsv = url.pathname.endsWith('.csv')
@@ -41,7 +62,8 @@ analyticsRoutes.use('*', async (c, next) => {
   await next()
   if (c.res.status === 200) {
     const text = await c.res.clone().text()
-    await cachePut(db, key, text, 300).catch(() => {})
+    // exact invalidation makes long TTLs safe; reports that include today's raw views stay short-lived
+    await cachePut(db, key, text, domains.includes('views') ? 300 : 6 * 3600).catch(() => {})
   }
 })
 
