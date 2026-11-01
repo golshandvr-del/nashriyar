@@ -5,6 +5,8 @@ import { api, qs } from '../lib/api'
 import { ISSUE_STATUS, TOC_STATUS, faDate, toFaDigits } from '../lib/format'
 import { Async, Badge, Card, Empty, Input, PageHeader, useAsync } from '../components/ui'
 import MembershipRequests from '../team/MembershipRequests'
+import { DataTable, fetchAllPages } from '../components/DataTable'
+import { DEGREE_LABEL as DEGREE_FA, GENDER_LABEL as GENDER_FA, PEOPLE_COLUMNS } from '../../shared/columns'
 import { useAdminRole } from './Layout'
 
 /** Officer view of team membership requests across all publications (ROADMAP phase 15). */
@@ -17,7 +19,8 @@ function OfficerRequests() {
 export default function AdminPeople() {
   const [q, setQ] = useState('')
   const [term, setTerm] = useState('')
-  const st = useAsync(() => api.get(`/api/admin/people${qs({ q: term })}`), [term])
+  // ROADMAP phase 18: whole list loaded once; DataTable filters/sorts/groups/exports it
+  const st = useAsync(() => fetchAllPages(`/api/admin/people${qs({ q: term })}`, 'people'), [term])
   const { admin } = useAdminRole()
   return (
     <div>
@@ -34,48 +37,38 @@ export default function AdminPeople() {
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="نام یا شمارهٔ دانشجویی و Enter" className="pr-9" />
       </form>
       <Async state={st}>
-        {(d: any) =>
-          !d.people.length ? (
-            <Empty title="فردی یافت نشد" />
-          ) : (
-            <div className="card overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-surface-2 text-xs text-muted">
-                  <tr>
-                    <th className="p-3 text-right">نام</th>
-                    <th className="hidden p-3 text-right sm:table-cell">شمارهٔ دانشجویی</th>
-                    <th className="p-3 text-right">نشریات</th>
-                    <th className="p-3 text-center">شماره‌ها</th>
-                    <th className="p-3 text-center">بخش‌ها</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {d.people.map((p: any) => (
-                    <tr key={p.person_key} className="border-t border-line hover:bg-surface-2/50">
-                      <td className="p-3">
-                        <Link to={`/admin/people/${encodeURIComponent(p.person_key)}`} className="font-medium hover:text-brand">{p.full_name}</Link>
-                      </td>
-                      <td className="hidden p-3 font-mono text-xs sm:table-cell" dir="ltr">{p.student_number ? toFaDigits(p.student_number) : '—'}</td>
-                      <td className="p-3 text-xs">
-                        {p.publications}
-                        {p.publication_count > 1 && <Badge tone="brand" className="mr-1">{toFaDigits(p.publication_count)} نشریه</Badge>}
-                      </td>
-                      <td className="p-3 text-center">{toFaDigits(p.issue_count)}</td>
-                      <td className="p-3 text-center">{toFaDigits(p.section_count)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        }
+        {(d) => (
+          <DataTable
+            id="admin-people"
+            title="پروندهٔ افراد"
+            columns={PEOPLE_COLUMNS}
+            rows={d.rows}
+            truncated={d.truncated}
+            rowKey={(p) => String(p.person_key)}
+            exportUrl="/api/admin/people/export"
+            extraParams={{ q: term }}
+            empty={<Empty title="فردی یافت نشد" />}
+            render={{
+              full_name: (p: any) => (
+                <Link to={`/admin/people/${encodeURIComponent(p.person_key)}`} className="font-medium hover:text-brand">
+                  {p.full_name}
+                </Link>
+              ),
+              student_number: (p: any) => <span className="font-mono text-xs" dir="ltr">{p.student_number ? toFaDigits(p.student_number) : '—'}</span>,
+              publications: (p: any) => (
+                <span className="text-xs">
+                  {p.publications}
+                  {p.publication_count > 1 && <Badge tone="brand" className="mr-1">{toFaDigits(p.publication_count)} نشریه</Badge>}
+                </span>
+              )
+            }}
+          />
+        )}
       </Async>
     </div>
   )
 }
 
-const DEGREE_FA: Record<string, string> = { associate: 'کاردانی', bachelor: 'کارشناسی', master: 'کارشناسی ارشد', phd: 'دکتری' }
-const GENDER_FA: Record<string, string> = { male: 'مرد', female: 'زن' }
 
 /** Linked accounts' profiles; sensitive fields arrive from the API only for the officer and only with the person's consent. */
 function AccountProfiles({ accounts }: { accounts: any[] }) {
