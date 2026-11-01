@@ -164,3 +164,4 @@
 9. **اپ اندروید:** `android/` (WebView + FLAG_SECURE) + workflow ساخت APK + تنظیم «خواندن نسخهٔ پولی فقط در اپ».
 10. **چنددانشگاهی:** پایگاه‌دادهٔ جدا برای هر دانشگاه، انتخاب با Host (`TENANTS`)، CLI با `--tenant`.
 آزمون همه: `tests/future-e2e.mjs` در npm test.
+- **فاز ۱۹ / گام ۱ ✅ (API عمومی):** open.ts + migration 0015 + /system/api-keys (ApiKeys.tsx) + docs/OPEN_API.md + tests/future-e2e.mjs (۳۵ بررسی، در npm test پیش از query-plan). اجرای دستی: `DATA_DIR=/tmp/nd node server-dist/node.mjs --seed` سپس pm2 با `DATA_DIR=/tmp/nd` روی 3000 و `DATA_DIR=/tmp/nd BASE=http://localhost:3000 node tests/future-e2e.mjs` (DATA_DIR لازم است چون آزمون با CLI توسعه‌دهنده می‌سازد). گام بعد: ۲ (نمایه‌سازی مقالات).
