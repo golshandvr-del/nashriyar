@@ -67,7 +67,10 @@ export function Shelf({ title, issues, more }: { title: string; issues: IssueLit
   return (
     <section className="mb-6">
       <header className="mb-2 flex items-center justify-between">
-        <h2 className="text-base font-bold">{title}</h2>
+        <h2 className="flex items-center gap-1.5 text-base font-bold">
+          <span className="motif-shamseh text-gold" aria-hidden="true" />
+          {title}
+        </h2>
         {more && (
           <Link to={more} className="text-sm text-brand">
             همه
