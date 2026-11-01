@@ -51,3 +51,20 @@ export const PUB_COLUMNS: TableColumn[] = [
   { key: 'follower_count', label: 'دنبال‌کننده', type: 'number', filter: 'number', total: 'sum', hidden: true },
   { key: 'last_activity_at', label: 'آخرین فعالیت', type: 'datetime', filter: 'date' }
 ]
+
+export const ACTIVE_LABEL: Record<string, string> = { '1': 'فعال', '0': 'غیرفعال' }
+
+/** /team/:pubId/members */
+export const MEMBER_COLUMNS: TableColumn[] = [
+  { key: 'full_name', label: 'نام' },
+  { key: 'student_number', label: 'شمارهٔ دانشجویی' },
+  { key: 'default_role', label: 'نقش پیش‌فرض', filter: 'select', groupable: true },
+  { key: 'faculty_name', label: 'دانشکده', filter: 'select', groupable: true },
+  { key: 'major_name', label: 'رشته', filter: 'select', groupable: true, hidden: true },
+  { key: 'is_active', label: 'وضعیت', labels: ACTIVE_LABEL, filter: 'select', groupable: true },
+  { key: 'issue_count', label: 'شماره‌ها', type: 'number', filter: 'number', total: 'sum' },
+  { key: 'section_count', label: 'بخش‌ها', type: 'number', filter: 'number', total: 'sum' },
+  { key: 'joined_at', label: 'پیوستن', type: 'date', filter: 'date' },
+  { key: 'left_at', label: 'خروج', type: 'date', filter: 'date', hidden: true },
+  { key: 'phone', label: 'تلفن', hidden: true }
+]
