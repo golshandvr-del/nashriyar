@@ -562,8 +562,9 @@ type ArchiveRow = {
   new_followers: number; digital_sold: number; revenue: number; print_sold: number; revenue_print: number
 }
 const ARCHIVE_SUMS = ['published', 'pages', 'views', 'reads', 'post_views', 'posts', 'new_followers', 'digital_sold', 'revenue', 'print_sold', 'revenue_print'] as const
-const sumRows = (rows: ArchiveRow[]) => {
-  const t: Record<string, number> = { publications_active: 0 }
+type ArchiveTotals = Record<(typeof ARCHIVE_SUMS)[number] | 'publications_active', number>
+const sumRows = (rows: ArchiveRow[]): ArchiveTotals => {
+  const t = { publications_active: 0 } as ArchiveTotals
   for (const k of ARCHIVE_SUMS) t[k] = 0
   for (const r of rows) {
     for (const k of ARCHIVE_SUMS) t[k] += Number(r[k]) || 0
