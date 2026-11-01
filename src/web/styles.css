@@ -175,6 +175,20 @@ body {
   min-height: 100dvh;
   line-height: 1.7;
 }
+/* ROADMAP phase 16 typography: page titles use the Persian display font. Lalezar ships a single (already heavy)
+   weight, so weight is reset and synthesis disabled — no faux-bold smearing. Unlayered ⇒ wins over font-extrabold. */
+h1,
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+/* reports and printed documents keep the plain text face */
+@media print {
+  h1 { font-family: var(--font-sans); font-weight: 800; }
+}
 /* large text mode (settings) */
 html.text-lg-mode {
   font-size: 18px;
