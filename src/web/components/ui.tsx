@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { Illustration, LANDMARKS } from './Illustration'
 import type { ButtonHTMLAttributes, DependencyList, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { AlertTriangle, CheckCircle2, Eye, EyeOff, Info, Inbox, Loader2, X } from 'lucide-react'
 import { cx } from '../lib/format'
@@ -164,8 +165,8 @@ export function PageLoader() {
 
 export function Empty({ title = 'چیزی برای نمایش نیست', hint, icon, action }: { title?: string; hint?: ReactNode; icon?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted">
-      {icon || <Inbox className="size-10 opacity-60" />}
+    <div className="empty-state flex flex-col items-center justify-center gap-2 py-10 text-center text-muted">
+      {icon || <Illustration name={LANDMARKS[[...title].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % LANDMARKS.length]} className="text-gold opacity-80" />}
       <p className="font-medium text-ink">{title}</p>
       {hint && <p className="max-w-sm text-sm">{hint}</p>}
       {action}
