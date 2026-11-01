@@ -4,6 +4,9 @@ import { Hono } from 'hono'
 import type { AppEnv } from '../../context'
 import { hashPassword, newId, tempPassword } from '../../lib/crypto'
 import { activity, audit, bad, body, keywordsCsv, notFound, notify, nowIso, oneOf, parseJson, slugify, str } from '../../lib/util'
+import { streamExport } from '../../lib/export'
+import { PUB_COLUMNS } from '../../../shared/columns'
+import type { Context } from 'hono'
 import { normalizeFa, toEnDigits } from '../../../shared/fa'
 import { ensureReminders } from '../../lib/reminders'
 import { PUB_ROLES, PUB_ROLE_FA, admin, monitor, scope, scopedPub } from './service'
@@ -31,8 +34,8 @@ publicationsRoutes.get('/overview', async (c) => {
   return c.json({ counts, issues, pendingReports, students: users })
 })
 
-publicationsRoutes.get('/publications', async (c) => {
-  monitor(c)
+/** The publications list query (screen and export share it; one page — the list is small). */
+async function listPublications(c: Context<AppEnv>) {
   const s = scope(c)
   const q = normalizeFa(c.req.query('q') || '')
   const params: unknown[] = [...s.params]
@@ -51,7 +54,18 @@ publicationsRoutes.get('/publications', async (c) => {
      WHERE p.deleted_at IS NULL${s.sql}${qs} ORDER BY p.title`,
     params
   )
-  return c.json({ publications: rows })
+  return rows as any[]
+}
+
+publicationsRoutes.get('/publications', async (c) => {
+  monitor(c)
+  return c.json({ publications: await listPublications(c) })
+})
+
+/** Streaming XLSX/CSV of the publications list with the on-screen table state (ROADMAP phase 18). */
+publicationsRoutes.get('/publications/export', async (c) => {
+  monitor(c)
+  return streamExport(c, { name: 'publications', title: 'نشریات', columns: PUB_COLUMNS, fetchPage: async () => ({ rows: await listPublications(c), next_cursor: null }) })
 })
 
 /** Publication dossier: issues + stage gantt, members, roles history, followers (admin only). */
