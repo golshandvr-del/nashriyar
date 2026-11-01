@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { BookOpen, LayoutDashboard, LogOut, Monitor, Moon, Sun } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth, ROLE_LABEL, PUB_ROLE_LABEL, isMonitor } from '../lib/auth'
-import { applyTheme, getTheme, getLargeText, setLargeText } from '../lib/theme'
+import { applyTheme, getTheme, getLargeText, setLargeText, getMotifs, setMotifs } from '../lib/theme'
 import type { Theme } from '../lib/theme'
 import { cx, faDate, relativeFa, formatNumber } from '../lib/format'
 import ProfileForm from './ProfileForm'
@@ -20,6 +20,7 @@ const COMMENT_STATUS: Record<string, { label: string; tone: 'muted' | 'ok' | 'wa
 function ThemeCard() {
   const [t, setT] = useState<Theme>(getTheme())
   const [large, setLarge] = useState(getLargeText())
+  const [motifs, setMotifsOn] = useState(getMotifs())
   const opts: { k: Theme; label: string; icon: any }[] = [
     { k: 'light', label: 'روشن', icon: Sun },
     { k: 'dark', label: 'تیره', icon: Moon },
@@ -53,6 +54,18 @@ function ThemeCard() {
           }}
         />
         متن درشت‌تر (خوانایی بیشتر)
+      </label>
+      <label className="mt-2 flex items-center gap-2 text-sm">
+        <input
+          id="motifs-toggle"
+          type="checkbox"
+          checked={motifs}
+          onChange={(e) => {
+            setMotifsOn(e.target.checked)
+            setMotifs(e.target.checked)
+          }}
+        />
+        نقوش تزئینی ایرانی (گره‌چینی، اسلیمی، شمسه)
       </label>
     </Card>
   )
