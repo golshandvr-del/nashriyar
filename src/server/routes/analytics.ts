@@ -279,11 +279,7 @@ analyticsRoutes.get('/trends', async (c) => {
      WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY m ORDER BY m`,
     [fromTs, toTs, ...s.params]
   )
-  const views = await db.all(
-    `SELECT substr(v.day,1,7) AS m, COUNT(*) AS n, SUM(CASE WHEN v.entity_type='issue_read' THEN 1 ELSE 0 END) AS reads, SUM(CASE WHEN v.entity_type='post' THEN 1 ELSE 0 END) AS post_views
-     FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY m ORDER BY m`,
-    [from, to, ...s.params]
-  )
+  const views = (await viewSeries(c, from, to, 'substr(v.day,1,7)')).map((r) => ({ m: r.k, n: r.n, reads: r.reads, post_views: r.post_views }))
   const sales = await db.all(
     `SELECT substr(ac.redeemed_at,1,7) AS m, COUNT(*) AS n, COALESCE(SUM(ac.price_paid),0) AS revenue FROM access_codes ac JOIN publications p ON p.id = ac.publication_id
      WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql} GROUP BY m ORDER BY m`,
@@ -303,10 +299,7 @@ analyticsRoutes.get('/trends', async (c) => {
      JOIN categories cat ON cat.id = pc.category_id WHERE cat.type = 'subject' AND i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY cat.id ORDER BY n DESC LIMIT 12`,
     [fromTs, toTs, ...s.params]
   )
-  const weekday = await db.all(
-    `SELECT CAST(strftime('%w', v.day) AS INTEGER) AS d, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY d ORDER BY d`,
-    [from, to, ...s.params]
-  )
+  const weekday = (await viewSeries(c, from, to, "CAST(strftime('%w', v.day) AS INTEGER)")).map((r) => ({ d: Number(r.k), n: r.n }))
   // Year-over-year (ROADMAP phase 8): the same window one year earlier, month keys shifted +1 year so they align.
   const shift = (d: string) => `${Number(d.slice(0, 4)) - 1}${d.slice(4)}`
   const bump = (rows: any[]) => rows.map((r) => ({ ...r, m: `${Number(String(r.m).slice(0, 4)) + 1}${String(r.m).slice(4)}` }))
@@ -317,10 +310,7 @@ analyticsRoutes.get('/trends', async (c) => {
      WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY m ORDER BY m`,
     [yFrom + 'T00:00:00.000Z', yTo + 'T23:59:59.999Z', ...s.params]
   ))
-  const yoyViews = bump(await db.all(
-    `SELECT substr(v.day,1,7) AS m, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY m ORDER BY m`,
-    [yFrom, yTo, ...s.params]
-  ))
+  const yoyViews = bump((await viewSeries(c, yFrom, yTo, 'substr(v.day,1,7)')).map((r) => ({ m: r.k, n: r.n })))
   // New publications registered per (Gregorian) year — whole history, scope-filtered (ROADMAP phase 7)
   const newPerYear = await db.all(
     `SELECT substr(p.created_at,1,4) AS y, COUNT(*) AS n FROM publications p WHERE p.deleted_at IS NULL${s.sql} GROUP BY y ORDER BY y`,
@@ -337,10 +327,7 @@ analyticsRoutes.get('/trends', async (c) => {
          WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY d`,
         [f + 'T00:00:00.000Z', t + 'T23:59:59.999Z', ...s.params]
       )
-      const vw = await db.all<{ d: string; n: number }>(
-        `SELECT v.day AS d, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY v.day`,
-        [f, t, ...s.params]
-      )
+      const vw = (await viewSeries(c, f, t, 'v.day')).map((r) => ({ d: String(r.k), n: r.n }))
       const days = Math.min(731, Math.max(1, Math.round((new Date(t).getTime() - new Date(f).getTime()) / DAY) + 1))
       const idx = (d: string) => Math.round((new Date(d).getTime() - new Date(f).getTime()) / DAY)
       const cumIssues = new Array(days).fill(0)
