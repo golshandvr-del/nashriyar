@@ -61,3 +61,48 @@ curl -H "X-API-Key: nsk_..." "https://nashriyar.example.ac.ir/api/open/issues?li
 - ساخت و ابطال کلید در «گزارش فنی» کنسول طراح (`system.api_key_create` / `system.api_key_revoke`) ثبت می‌شود.
 - برای هر کلید «تعداد درخواست» و «آخرین استفاده» نگه داشته می‌شود.
 - آزمون خودکار: بخش ۱ از `tests/future-e2e.mjs`.
+
+---
+
+# نمایهٔ مقالات و شناسه‌های پایدار (فاز ۱۹)
+
+هر بخشِ فهرست مطالبِ یک شمارهٔ **منتشرشده** (به‌جز جلد، آگهی و فهرست) یک شناسهٔ پایدار می‌گیرد:
+
+- قالب: `NSH-<سال شمسی انتشار>-<۸ نویسهٔ Crockford base32>`، مثل `NSH-1405-HHP37B4N`
+- شناسه **یک بار** ساخته می‌شود و هرگز تغییر نمی‌کند و دوباره به کار نمی‌رود، حتی اگر عنوان اصلاح شود. نشانی `/a/<pid>` همیشه معتبر می‌ماند.
+- زمان ساخت:
+  - هنگام تأیید انتشار
+  - در نگهداری دوره‌ای (backfill برای شماره‌های قدیمی)
+  - در پایان seed
+- جدول: `article_index` (migration 0016)
+
+## نقاط دسترسی (عمومی، بدون ورود و بدون کلید)
+
+| مسیر | خروجی |
+|---|---|
+| `GET /a/<pid>` | صفحهٔ HTML سمت سرور با متای `citation_*` (Google Scholar / Highwire)، `canonical`، BibTeX/RIS |
+| `GET /api/articles/<pid>` | JSON: عنوان، پدیدآورندگان، نشریه، شماره، صفحه‌ها، چکیده، کلیدواژه، DOI، استناد APA |
+| `GET /api/articles/<pid>/cite.bib` | BibTeX |
+| `GET /api/articles/<pid>/cite.ris` | RIS (EndNote / Zotero / Mendeley) |
+| `GET /api/articles/oai?verb=…` | OAI-PMH 2.0 با `oai_dc` |
+
+**OAI-PMH:**
+- فعل‌های پشتیبانی‌شده: `Identify`، `ListMetadataFormats`، `ListSets` (هر نشریه یک set به شکل `pub:<slug>`)، `ListIdentifiers`، `ListRecords` (۱۰۰ رکورد در هر صفحه با `resumptionToken`)، `GetRecord`
+- فیلترهای `from`/`until` با دانه‌بندی روز یا ثانیه پشتیبانی می‌شوند.
+- خطاهای استاندارد: `badVerb`، `badArgument`، `cannotDisseminateFormat`، `badResumptionToken`، `noRecordsMatch`، `idDoesNotExist`
+- شناسهٔ OAI: `oai:<host>:<pid>`
+
+## حریم و محدودیت
+
+- فقط **فراداده** منتشر می‌شود. تصویر صفحه‌ها، PDF و کلیدهای ذخیره‌سازی هرگز در این مسیرها نیست.
+- `dc:rights` نوع دسترسی را مشخص می‌کند: برای شماره‌های رایگان `openAccess` و برای پولی‌ها `restrictedAccess`.
+- مقاله فقط وقتی دیده می‌شود که شماره منتشرشده (یا بایگانی) و نشریه فعال باشد.
+- `robots.txt` مسیر `/api/articles/` را مجاز می‌کند و `sitemap.xml` صفحه‌های `/a/<pid>` را فهرست می‌کند.
+
+## تکمیل فراداده توسط تیم
+
+- در اتاق شماره، تب «نمایهٔ مقالات» (`GET/PUT /api/team/<pubId>/issues/<issueId>/articles[/<pid>]`) برای این فیلدها: چکیده، کلیدواژه‌ها، زبان (`fa`/`en`/`ar`) و DOI اختیاری.
+- قالب DOI این است: `10.xxxx/…`. پیشوند `https://doi.org/` خودکار حذف می‌شود و DOI باید یکتا باشد.
+- PID قابل ویرایش نیست.
+- هر تغییر با کنش `article.update` در گزارش ممیزی ثبت می‌شود.
+- آزمون خودکار: بخش ۲ از `tests/future-e2e.mjs`.
