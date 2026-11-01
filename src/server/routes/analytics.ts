@@ -14,6 +14,7 @@ import { DAY, kpis, previousRange, pubScope, pubViewsParams, pubViewsSql, rolled
 export { pubScope }
 import { archiveRoutes } from '../domains/analytics/archive'
 import { visualsRoutes } from '../domains/analytics/visuals'
+import { insightsRoutes } from '../domains/analytics/insights'
 
 export const analyticsRoutes = new Hono<AppEnv>()
 
@@ -698,35 +699,8 @@ analyticsRoutes.get('/sales', async (c) => {
   return c.json({ from, to, totals, byIssue, channels, byPublication, byFaculty, byCategory, monthly })
 })
 
-/** Rule-based insights (Phase 8). */
-analyticsRoutes.get('/insights', async (c) => {
-  const s = pubScope(c)
-  const items = await computeInsights(c.get('db'), s)
-  return c.json({ items })
-})
-
-analyticsRoutes.post('/insights/:key/dismiss', async (c) => {
-  const u = c.get('user')!
-  await c.get('db').run('INSERT OR REPLACE INTO insight_dismissals (insight_key, dismissed_by, dismissed_at) VALUES (?,?,?)', [c.req.param('key'), u.id, nowIso()])
-  return c.json({ ok: true })
-})
-
-/**
- * Root-cause analysis of one insight (ROADMAP phase 10). The insight is looked up inside the viewer's own
- * scope (a faculty supervisor cannot probe other faculties). Rule-based hypotheses always; AI hypotheses
- * only when the optional provider is enabled, labelled source='ai' («پیشنهاد هوش مصنوعی»).
- */
-analyticsRoutes.post('/insights/:key/explain', async (c) => {
-  const key = c.req.param('key')
-  const items = await computeInsights(c.get('db'), pubScope(c))
-  const it = items.find((x) => x.key === key)
-  if (!it) return c.json({ error: 'این بینش در محدودهٔ دسترسی شما یافت نشد' }, 404)
-  if (!it.publication_id) return c.json({ insight: it, evidence: null, hypotheses: [{ text: 'این بینش به نشریهٔ مشخصی مربوط نیست؛ تحلیل علت برای بینش‌های کلی در دسترس نیست.', source: 'rule' }] })
-  const evidence = await gatherEvidence(c.get('db'), it.publication_id)
-  if (!evidence) return c.json({ error: 'نشریه یافت نشد' }, 404)
-  const hypotheses = [...ruleHypotheses(evidence), ...(await aiExplain(c, it, evidence)).map((text) => ({ text, source: 'ai' as const }))]
-  return c.json({ insight: it, evidence, hypotheses })
-})
+// domain module (ROADMAP phase 17): ../domains/analytics/insights
+analyticsRoutes.route('/', insightsRoutes)
 
 /** CSV export of the ranking (opened in Excel; UTF-8 BOM for Persian). */
 analyticsRoutes.get('/export/ranking.csv', async (c) => {
