@@ -2,7 +2,7 @@
 // both show and write exactly the same columns, labels and filters.
 import type { TableColumn } from './table'
 import { SYSTEM_ROLE_LABEL } from './roles'
-import { ASSOC_KIND, FREQUENCY, PUB_STATUS } from './labels'
+import { ASSOC_KIND, FREQUENCY, ISSUE_STATUS_LABEL, PUB_STATUS } from './labels'
 
 export const DEGREE_LABEL: Record<string, string> = { associate: 'کاردانی', bachelor: 'کارشناسی', master: 'کارشناسی ارشد', phd: 'دکتری' }
 export const GENDER_LABEL: Record<string, string> = { male: 'مرد', female: 'زن' }
@@ -67,4 +67,20 @@ export const MEMBER_COLUMNS: TableColumn[] = [
   { key: 'joined_at', label: 'پیوستن', type: 'date', filter: 'date' },
   { key: 'left_at', label: 'خروج', type: 'date', filter: 'date', hidden: true },
   { key: 'phone', label: 'تلفن', hidden: true }
+]
+
+export const PRICING_LABEL: Record<string, string> = { free: 'رایگان', paid: 'پولی' }
+
+/** /team/:pubId/issues */
+export const ISSUE_COLUMNS: TableColumn[] = [
+  { key: 'number', label: 'شماره', type: 'number' },
+  { key: 'title', label: 'عنوان' },
+  { key: 'status', label: 'وضعیت', labels: ISSUE_STATUS_LABEL, filter: 'select', groupable: true, total: 'count' },
+  { key: 'pricing', label: 'قیمت‌گذاری', labels: PRICING_LABEL, filter: 'select', groupable: true },
+  { key: 'page_count', label: 'صفحات', type: 'number', filter: 'number', total: 'sum' },
+  { key: 'toc_done', label: 'مطالب نهایی', type: 'number', total: 'sum' },
+  { key: 'toc_total', label: 'کل مطالب', type: 'number', total: 'sum' },
+  { key: 'planned_publish_at', label: 'برنامهٔ انتشار', type: 'date', filter: 'date' },
+  { key: 'published_at', label: 'تاریخ انتشار', type: 'date', filter: 'date' },
+  { key: 'updated_at', label: 'آخرین تغییر', type: 'datetime', filter: 'date', hidden: true }
 ]
