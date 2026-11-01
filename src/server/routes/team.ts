@@ -4,7 +4,7 @@ import type { AppEnv } from '../context'
 import { requirePubAccess, requireUser, userPubRoles } from '../auth'
 import { generatePurchaseCode, newId, normalizePurchaseCode, sha256 } from '../lib/crypto'
 import {
-  activity, addHours, audit, bad, body, dateRange, getSetting, HttpError, inList, int, keywordsCsv, notFound, notify, nowIso, oneOf, parseJson, str
+  activity, addHours, audit, bad, body, cursorPage, dateRange, getSetting, HttpError, inList, int, keywordsCsv, notFound, notify, nowIso, oneOf, parseJson, str
 } from '../lib/util'
 import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { requireFeature } from '../lib/features'
@@ -634,14 +634,18 @@ teamRoutes.get('/:pubId/codes', async (c) => {
   let w = ''
   if (issueId) (w = ' AND ac.issue_id = ?'), params.push(issueId)
   const now = nowIso()
+  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 500)
+  const pg = cursorPage(c, { col: 'ac.created_at', idCol: 'ac.id', def: 500, max: 500 })
   const rows = await c.get('db').all<any>(
     `SELECT ac.id, ac.issue_id, ac.code_last4, ac.bound_student_number, ac.price_paid, ac.channel, ac.note, ac.created_at, ac.expires_at, ac.redeemed_at, ac.revoked_at,
        i.number AS issue_number, i.title AS issue_title, u.display_name AS redeemed_by_name, u.student_number AS redeemed_by_sn
-     FROM access_codes ac JOIN issues i ON i.id = ac.issue_id LEFT JOIN users u ON u.id = ac.redeemed_by WHERE ac.publication_id = ?${w} ORDER BY ac.created_at DESC LIMIT 500`,
-    params
+     FROM access_codes ac JOIN issues i ON i.id = ac.issue_id LEFT JOIN users u ON u.id = ac.redeemed_by WHERE ac.publication_id = ?${w}${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    [...params, ...pg.params]
   )
+  const { rows: page, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
   return c.json({
-    codes: rows.map((r) => ({ ...r, state: r.revoked_at ? 'revoked' : r.redeemed_at ? 'redeemed' : r.expires_at <= now ? 'expired' : 'active' }))
+    codes: page.map((r) => ({ ...r, state: r.revoked_at ? 'revoked' : r.redeemed_at ? 'redeemed' : r.expires_at <= now ? 'expired' : 'active' })),
+    next_cursor
   })
 })
 
