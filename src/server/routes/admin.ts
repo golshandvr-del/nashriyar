@@ -12,6 +12,7 @@ import { communicationRoutes } from '../domains/admin/communication'
 import { auditRoutes } from '../domains/admin/audit'
 import { allowlistRoutes } from '../domains/admin/allowlist'
 import { settingsRoutes } from '../domains/admin/settings'
+import { printArchiveRoutes } from '../domains/admin/print-archive'
 
 export const adminRoutes = new Hono<AppEnv>()
 
@@ -50,4 +51,7 @@ adminRoutes.route('/', allowlistRoutes)
 
 // domain module (ROADMAP phase 17): ../domains/admin/settings
 adminRoutes.route('/', settingsRoutes)
+
+// domain module (ROADMAP phase 19): ../domains/admin/print-archive — digitised old printed issues
+adminRoutes.route('/', printArchiveRoutes)
 
