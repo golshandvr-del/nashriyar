@@ -728,9 +728,9 @@ analyticsRoutes.get('/explore', async (c) => {
     [from, to, ...s.params]
   )
   const byPub = await db.all(
-    `SELECT p.title, COUNT(DISTINCT po.id) AS posts, (SELECT COUNT(*) FROM view_events v WHERE v.publication_id = p.id AND v.entity_type = 'post' AND v.day BETWEEN ? AND ?) AS views
+    `SELECT p.title, COUNT(DISTINCT po.id) AS posts, ${pubViewsSql('post')} AS views
      FROM publications p LEFT JOIN posts po ON po.publication_id = p.id AND po.published_at BETWEEN ? AND ? WHERE p.deleted_at IS NULL${s.sql} GROUP BY p.id ORDER BY views DESC`,
-    [from, to, fromTs, toTs, ...s.params]
+    [...pubViewsParams(from, to, await rolledUntil(c)), fromTs, toTs, ...s.params]
   )
   const moderation = await db.first(
     `SELECT COUNT(*) AS total, SUM(CASE WHEN cm.status='pending' THEN 1 ELSE 0 END) AS pending, SUM(CASE WHEN cm.status='approved' THEN 1 ELSE 0 END) AS approved,
@@ -748,10 +748,7 @@ analyticsRoutes.get('/explore', async (c) => {
      FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY d, h`,
     [from, to, ...s.params]
   )
-  const calendar = await db.all<{ day: string; n: number }>(
-    `SELECT v.day, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql} GROUP BY v.day ORDER BY v.day`,
-    [from, to, ...s.params]
-  )
+  const calendar = (await viewSeries(c, from, to, 'v.day')).map((r) => ({ day: String(r.k), n: r.n }))
   const funnel = [
     { key: 'post', label: 'دیدن پست اکسپلور', n: await uniq('post') },
     { key: 'post_read_full', label: 'کلیک «خواندن کامل»', n: await uniq('post_read_full') },
