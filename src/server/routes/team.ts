@@ -878,13 +878,17 @@ teamRoutes.delete('/:pubId/highlights/:hid', async (c) => {
 teamRoutes.get('/:pubId/comments', async (c) => {
   const { pub: p } = await pub(c)
   const status = oneOf(c.req.query('status'), ['pending', 'approved', 'rejected', 'spam'] as const, 'وضعیت', 'pending')
+  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 200)
+  const pg = cursorPage(c, { col: 'cm.created_at', idCol: 'cm.id', def: 200, max: 200 })
   const rows = await c.get('db').all<any>(
     `SELECT cm.id, cm.body, cm.status, cm.flagged, cm.created_at, cm.parent_id, cm.is_team_reply, cm.post_id, po.images_json, po.caption, u.display_name AS author
-     FROM comments cm JOIN posts po ON po.id = cm.post_id LEFT JOIN users u ON u.id = cm.user_id WHERE po.publication_id = ? AND cm.status = ? ORDER BY cm.created_at DESC LIMIT 200`,
-    [p.id, status]
+     FROM comments cm JOIN posts po ON po.id = cm.post_id LEFT JOIN users u ON u.id = cm.user_id WHERE po.publication_id = ? AND cm.status = ?${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    [p.id, status, ...pg.params]
   )
+  const { rows: page, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
   return c.json({
-    comments: rows.map((r) => {
+    next_cursor,
+    comments: page.map((r) => {
       // Rule hint for the moderator (ROADMAP phase 10): a label only — the decision always stays with the team.
       const reasons = r.status === 'pending' && !r.is_team_reply ? flagComment(String(r.body || '')).reasons : []
       return { ...r, image: parseJson<string[]>(r.images_json, [])[0] || null, images_json: undefined, hint: reasons.length ? { label: ruleCommentLabel(reasons), reasons, source: 'rule' } : null }
