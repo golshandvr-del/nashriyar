@@ -7,7 +7,7 @@ import { computeInsights } from '../insights'
 import { aiNarrative, aiAsk } from '../ai'
 import { mapQuestion, ASK_REPORT_LABELS } from '../../shared/askmap'
 import { cacheGens, cacheGet, cachePut, ensureRollup, type CacheDomain } from '../lib/rollup'
-import { DAY, kpis, previousRange, pubScope, pubViewsSql, rolledUntil, viewSeries } from '../domains/analytics/service'
+import { DAY, kpis, previousRange, pubScope, pubViewsParams, pubViewsSql, rolledUntil, viewSeries } from '../domains/analytics/service'
 // re-exported for modules that historically imported the scope helper from this file
 export { pubScope }
 import { archiveRoutes } from '../domains/analytics/archive'

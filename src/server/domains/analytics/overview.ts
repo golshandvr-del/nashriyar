@@ -5,7 +5,7 @@ import type { AppEnv } from '../../context'
 import { dateRange, nowIso } from '../../lib/util'
 import { getWeights, healthScores } from '../../insights'
 import { linearFit, termBounds } from '../../../shared/fa'
-import { DAY, kpis, previousRange, pubScope, pubViewsSql, rolledUntil, sparklines, viewSeries } from './service'
+import { DAY, kpis, previousRange, pubScope, pubViewsParams, pubViewsSql, rolledUntil, sparklines, viewSeries } from './service'
 
 export const overviewRoutes = new Hono<AppEnv>()
 
