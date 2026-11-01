@@ -1,7 +1,5 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../context'
-import { audit } from '../lib/util'
-import { admin } from '../domains/admin/service'
 import { todayRoutes } from '../domains/admin/today'
 import { publicationsRoutes } from '../domains/admin/publications'
 import { usersRoutes } from '../domains/admin/users'
