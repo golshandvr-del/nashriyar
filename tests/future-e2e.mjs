@@ -170,5 +170,77 @@ const dev = await developer()
   ok(acts.includes('system.api_key_create') && acts.includes('system.api_key_revoke'), 'open: key create / revoke in the technical audit log')
 }
 
+// ───────── 2. article index with persistent ids (/api/articles, /a/:pid, OAI-PMH) ─────────
+{
+  const team = await login('pub1-director', 'team1234')
+  const me = (await team('/api/auth/me')).json
+  const pubId = me?.publications?.[0]?.publication_id
+  const issues = (await team(`/api/team/${pubId}/issues?limit=200`)).json?.issues || []
+  const pubd = issues.find((i) => i.status === 'published')
+  ok(!!pubd, 'articles: team has a published issue')
+  const base = `/api/team/${pubId}/issues/${pubd?.id}`
+  const list = await team(`${base}/articles`)
+  const arts = list.json?.articles || []
+  ok(list.status === 200 && arts.length > 0 && arts.every((a) => /^NSH-\d{4}-[0-9A-HJKMNP-TV-Z]{8}$/.test(a.pid)), `articles: every section of a published issue has a PID (${arts.length})`)
+  const pid = arts[0]?.pid
+  ok((await student(`${base}/articles`)).status === 403, 'articles: student cannot list team article metadata')
+  ok((await student(`${base}/articles/${pid}`, { method: 'PUT', json: { abstract: 'x' } })).status === 403, 'articles: student cannot edit')
+
+  // public TOC carries the pid
+  const pubIssue = await anon(`/api/public/issues/${pubd?.id}`)
+  ok((pubIssue.json?.toc || []).some((t) => t.pid === pid), 'articles: public issue TOC carries the pid')
+
+  // team edits metadata; DOI is validated and unique; the PID can never change
+  const doi = `10.5555/nsh.${Date.now()}`
+  const put = await team(`${base}/articles/${pid}`, { method: 'PUT', json: { abstract: 'چکیدهٔ آزمایشی دربارهٔ نشریات دانشجویی', keywords: 'نشریه، دانشجو، آزمون', lang: 'fa', doi: `https://doi.org/${doi}`, pid: 'NSH-1400-AAAAAAAA' } })
+  ok(put.status === 200, `articles: team updates metadata -> ${put.status} ${put.text.slice(0, 120)}`)
+  const bad = await team(`${base}/articles/${pid}`, { method: 'PUT', json: { doi: 'not-a-doi' } })
+  ok(bad.status === 400, `articles: invalid DOI -> ${bad.status}`)
+  if (arts[1]) ok((await team(`${base}/articles/${arts[1].pid}`, { method: 'PUT', json: { doi } })).status === 400, 'articles: duplicate DOI rejected')
+  const after = ((await team(`${base}/articles`)).json?.articles || []).find((a) => a.pid === pid)
+  ok(after?.doi === doi && after?.keywords === 'نشریه،دانشجو،آزمون' && /چکیده/.test(after?.abstract || ''), `articles: metadata saved (doi normalised) ${JSON.stringify(after).slice(0, 160)}`)
+  ok(((await team(`${base}/articles`)).json?.articles || []).length === arts.length && !(await team(`${base}/articles`)).text.includes('NSH-1400-AAAAAAAA'), 'articles: PID is immutable')
+
+  // public JSON + citations
+  const j = await anon(`/api/articles/${pid}`)
+  ok(j.status === 200 && j.json?.article?.pid === pid && j.json.article.doi === doi && j.json.article.url.endsWith(`/a/${pid}`) && !!j.json.article.citation, `articles: public JSON -> ${j.status}`)
+  ok(!/main_pdf|storage_key|cover_key|\/page\/\d|phone|student_number|password/.test(j.text), 'articles: JSON exposes metadata only')
+  const bib = await anon(`/api/articles/${pid}/cite.bib`)
+  ok(bib.status === 200 && bib.text.startsWith(`@article{${pid},`) && bib.text.includes(doi) && /bibtex/.test(bib.ct), 'articles: BibTeX')
+  const ris = await anon(`/api/articles/${pid}/cite.ris`)
+  ok(ris.status === 200 && /^TY {2}- /m.test(ris.text) && /^ER {2}- ?/m.test(ris.text) && ris.text.includes(doi), 'articles: RIS')
+  ok((await anon('/api/articles/NSH-1400-AAAAAAAA')).status === 404, 'articles: unknown pid -> 404')
+  ok((await anon('/api/articles/garbage')).status === 404, 'articles: malformed pid -> 404')
+
+  // landing page: server-rendered with citation_* meta
+  const page = await anon(`/a/${pid}`)
+  ok(page.status === 200 && /text\/html/.test(page.ct), `articles: /a/:pid -> ${page.status}`)
+  ok(page.text.includes('name="citation_title"') && page.text.includes(`content="${doi}"`) && page.text.includes('citation_journal_title') && page.text.includes('rel="canonical"'), 'articles: landing page carries citation_* meta, DOI and canonical')
+  ok((await anon('/a/NSH-1400-AAAAAAAA')).status === 404, 'articles: unknown landing page -> 404')
+
+  // OAI-PMH 2.0
+  const oai = (q) => anon(`/api/articles/oai?${q}`)
+  const idf = await oai('verb=Identify')
+  ok(idf.status === 200 && /text\/xml/.test(idf.ct) && idf.text.includes('<protocolVersion>2.0</protocolVersion>'), 'oai: Identify')
+  ok((await oai('verb=ListMetadataFormats')).text.includes('<metadataPrefix>oai_dc</metadataPrefix>'), 'oai: ListMetadataFormats')
+  ok((await oai('verb=ListSets')).text.includes('<setSpec>pub:'), 'oai: ListSets')
+  const lr = await oai('verb=ListRecords&metadataPrefix=oai_dc')
+  const tok = /<resumptionToken>([^<]+)</.exec(lr.text)?.[1]
+  ok((lr.text.match(/<record>/g) || []).length === 100 && !!tok, 'oai: ListRecords page of 100 with resumptionToken')
+  const lr2 = await oai(`verb=ListRecords&resumptionToken=${tok}`)
+  const ids1 = lr.text.match(/<identifier>[^<]+/g) || []
+  const ids2 = lr2.text.match(/<identifier>[^<]+/g) || []
+  ok(ids2.length > 0 && !ids2.some((x) => ids1.includes(x)), 'oai: next page has new records')
+  const host = new URL(BASE).hostname
+  const gr = await oai(`verb=GetRecord&metadataPrefix=oai_dc&identifier=oai:${host}:${pid}`)
+  ok(gr.text.includes(`<dc:identifier>https://doi.org/${doi}</dc:identifier>`) && gr.text.includes('<dc:subject>نشریه</dc:subject>'), 'oai: GetRecord with DOI and keywords')
+  ok((await oai('verb=Bad')).text.includes('code="badVerb"'), 'oai: badVerb')
+  ok((await oai('verb=ListRecords')).text.includes('code="badArgument"'), 'oai: missing metadataPrefix -> badArgument')
+  ok((await oai('verb=ListRecords&metadataPrefix=marc')).text.includes('code="cannotDisseminateFormat"'), 'oai: unknown format')
+  ok((await oai('verb=ListRecords&resumptionToken=%%%')).text.includes('code="badResumptionToken"'), 'oai: bad resumption token')
+  ok((await oai('verb=ListRecords&metadataPrefix=oai_dc&from=2999-01-01')).text.includes('code="noRecordsMatch"'), 'oai: noRecordsMatch')
+  ok((await oai('verb=GetRecord&metadataPrefix=oai_dc&identifier=oai:x:NSH-1400-AAAAAAAA')).text.includes('code="idDoesNotExist"'), 'oai: idDoesNotExist')
+}
+
 console.log(failures ? `future-e2e: ${failures} failed, ${passed} passed` : `future-e2e: ${passed} checks passed`)
 process.exit(failures ? 1 : 0)
