@@ -17,6 +17,19 @@ import { festivalRoutes } from './routes/festivals'
 import { membershipRoutes } from './routes/membership'
 import { deskRoutes } from './routes/desk'
 
+const SLOW_MS = 1000
+const LOG_ALL = typeof process !== 'undefined' && (process as any).env?.LOG_REQUESTS === '1'
+
+/** One JSON object per line (ROADMAP phase 17 structured logging) — easy to grep, ship or parse. No personal data. */
+export function logLine(level: 'info' | 'warn' | 'error', fields: Record<string, unknown>) {
+  const line = JSON.stringify({ t: new Date().toISOString(), level, app: 'nashriyar', ...fields })
+  if (level === 'error') console.error(line)
+  else if (level === 'warn') console.warn(line)
+  else console.log(line)
+}
+/** Ids and long numbers (student numbers, codes) are not written to the log verbatim. */
+export const scrubLogPath = (p: string) => p.replace(/\b\d{6,}\b/g, ':n').slice(0, 160)
+
 export const CSP = [
   "default-src 'self'",
   "script-src 'self' 'wasm-unsafe-eval'",
@@ -40,14 +53,28 @@ export const CSP = [
 export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
   const app = new Hono<AppEnv>()
 
+  // ROADMAP phase 17: every request gets an id (a sane incoming X-Request-Id from a proxy is kept), echoed in the
+  // X-Request-Id response header and in every error body, so a user's report can be matched to the log line.
+  app.use('*', async (c, next) => {
+    const incoming = c.req.header('x-request-id') || ''
+    c.set('requestId', /^[A-Za-z0-9._:-]{8,64}$/.test(incoming) ? incoming : crypto.randomUUID())
+    await next()
+    c.header('X-Request-Id', c.get('requestId'))
+  })
+
   app.onError((err, c) => {
+    const request_id = c.get('requestId')
+    const path = new URL(c.req.url).pathname
     if (err instanceof HttpError) {
-      if (err.status >= 500) recordError(c.req.method, new URL(c.req.url).pathname, err.status, err)
-      return c.json({ error: err.message, code: err.code }, err.status as any)
+      if (err.status >= 500) {
+        recordError(c.req.method, path, err.status, err)
+        logLine('error', { request_id, method: c.req.method, path: scrubLogPath(path), status: err.status, msg: err.message })
+      }
+      return c.json({ error: err.message, code: err.code, request_id }, err.status as any)
     }
-    recordError(c.req.method, new URL(c.req.url).pathname, 500, err)
-    console.error('[nashriyar] unhandled error', err)
-    return c.json({ error: 'خطای داخلی سرور' }, 500)
+    recordError(c.req.method, path, 500, err)
+    logLine('error', { request_id, method: c.req.method, path: scrubLogPath(path), status: 500, msg: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack?.split('\n').slice(0, 4).join(' | ') : undefined })
+    return c.json({ error: 'خطای داخلی سرور', request_id }, 500)
   })
 
   // security headers for every response produced by the app
@@ -90,7 +117,12 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     await ensureMigrated(deps.db)
     c.header('Cache-Control', 'no-store')
     await next()
-    recordRequest(c.req.method, new URL(c.req.url).pathname, c.res.status || 200, Date.now() - t0)
+    const ms = Date.now() - t0
+    const status = c.res.status || 200
+    const path = new URL(c.req.url).pathname
+    recordRequest(c.req.method, path, status, ms)
+    // structured access log: slow requests and client/server errors always; every request when LOG_REQUESTS=1
+    if (status >= 400 || ms >= SLOW_MS || LOG_ALL) logLine(status >= 500 ? 'error' : status >= 400 || ms >= SLOW_MS ? 'warn' : 'info', { request_id: c.get('requestId'), method: c.req.method, path: scrubLogPath(path), status, ms, user: c.get('user')?.id || null })
   })
   app.use('/api/*', csrfGuard)
   app.use('/api/*', loadSession)
