@@ -8,24 +8,38 @@ import { activity, audit, bad, body, cursorPage, getSetting, HttpError, int, key
 import { normalizeFa } from '../../../shared/fa'
 import { draftCaption, suggestCategories, suggestKeywords } from '../../ai'
 import { DEFAULT_STAGES, STAGE_STATUS, TOC_STATUS, assertEditable, issueOf, pub, refreshIssueSearch } from './service'
+import { streamExport } from '../../lib/export'
+import { ISSUE_COLUMNS } from '../../../shared/columns'
+import type { PageOverride } from '../../lib/util'
 
 export const issuesRoutes = new Hono<AppEnv>()
 
 // ───────── Issues ─────────
-issuesRoutes.get('/:pubId/issues', async (c) => {
-  const { pub: p } = await pub(c)
+/** The issues list query (screen and export share it; `page` lets the export walk every keyset page). */
+async function listIssues(c: Context<AppEnv>, pubId: string, page?: PageOverride) {
   // ROADMAP phase 17: keyset pagination by issue number (?cursor, ?limit ≤ 500)
-  const pg = cursorPage(c, { col: 'i.number', idCol: 'i.id', def: 300, max: 500 })
+  const pg = cursorPage(c, { col: 'i.number', idCol: 'i.id', def: 300, max: 500, page })
   const rows = await c.get('db').all<any>(
     `SELECT i.id, i.number, i.title, i.status, i.pricing, i.planned_publish_at, i.published_at, i.page_count, i.cover_key, i.updated_at,
        (SELECT COUNT(*) FROM issue_toc_items t WHERE t.issue_id = i.id) AS toc_total,
        (SELECT COUNT(*) FROM issue_toc_items t WHERE t.issue_id = i.id AND t.status = 'done') AS toc_done
      FROM issues i WHERE i.publication_id = ? AND i.deleted_at IS NULL${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
-    [p.id, ...pg.params]
+    [pubId, ...pg.params]
   )
-  const { rows: issues, next_cursor } = pg.finish(rows, (r) => [r.number, r.id])
+  return pg.finish(rows, (r) => [r.number, r.id])
+}
+
+issuesRoutes.get('/:pubId/issues', async (c) => {
+  const { pub: p } = await pub(c)
+  const { rows: issues, next_cursor } = await listIssues(c, p.id)
   const next = await c.get('db').first<{ n: number }>('SELECT COALESCE(MAX(number), 0) + 1 AS n FROM issues WHERE publication_id = ?', [p.id])
   return c.json({ issues, next_number: next?.n ?? 1, next_cursor })
+})
+
+/** Streaming XLSX/CSV of the issues list with the on-screen table state (ROADMAP phase 18). */
+issuesRoutes.get('/:pubId/issues/export', async (c) => {
+  const { pub: p } = await pub(c)
+  return streamExport(c, { name: `issues-${p.slug || 'pub'}`, title: `شماره‌های ${p.title || ''}`.trim(), columns: ISSUE_COLUMNS, fetchPage: (cursor) => listIssues(c, p.id, { cursor, limit: 500 }) })
 })
 
 issuesRoutes.get('/:pubId/keywords', async (c) => {
