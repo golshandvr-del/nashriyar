@@ -2,7 +2,7 @@
 // both show and write exactly the same columns, labels and filters.
 import type { TableColumn } from './table'
 import { SYSTEM_ROLE_LABEL } from './roles'
-import { ASSOC_KIND, FREQUENCY, ISSUE_STATUS_LABEL, PUB_STATUS } from './labels'
+import { ASSOC_KIND, CHANNEL, CODE_STATE, FREQUENCY, ISSUE_STATUS_LABEL, PUB_STATUS } from './labels'
 
 export const DEGREE_LABEL: Record<string, string> = { associate: 'کاردانی', bachelor: 'کارشناسی', master: 'کارشناسی ارشد', phd: 'دکتری' }
 export const GENDER_LABEL: Record<string, string> = { male: 'مرد', female: 'زن' }
@@ -83,4 +83,31 @@ export const ISSUE_COLUMNS: TableColumn[] = [
   { key: 'planned_publish_at', label: 'برنامهٔ انتشار', type: 'date', filter: 'date' },
   { key: 'published_at', label: 'تاریخ انتشار', type: 'date', filter: 'date' },
   { key: 'updated_at', label: 'آخرین تغییر', type: 'datetime', filter: 'date', hidden: true }
+]
+
+/** /team/:pubId/sales — digital purchase codes (the raw code is never stored; only its last 4) */
+export const CODE_COLUMNS: TableColumn[] = [
+  { key: 'code_last4', label: 'کد (۴ رقم آخر)' },
+  { key: 'issue_number', label: 'شماره', type: 'number', filter: 'select', groupable: true },
+  { key: 'issue_title', label: 'عنوان شماره', hidden: true },
+  { key: 'state', label: 'وضعیت', labels: CODE_STATE, filter: 'select', groupable: true, total: 'count' },
+  { key: 'price_paid', label: 'مبلغ', type: 'money', filter: 'number', total: 'sum' },
+  { key: 'channel', label: 'روش دریافت', labels: CHANNEL, filter: 'select', groupable: true },
+  { key: 'bound_student_number', label: 'مخصوص دانشجو', hidden: true },
+  { key: 'created_at', label: 'ساخت', type: 'datetime', filter: 'date' },
+  { key: 'expires_at', label: 'انقضا', type: 'datetime', filter: 'date', hidden: true },
+  { key: 'redeemed_by_name', label: 'استفاده‌کننده' },
+  { key: 'redeemed_at', label: 'زمان استفاده', type: 'datetime', filter: 'date', hidden: true },
+  { key: 'note', label: 'یادداشت', hidden: true }
+]
+
+/** /team/:pubId/sales — physical (print) sales */
+export const SALE_COLUMNS: TableColumn[] = [
+  { key: 'sold_at', label: 'تاریخ', type: 'date', filter: 'date' },
+  { key: 'issue_number', label: 'شماره', type: 'number', filter: 'select', groupable: true },
+  { key: 'issue_title', label: 'عنوان شماره', hidden: true },
+  { key: 'quantity', label: 'تعداد', type: 'number', filter: 'number', total: 'sum' },
+  { key: 'unit_price', label: 'قیمت واحد', type: 'money', filter: 'number' },
+  { key: 'amount', label: 'مبلغ', type: 'money', filter: 'number', total: 'sum' },
+  { key: 'channel', label: 'محل فروش', filter: 'select', groupable: true }
 ]
