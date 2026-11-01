@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds, academicYearOf, academicYearRange, academicYears } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'\nexport { writeDomains } from './src/server/lib/rollup'\nexport { str, int, oneOf } from './src/server/lib/util'\nexport { v, parseInput, faMsg } from './src/server/lib/validate'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds, academicYearOf, academicYearRange, academicYears } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'\nexport { writeDomains } from './src/server/lib/rollup'\nexport { str, int, oneOf } from './src/server/lib/util'\nexport { v, parseInput, faMsg } from './src/server/lib/validate'\nexport { buildTableXlsx, streamTableXlsx, buildCsv, columnWidths, jalaliCell, csvField } from './src/shared/sheet'\nexport { ZipStream, crc32 } from './src/shared/zip'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -222,5 +222,68 @@ t('validation: str/int/oneOf via zod keep the Persian messages; parseInput repor
   assert.equal(err(() => m.parseInput({ a: ['1', '2', '3', '4'] }, { a: m.v.list(m.v.str('برچسب'), 'برچسب‌ها', 3) })).message, '«برچسب‌ها» حداکثر 3 مورد می‌پذیرد')
   assert.equal(m.v.str('عنوان'), m.v.str('عنوان'), 'field schemas are memoised')
 })
+
+// ROADMAP phase 18: presentation-grade XLSX — structure is asserted on the raw OOXML parts (stored ZIP ⇒ readable)
+const unzipStored = (bytes) => {
+  // walks the central directory, so it also reads streamed entries (sizes only in the data descriptor)
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  let e = bytes.length - 22
+  while (dv.getUint32(e, true) !== 0x06054b50) e--
+  const count = dv.getUint16(e + 10, true)
+  let p = dv.getUint32(e + 16, true)
+  const files = {}
+  for (let i = 0; i < count; i++) {
+    assert.equal(dv.getUint32(p, true), 0x02014b50)
+    const crc = dv.getUint32(p + 16, true), size = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), off = dv.getUint32(p + 42, true)
+    const name = new TextDecoder().decode(bytes.subarray(p + 46, p + 46 + nl))
+    const ln = dv.getUint16(off + 26, true), lx = dv.getUint16(off + 28, true)
+    const data = bytes.subarray(off + 30 + ln + lx, off + 30 + ln + lx + size)
+    assert.equal(m.crc32(data), crc, `crc ${name}`)
+    files[name] = new TextDecoder().decode(data)
+    p += 46 + nl + dv.getUint16(p + 30, true) + dv.getUint16(p + 32, true)
+  }
+  return files
+}
+const SHEET_COLS = [{ key: 'name', label: 'نام و نام خانوادگی' }, { key: 'n', label: 'تعداد', type: 'number', total: 'sum' }, { key: 'd', label: 'تاریخ', type: 'date' }, { key: 'note', label: 'توضیح' }]
+const SHEET_ROWS = Array.from({ length: 30 }, (_, i) => ({ name: 'کاربر ' + i, n: i, d: '2026-10-01', note: i === 2 ? 'متن طولانی '.repeat(20) : '=HYPERLINK("x")' }))
+t('sheet: xlsx has widths, wrapped rows, frozen bold header, autofilter, RTL, Jalali, SUBTOTAL totals, print setup', () => {
+  const f = unzipStored(m.buildTableXlsx(SHEET_COLS, SHEET_ROWS, { title: 'گزارش', subtitle: 'فیلتر: همه', sheetName: 'افراد', paper: 'A3', orientation: 'landscape' }))
+  for (const part of ['[Content_Types].xml', '_rels/.rels', 'xl/workbook.xml', 'xl/_rels/workbook.xml.rels', 'xl/styles.xml', 'xl/worksheets/sheet1.xml']) assert.ok(f[part], part)
+  const s = f['xl/worksheets/sheet1.xml']
+  const widths = [...s.matchAll(/<col min="(\d+)" max="\d+" width="(\d+)"/g)].map((x) => +x[2])
+  assert.equal(widths.length, 4)
+  assert.ok(widths[3] === 50 && widths[0] > widths[1], `widths follow content, long text capped: ${widths}`)
+  assert.ok(s.includes('rightToLeft="1"'), 'RTL sheet')
+  assert.ok(s.includes('<pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/>'), 'header frozen below title+subtitle')
+  assert.ok(s.includes('<autoFilter ref="A3:D33"/>'), 'autofilter over header + data')
+  assert.match(s, /<row r="3"><c r="A3" s="1" t="inlineStr">/, 'header row uses the bold header style')
+  assert.match(s, /<row r="6" ht="\d+" customHeight="1">/, 'long text row gets a taller wrapped height')
+  assert.ok(s.includes('۱۴۰۵/۰۷/۰۹'), 'ISO date written as Jalali')
+  assert.ok(s.includes('<f>SUBTOTAL(109,B4:B33)</f><v>435</v>'), 'totals row follows Excel filtering, cached value present')
+  assert.ok(s.includes('جمع (۳۰ ردیف)'))
+  assert.ok(s.includes('<pageSetup paperSize="8" orientation="landscape" fitToWidth="1" fitToHeight="0"/>'), 'A3 landscape, fit to width')
+  assert.ok(s.includes('<mergeCell ref="A1:D1"/>') && s.includes('&amp;P از &amp;N'), 'title merged, page x of y footer')
+  const wb = f['xl/workbook.xml']
+  assert.ok(wb.includes(`<definedName name="_xlnm.Print_Titles" localSheetId="0">'افراد'!$3:$3</definedName>`), 'header row repeats on every printed page')
+  assert.ok(wb.includes(`'افراد'!$A$3:$D$33`), 'filter database name')
+  assert.ok(f['xl/styles.xml'].includes('wrapText="1"') && f['xl/styles.xml'].includes('readingOrder="2"'))
+})
+t('sheet: streamed xlsx equals the in-memory sheet; CSV has BOM and neutralises formulas', async () => {})
+{
+  const chunks = []
+  let i = 0
+  const done = await m.streamTableXlsx(SHEET_COLS, { title: 'گزارش', subtitle: 'فیلتر: همه', sheetName: 'افراد' }, async () => (i < 3 ? SHEET_ROWS.slice(i++ * 10, i * 10) : []), (c) => chunks.push(c))
+  assert.equal(done, 30)
+  const streamed = unzipStored(new Uint8Array(Buffer.concat(chunks.map((c) => Buffer.from(c)))))
+  const mem = unzipStored(m.buildTableXlsx(SHEET_COLS, SHEET_ROWS, { title: 'گزارش', subtitle: 'فیلتر: همه', sheetName: 'افراد' }))
+  assert.equal(streamed['xl/worksheets/sheet1.xml'], mem['xl/worksheets/sheet1.xml'])
+  assert.equal(streamed['xl/workbook.xml'], mem['xl/workbook.xml'])
+  const csv = m.buildCsv(SHEET_COLS, SHEET_ROWS.slice(0, 2))
+  assert.ok(csv.startsWith('\ufeffنام و نام خانوادگی,تعداد,تاریخ,توضیح\r\n'))
+  assert.ok(csv.includes(`کاربر 0,0,۱۴۰۵/۰۷/۰۹,"'=HYPERLINK(""x"")"`), 'formula-looking text is prefixed and quoted')
+  assert.equal(m.csvField('-5'), '-5')
+  assert.equal(m.csvField('-abc'), `"'-abc"`)
+  assert.equal(m.jalaliCell('2026-03-21'), '۱۴۰۵/۰۱/۰۱')
+}
 
 console.log(`unit: ${n} passed`)
