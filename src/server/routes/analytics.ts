@@ -921,7 +921,7 @@ async function viewsByPub(c: Context<AppEnv>, from: string, to: string): Promise
   const out: Record<string, number> = {}
   const add = (rows: { id: string; n: number }[]) => rows.forEach((r) => (out[r.id] = (out[r.id] || 0) + Number(r.n || 0)))
   add(await db.all('SELECT publication_id AS id, SUM(n) AS n FROM view_daily WHERE day BETWEEN ? AND ? AND day <= ? GROUP BY publication_id', [from, to, until]))
-  add(await db.all('SELECT publication_id AS id, COUNT(*) AS n FROM view_events WHERE day BETWEEN ? AND ? AND day > ? GROUP BY publication_id', [from, to, until]))
+  add(await db.all('SELECT publication_id AS id, COUNT(*) AS n FROM view_events WHERE day BETWEEN ? AND ? AND day > ? GROUP BY publication_id', [tailFrom(from, until), to, until]))
   return out
 }
 
@@ -946,7 +946,7 @@ analyticsRoutes.get('/visuals', async (c) => {
     cell(r.d).published += Number(r.n)
   for (const r of await db.all<{ d: string; n: number }>(`SELECT v.day AS d, SUM(v.n) AS n FROM view_daily v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ? AND v.day <= ?${s.sql} GROUP BY v.day`, [from, to, until, ...s.params]))
     cell(r.d).views += Number(r.n)
-  for (const r of await db.all<{ d: string; n: number }>(`SELECT v.day AS d, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ? AND v.day > ?${s.sql} GROUP BY v.day`, [from, to, until, ...s.params]))
+  for (const r of await db.all<{ d: string; n: number }>(`SELECT v.day AS d, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ? AND v.day > ?${s.sql} GROUP BY v.day`, [tailFrom(from, until), to, until, ...s.params]))
     cell(r.d).views += Number(r.n)
 
   // 2) Production funnel over issues started in the range + average days spent in each step
