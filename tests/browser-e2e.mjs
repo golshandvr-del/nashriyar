@@ -15,7 +15,7 @@ try {
 const PUBLIC = ['/', '/explore', '/categories', '/search', '/guide', '/terms', '/recruitment', '/festivals', '/login', '/register', '/recover', '/verify']
 const STUDENT = ['/', '/library', '/following', '/notifications', '/settings', '/redeem', '/judging']
 const TEAM = ['', '/issues', '/issues/new', '/members', '/posts', '/comments', '/sales', '/stats', '/recruit', '/festivals', '/profile']
-const SYSTEM = ['', '/settings', '/backups', '/sessions', '/database', '/staff', '/audit']
+const SYSTEM = ['', '/settings', '/backups', '/sessions', '/database', '/staff', '/audit', '/api-keys']
 const ADMIN = ['', '/overview', '/live', '/analytics', '/analytics?tab=visuals', '/insights', '/report', '/approvals', '/publications', '/people', '/structure', '/categories', '/moderation', '/storefront', '/announcements', '/festivals', '/users', '/audit', '/settings']
 
 const ROLES = [
