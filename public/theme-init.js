@@ -6,5 +6,6 @@
     var dark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     if (dark) document.documentElement.classList.add('dark')
     if (localStorage.getItem('nsh_large_text') === '1') document.documentElement.classList.add('text-lg-mode')
+    if (localStorage.getItem('nsh_motifs') === '0') document.documentElement.classList.add('no-motifs')
   } catch (e) {}
 })()
