@@ -11,6 +11,7 @@ import { PEOPLE_COLUMNS } from '../../../shared/columns'
 import type { Context } from 'hono'
 import { normalizeFa } from '../../../shared/fa'
 import { admin, monitor, scope } from './service'
+import { indexIssueArticles } from '../../lib/articles'
 
 export const approvalsRoutes = new Hono<AppEnv>()
 
@@ -64,6 +65,8 @@ approvalsRoutes.post('/approvals/:issueId', async (c) => {
     stmts.push({ sql: "INSERT INTO stage_events (id, issue_id, from_status, to_status, actor_user_id, note, created_at) VALUES (?,?, 'awaiting_approval', 'changes_requested', ?, ?, ?)", params: [newId(), i.id, u.id, note, now] })
   }
   await db.batch(stmts)
+  // ROADMAP phase 19: every section of the published issue gets its permanent article id (idempotent)
+  if (decision === 'approved') await indexIssueArticles(db, i.id)
   const holders = await db.all<{ user_id: string }>('SELECT user_id FROM publication_roles WHERE publication_id = ? AND ended_at IS NULL', [i.publication_id])
   for (const h of holders)
     await notify(db, h.user_id, 'approval.' + decision, decision === 'approved' ? `شمارهٔ ${i.number} «${i.title}» تأیید و منتشر شد` : `شمارهٔ ${i.number} نیازمند اصلاح است: ${note}`, `/team/${i.publication_id}/issues/${i.id}`)
