@@ -87,7 +87,7 @@ export default function AdminLive() {
                           const pp = String(i.planned_publish_at)
                           const late = Math.floor((Date.now() - new Date(pp.length === 10 ? pp + 'T23:59:59Z' : pp).getTime()) / 86400000) || 0
                           return (
-                            <div className="mt-1 flex items-center gap-2 text-xs text-muted">
+                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
                               <span>انتشار برنامه‌ریزی‌شده: {faDate(i.planned_publish_at)}</span>
                               {late > 0 && <span className="rounded bg-red-100 px-1.5 font-bold text-red-700">{toFaDigits(late)} روز تأخیر</span>}
                             </div>
