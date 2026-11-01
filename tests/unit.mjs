@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -108,5 +108,42 @@ t('team helpers: category overlap + caption template', () => {
   assert.match(cap, /«سرمقاله» از شمارهٔ 3 سبز — آب\./)
   assert.match(cap, /دربارهٔ بحران آب\./)
   assert.ok(!/ادامه دارد/.test(cap))
+})
+// ROADMAP phase 17: more coverage of business logic — pagination, CSV parsing, xlsx container
+const fakeCtx = (q) => ({ req: { query: (k) => q[k] } })
+t('cursorPage: first page, limit clamp, next_cursor round-trip', () => {
+  const pg = m.cursorPage(fakeCtx({ limit: '2' }), { col: 'a.created_at', idCol: 'a.id', max: 5 })
+  assert.equal(pg.limit, 2); assert.equal(pg.fetch, 3); assert.equal(pg.and, ''); assert.deepEqual(pg.params, [])
+  assert.equal(pg.order, 'a.created_at DESC, a.id DESC')
+  const rows = [{ t: '3', id: 'c' }, { t: '2', id: 'b' }, { t: '1', id: 'a' }]
+  const f = pg.finish(rows, (r) => [r.t, r.id])
+  assert.equal(f.rows.length, 2); assert.ok(f.next_cursor)
+  const pg2 = m.cursorPage(fakeCtx({ limit: '2', cursor: f.next_cursor }), { col: 'a.created_at', idCol: 'a.id' })
+  assert.deepEqual(pg2.params, ['2', '2', 'b'])
+  assert.match(pg2.and, /a\.created_at < \? OR \(a\.created_at = \? AND a\.id < \?\)/)
+  assert.equal(pg2.finish(rows.slice(2), (r) => [r.t, r.id]).next_cursor, null)
+  assert.equal(m.cursorPage(fakeCtx({ limit: '9999' }), { col: 'x', idCol: 'id', max: 5 }).limit, 5)
+  assert.equal(m.cursorPage(fakeCtx({ limit: '-3' }), { col: 'x', idCol: 'id', def: 7 }).limit, 7)
+  assert.match(m.cursorPage(fakeCtx({}), { col: 'x', idCol: 'id', dir: 'ASC', nullable: true }).order, /COALESCE\(x, ''\) ASC/)
+})
+t('cursorPage: garbage cursor → 400 bad_cursor', () => {
+  for (const bad of ['%%%', 'bm90LWpzb24', btoa(encodeURIComponent('{"a":1}'))]) {
+    assert.throws(() => m.cursorPage(fakeCtx({ cursor: bad }), { col: 'x', idCol: 'id' }), (e) => e.status === 400 && e.code === 'bad_cursor')
+  }
+})
+t('csvToRows: BOM, quotes, escaped quotes, newlines in cells, CRLF', () => {
+  const q = '"'
+  const csv = '\ufeffنام,' + q + 'شهر، استان' + q + '\r\n' + q + 'علی ' + q + q + 'ع' + q + q + q + ',' + q + 'خط۱\nخط۲' + q + '\n'
+  assert.deepEqual(m.csvToRows(csv), [['نام', 'شهر، استان'], ['علی "ع"', 'خط۱\nخط۲']])
+  assert.deepEqual(m.csvToRows('a,,c'), [['a', '', 'c']])
+})
+t('buildXlsx: valid zip container, RTL sheet, escaped text, control chars dropped', () => {
+  const bytes = m.buildXlsx([['عنوان', 'مبلغ'], ['<b>&"', 12000], ['bad\u0001char', null]], 'گزارش')
+  assert.equal(bytes[0], 0x50); assert.equal(bytes[1], 0x4b) // "PK"
+  const text = new TextDecoder().decode(bytes)
+  assert.ok(text.includes('xl/worksheets/sheet1.xml'))
+  assert.ok(text.includes('rightToLeft="1"'))
+  assert.ok(text.includes('&lt;b&gt;&amp;&quot;'))
+  assert.ok(!text.includes('\u0001')); assert.ok(text.includes('badchar'))
 })
 console.log(`unit: ${n} passed`)
