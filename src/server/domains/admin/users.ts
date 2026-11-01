@@ -6,8 +6,7 @@ import { hashPassword, newId, tempPassword } from '../../lib/crypto'
 import { audit, bad, body, cursorPage, int, notFound, nowIso, oneOf, str, type PageOverride } from '../../lib/util'
 import { streamExport } from '../../lib/export'
 import type { Context } from 'hono'
-import type { TableColumn } from '../../../shared/table'
-import { SYSTEM_ROLE_LABEL } from '../../../shared/roles'
+import { USER_COLUMNS } from '../../../shared/columns'
 import { normalizeFa, toEnDigits } from '../../../shared/fa'
 import { PUB_ROLES, admin } from './service'
 
@@ -58,24 +57,6 @@ usersRoutes.get('/users', async (c) => {
   const production_roles = await db.all('SELECT id, name FROM production_roles ORDER BY sort_order, name')
   return c.json({ users, production_roles, next_cursor })
 })
-
-const DEGREE_LABEL = { associate: 'کاردانی', bachelor: 'کارشناسی', master: 'کارشناسی ارشد', phd: 'دکتری' }
-const STATUS_LABEL = { active: 'فعال', suspended: 'تعلیق', pending: 'در انتظار' }
-/** Columns of the users DataTable (the web view declares the same keys; ROADMAP phase 18). */
-export const USER_COLUMNS: TableColumn[] = [
-  { key: 'display_name', label: 'نام', sortable: true },
-  { key: 'username', label: 'نام کاربری', sortable: true },
-  { key: 'student_number', label: 'شمارهٔ دانشجویی', sortable: true },
-  { key: 'system_role', label: 'نقش', labels: SYSTEM_ROLE_LABEL, filter: 'select', sortable: true, groupable: true, total: 'count' },
-  { key: 'status', label: 'وضعیت', labels: STATUS_LABEL, filter: 'select', sortable: true, groupable: true },
-  { key: 'faculty_name', label: 'دانشکده', filter: 'select', sortable: true, groupable: true },
-  { key: 'degree', label: 'مقطع', labels: DEGREE_LABEL, filter: 'select', sortable: true, groupable: true },
-  { key: 'entry_year', label: 'سال ورود', type: 'number', filter: 'number', sortable: true, groupable: true },
-  { key: 'publications', label: 'نشریات (سمت)', list: true, filter: 'select', groupable: true },
-  { key: 'memberships', label: 'عضویت تیم', list: true, hidden: true },
-  { key: 'last_login_at', label: 'آخرین ورود', type: 'datetime', filter: 'date', sortable: true },
-  { key: 'created_at', label: 'تاریخ ایجاد', type: 'date', filter: 'date', sortable: true, hidden: true }
-]
 
 /** Streaming XLSX/CSV of the users list: same server filters + the on-screen table state (ROADMAP phase 18). */
 usersRoutes.get('/users/export', async (c) => {
