@@ -3,10 +3,13 @@
 export class ApiError extends Error {
   status: number
   code?: string
-  constructor(status: number, message: string, code?: string) {
+  /** ROADMAP phase 17: server request id (X-Request-Id) — shown as «کد پیگیری» on server errors */
+  requestId?: string
+  constructor(status: number, message: string, code?: string, requestId?: string) {
     super(message)
     this.status = status
     this.code = code
+    this.requestId = requestId
   }
 }
 
@@ -17,9 +20,12 @@ async function parse<T>(res: Response): Promise<T> {
   const ct = res.headers.get('content-type') || ''
   if (ct.includes('application/json')) data = await res.json().catch(() => null)
   if (!res.ok) {
-    const msg = data?.error || (res.status === 401 ? 'ابتدا وارد شوید' : res.status === 403 ? 'دسترسی ندارید' : res.status === 429 ? 'تعداد درخواست‌ها زیاد است؛ کمی صبر کنید' : 'خطای سرور')
+    const rid: string | undefined = data?.request_id || res.headers.get('x-request-id') || undefined
+    const base = data?.error || (res.status === 401 ? 'ابتدا وارد شوید' : res.status === 403 ? 'دسترسی ندارید' : res.status === 429 ? 'تعداد درخواست‌ها زیاد است؛ کمی صبر کنید' : 'خطای سرور')
     if (res.status === 401) window.dispatchEvent(new CustomEvent('nsh:unauthorized'))
-    throw new ApiError(res.status, msg, data?.code)
+    // server-side failures carry a short tracking code so a user's report can be matched to the log line
+    const msg = res.status >= 500 && rid ? `${base} (کد پیگیری: ${rid.slice(0, 8)})` : base
+    throw new ApiError(res.status, msg, data?.code, rid)
   }
   return data as T
 }
