@@ -489,12 +489,13 @@ analyticsRoutes.get('/ranking', async (c) => {
   const { from, to } = dateRange(c, 365)
   const fromTs = from + 'T00:00:00.000Z'
   const toTs = to + 'T23:59:59.999Z'
+  const until = await rolledUntil(c)
   const rows = await db.all<any>(
     `SELECT p.id, p.title, p.slug, p.theme_color, p.frequency, p.status, f.name AS faculty_name,
        (SELECT COUNT(*) FROM issues i WHERE i.publication_id = p.id AND i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?) AS published,
        (SELECT COALESCE(SUM(page_count),0) FROM issues i WHERE i.publication_id = p.id AND i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?) AS pages,
-       (SELECT COUNT(*) FROM view_events v WHERE v.publication_id = p.id AND v.day BETWEEN ? AND ?) AS views,
-       (SELECT COUNT(*) FROM view_events v WHERE v.publication_id = p.id AND v.entity_type = 'issue_read' AND v.day BETWEEN ? AND ?) AS reads,
+       ${pubViewsSql()} AS views,
+       ${pubViewsSql('issue_read')} AS reads,
        (SELECT COUNT(*) FROM follows fo WHERE fo.publication_id = p.id AND fo.unfollowed_at IS NULL) AS followers,
        (SELECT COUNT(*) FROM follows fo WHERE fo.publication_id = p.id AND fo.created_at BETWEEN ? AND ?) AS new_followers,
        (SELECT COUNT(*) FROM access_codes ac WHERE ac.publication_id = p.id AND ac.redeemed_at BETWEEN ? AND ?) AS digital_sold,
@@ -504,7 +505,7 @@ analyticsRoutes.get('/ranking', async (c) => {
        (SELECT COUNT(*) FROM team_members tm WHERE tm.publication_id = p.id AND tm.is_active = 1) AS members,
        (SELECT MAX(published_at) FROM issues i WHERE i.publication_id = p.id AND i.status IN ('published','archived')) AS last_published_at
      FROM publications p LEFT JOIN faculties f ON f.id = p.faculty_id WHERE p.deleted_at IS NULL${s.sql}`,
-    [fromTs, toTs, fromTs, toTs, from, to, from, to, fromTs, toTs, fromTs, toTs, fromTs, toTs, from, to, fromTs, toTs, ...s.params]
+    [fromTs, toTs, fromTs, toTs, ...pubViewsParams(from, to, until), ...pubViewsParams(from, to, until), fromTs, toTs, fromTs, toTs, fromTs, toTs, from, to, fromTs, toTs, ...s.params]
   )
   const health = await healthScores(db, rows.map((r) => r.id))
   // Organisational summary (ROADMAP phase 7): owners active in range (published an issue or a post),
