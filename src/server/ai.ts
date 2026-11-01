@@ -309,3 +309,50 @@ export async function aiCommentLabels(c: Context<AppEnv>, items: { id: string; b
     return {}
   }
 }
+
+// ---- Text-to-speech (ROADMAP phase 19 — audio edition of published text as an AI add-on) ----
+// OpenAI-compatible `POST {base}/audio/speech` (model/voice from settings). Same switch, budget and circuit breaker as
+// the chat layer; callers cache the MP3 in storage so each page is synthesised once. When the AI layer is off the
+// browser falls back to the Web Speech API (no server call at all).
+export interface TtsConfig { baseUrl: string; apiKey: string; model: string; voice: string }
+export const TTS_MAX_CHARS = 4000
+
+export async function ttsConfig(c: Context<AppEnv>): Promise<TtsConfig | null> {
+  const db = c.get('db')
+  if (!(await getSetting(db, 'ai_enabled', false))) return null
+  const deps = c.get('deps')
+  const baseUrl = (await getSetting(db, 'ai_base_url', '')) || deps.ai?.baseUrl || ''
+  const apiKey = (await getSetting(db, 'ai_api_key', '')) || deps.ai?.apiKey || ''
+  const model = String((await getSetting(db, 'ai_tts_model', '')) || 'tts-1')
+  if (!baseUrl || !apiKey || model === 'off') return null
+  return { baseUrl, apiKey, model, voice: String((await getSetting(db, 'ai_tts_voice', '')) || 'alloy') }
+}
+
+/** Synthesises `text` (already trimmed to TTS_MAX_CHARS) to MP3 bytes; throws a Persian message on budget/breaker/failure. */
+export async function aiSpeech(c: Context<AppEnv>, cfg: TtsConfig, text: string): Promise<Uint8Array> {
+  const db = c.get('db')
+  const st = await getAiStatus(db)
+  if (st.breaker_open) throw new BudgetError('سرویس هوش مصنوعی پس از چند خطای پیاپی موقتاً متوقف شده است؛ چند دقیقهٔ دیگر دوباره تلاش کنید.')
+  if (st.limit && st.usage.calls >= st.limit) throw new BudgetError('سقف ماهانهٔ استفاده از هوش مصنوعی پر شده است.')
+  const timeoutSec = Math.min(60, Math.max(3, Number(await getSetting(db, 'ai_timeout_sec', 15)) || 15))
+  try {
+    const res = await fetch(cfg.baseUrl.replace(/\/+$/, '') + '/audio/speech', {
+      signal: AbortSignal.timeout(Math.max(timeoutSec, 30) * 1000),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey}` },
+      body: JSON.stringify({ model: cfg.model, voice: cfg.voice, input: redactText(text).slice(0, TTS_MAX_CHARS), response_format: 'mp3' })
+    })
+    if (!res.ok) throw new Error(`TTS provider error ${res.status}`)
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    if (bytes.length < 16) throw new Error('empty TTS response')
+    await setSetting(db, 'ai_usage', { ...st.usage, calls: st.usage.calls + 1 })
+    await setSetting(db, 'ai_breaker', { fails: 0, open_until: null })
+    return bytes
+  } catch (e) {
+    const br = await getSetting<Breaker>(db, 'ai_breaker', { fails: 0, open_until: null })
+    const fails = (br.fails || 0) + 1
+    await setSetting(db, 'ai_breaker', { fails, open_until: fails >= BREAKER_THRESHOLD ? new Date(Date.now() + BREAKER_COOLDOWN_MS).toISOString() : null })
+    await setSetting(db, 'ai_usage', { ...st.usage, failures: st.usage.failures + 1 })
+    throw new Error(failMessage(e))
+  }
+}
