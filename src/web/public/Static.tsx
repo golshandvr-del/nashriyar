@@ -13,11 +13,11 @@ import { Illustration } from '../components/Illustration'
  * so one broken page never blanks the whole panel: the menu stays usable and navigating away clears it.
  */
 export class ErrorBoundary extends Component<{ children: ReactNode; inline?: boolean }, { error: Error | null }> {
-  state = { error: null as Error | null }
+  override state = { error: null as Error | null }
   static getDerivedStateFromError(error: Error) {
     return { error }
   }
-  componentDidCatch(error: Error, info: ErrorInfo) {
+  override componentDidCatch(error: Error, info: ErrorInfo) {
     const chunk = /Loading chunk|dynamically imported module|Importing a module script failed/i.test(error?.message || '')
     if (chunk && !sessionStorage.getItem('nsh-chunk-reload')) {
       sessionStorage.setItem('nsh-chunk-reload', '1')
@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode; inline?: boo
     }
     console.error(error, info.componentStack)
   }
-  render() {
+  override render() {
     if (!this.state.error) return this.props.children
     return (
       <div className="mx-auto max-w-md px-4 py-20 text-center">
