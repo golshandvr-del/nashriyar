@@ -994,6 +994,37 @@ analyticsRoutes.get('/visuals', async (c) => {
   )
   const deadlines = await db.all('SELECT id, title, due_at FROM deadlines WHERE due_at BETWEEN ? AND ? ORDER BY due_at LIMIT 20', [isoAgo(7), new Date(now + 120 * DAY).toISOString()])
 
+  // 7) Team composition (ROADMAP phase 14, after phase 15 profiles): active team members by gender, degree, faculty and
+  // entry year. Profile fields come from the linked account; gender only counts people who consented (privacy), every
+  // other person is reported as «نامشخص». Aggregates only — no individual is exposed.
+  const tm = await db.all<{ gender: string | null; degree: string | null; entry_year: number | null; faculty: string | null }>(
+    `SELECT CASE WHEN us.profile_consent_at IS NOT NULL THEN us.gender END AS gender, us.degree, us.entry_year,
+            COALESCE(fu.name, ft.name) AS faculty
+     FROM team_members tm JOIN publications p ON p.id = tm.publication_id
+     LEFT JOIN users us ON us.id = tm.user_id AND us.deleted_at IS NULL
+     LEFT JOIN faculties fu ON fu.id = us.faculty_id
+     LEFT JOIN faculties ft ON ft.id = tm.faculty_id
+     WHERE tm.is_active = 1 AND p.deleted_at IS NULL${s.sql}`,
+    s.params
+  )
+  const tally = (pick: (r: (typeof tm)[number]) => string | number | null | undefined) => {
+    const m = new Map<string, number>()
+    for (const r of tm) {
+      const k = pick(r)
+      const key = k == null || k === '' ? 'unknown' : String(k)
+      m.set(key, (m.get(key) || 0) + 1)
+    }
+    return [...m.entries()].map(([key, n]) => ({ key, n })).sort((a, b) => b.n - a.n)
+  }
+  const team = {
+    total: tm.length,
+    linked: tm.filter((r) => r.degree != null || r.entry_year != null || r.gender != null).length,
+    gender: tally((r) => r.gender),
+    degree: tally((r) => r.degree),
+    faculty: tally((r) => r.faculty),
+    entry_year: tally((r) => r.entry_year).sort((a, b) => (a.key === 'unknown' ? 1 : b.key === 'unknown' ? -1 : a.key.localeCompare(b.key)))
+  }
+
   return c.json({
     from,
     to,
@@ -1006,7 +1037,8 @@ analyticsRoutes.get('/visuals', async (c) => {
     radar,
     yoy: { years: years.map(({ label, months }) => ({ label, months })), month_labels: [...JALALI_MONTHS.slice(6), ...JALALI_MONTHS.slice(0, 6)] },
     categories: cats.map((r) => ({ name: r.name, n: Number(r.n) })),
-    gantt: { issues: gantt, deadlines }
+    gantt: { issues: gantt, deadlines },
+    team
   })
 })
 
