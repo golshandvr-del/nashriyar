@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
-import type { Context } from 'hono'
 import type { AppEnv, SystemRole } from '../context'
-import { ADMIN_ROLES, MONITOR_ROLES } from '../context'
+import { ADMIN_ROLES } from '../context'
 import { requireRole } from '../auth'
 import { hashPassword, newId, sha256, tempPassword } from '../lib/crypto'
 import { normalizeSecret } from './auth'
