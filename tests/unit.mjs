@@ -144,6 +144,7 @@ t('buildXlsx: valid zip container, RTL sheet, escaped text, control chars droppe
   assert.ok(text.includes('xl/worksheets/sheet1.xml'))
   assert.ok(text.includes('rightToLeft="1"'))
   assert.ok(text.includes('&lt;b&gt;&amp;&quot;'))
-  assert.ok(!text.includes('\u0001')); assert.ok(text.includes('badchar'))
+  // the zip headers are binary (they legitimately contain 0x01 bytes); the cell text proves the control char was dropped
+  assert.ok(text.includes('badchar'))
 })
 console.log(`unit: ${n} passed`)
