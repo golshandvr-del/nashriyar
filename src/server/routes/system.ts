@@ -24,7 +24,7 @@ export const systemRoutes = new Hono<AppEnv>()
 const SESSION_MAX_MS = 2 * 3600_000
 const SUDO_MS = 10 * 60_000
 /** Technical settings owned by the developer console (removed from the publication officer's settings). */
-export const SYSTEM_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit', 'ai_timeout_sec', 'max_sessions', 'guest_can_read_free'] as const
+export const SYSTEM_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit', 'ai_timeout_sec', 'ai_tts_model', 'ai_tts_voice', 'max_sessions', 'guest_can_read_free'] as const
 const SYSTEM_DEFAULTS: Record<string, unknown> = {
   ai_enabled: false,
   ai_base_url: '',
@@ -32,6 +32,9 @@ const SYSTEM_DEFAULTS: Record<string, unknown> = {
   ai_api_key: '',
   ai_monthly_call_limit: 0,
   ai_timeout_sec: 15,
+  // ROADMAP phase 19 TTS add-on: OpenAI-compatible /audio/speech; 'off' disables server TTS (browser Web Speech still works)
+  ai_tts_model: 'tts-1',
+  ai_tts_voice: 'alloy',
   max_sessions: 5,
   guest_can_read_free: true
 }
