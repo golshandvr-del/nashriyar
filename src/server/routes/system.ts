@@ -70,7 +70,7 @@ const guard: MiddlewareHandler<AppEnv> = async (c, next) => {
     await c.get('db').run('UPDATE sessions SET revoked_at = ? WHERE id = ?', [nowIso(), c.get('sessionId')])
     throw new HttpError(401, 'نشست پنل طراح (۲ ساعت) به پایان رسید؛ دوباره وارد شوید', 'session_expired')
   }
-  const isStatus = c.req.method === 'GET' && new URL(c.req.url).pathname.endsWith('/api/system/status')
+  const isStatus = c.req.method === 'GET' && /^\/api(?:\/v\d+)?\/system\/status$/.test(new URL(c.req.url).pathname)
   if (!isStatus) {
     const t = await c.get('db').first<{ totp_enabled: number }>('SELECT totp_enabled FROM users WHERE id = ?', [u.id])
     if (!t?.totp_enabled) throw new HttpError(403, 'برای ورود به پنل طراح، رمز دومرحله‌ای (TOTP) الزامی است', 'totp_required')
