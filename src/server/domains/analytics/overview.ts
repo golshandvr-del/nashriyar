@@ -2,7 +2,7 @@
 // Mounted by routes/analytics.ts (ROADMAP phase 17 split; parent middleware applies).
 import { Hono } from 'hono'
 import type { AppEnv } from '../../context'
-import { dateRange, nowIso } from '../../lib/util'
+import { dateRange, notFound, nowIso } from '../../lib/util'
 import { getWeights, healthScores } from '../../insights'
 import { linearFit, termBounds } from '../../../shared/fa'
 import { DAY, kpis, previousRange, pubScope, pubViewsParams, pubViewsSql, rolledUntil, sparklines, viewSeries } from './service'
@@ -215,7 +215,7 @@ overviewRoutes.get('/scorecard/:id', async (c) => {
      WHERE p.id = ? AND p.deleted_at IS NULL${s.sql}`,
     [c.req.param('id'), ...s.params]
   )
-  if (!pub) return c.json({ error: 'not_found', message: 'نشریه پیدا نشد' }, 404)
+  if (!pub) throw notFound('نشریه پیدا نشد')
   const until = await rolledUntil(c)
   const metric = (id: string | null) => {
     const w = id ? 'p.id = ?' : "p.status = 'active' AND p.deleted_at IS NULL" + s.sql
