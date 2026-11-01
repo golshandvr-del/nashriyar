@@ -8,12 +8,15 @@ import { faDate, formatNumber } from '../lib/format'
 import { Badge, Button, Card, Field, Input, Modal, Select, useAction, useAsync } from '../components/ui'
 import { DEGREE_LABEL } from '../public/ProfileForm'
 import { REQUEST_STATUS } from '../public/MembershipCard'
+import { DataTable, fetchAllPages } from '../components/DataTable'
+import { REQUEST_COLUMNS } from '../../shared/columns'
 
 /** pubId omitted ⇒ officer view across all publications (the API allows that only for admins). */
 export default function MembershipRequests({ pubId, roles, onApproved }: { pubId?: string; roles: { id: string; name: string }[]; onApproved?: () => void }) {
   const [sp] = useSearchParams()
   const [status, setStatus] = useState<'pending' | 'all'>('pending')
-  const st = useAsync(() => api.get<{ requests: any[] }>(`/api/membership/queue?${pubId ? `publication_id=${pubId}&` : ''}status=${status}`), [pubId, status])
+  // ROADMAP phase 18: every keyset page is loaded; DataTable filters/sorts/groups/exports the whole queue
+  const st = useAsync(async () => ({ requests: (await fetchAllPages(`/api/membership/queue?${pubId ? `publication_id=${pubId}&` : ''}status=${status}`, 'requests')).rows }), [pubId, status])
   const [decide, setDecide] = useState<{ r: any; decision: 'approve' | 'reject' } | null>(null)
   const [note, setNote] = useState('')
   const [role, setRole] = useState('')
@@ -58,42 +61,47 @@ export default function MembershipRequests({ pubId, roles, onApproved }: { pubId
         />
       }
     >
-      {!rows.length ? (
-        <p className="text-sm text-muted">درخواستی وجود ندارد.</p>
-      ) : (
-        <ul className="divide-y divide-line text-sm">
-          {rows.map((r) => (
-            <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-2">
-              <div className="min-w-0">
-                {!pubId && <div className="text-xs font-bold text-brand">{r.publication_title}</div>}
-                <div className="font-bold">
-                  {r.display_name} <span className="font-normal text-muted" dir="ltr">{r.student_number || r.username}</span>
-                </div>
-                <div className="text-xs text-muted">
-                  {[r.role_name && `سمت درخواستی: ${r.role_name}`, r.faculty_name, r.major_name, r.degree && DEGREE_LABEL[r.degree], r.entry_year && `ورودی ${formatNumber(r.entry_year)}`, faDate(r.created_at)]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </div>
-                {r.message && <p className="mt-1 rounded-lg bg-surface-2 p-2 text-xs">{r.message}</p>}
-                {!r.profile_completed_at && <Badge tone="warn" className="mt-1">پروفایل ناقص</Badge>}
-                {r.status !== 'pending' && r.decided_by_name && <div className="mt-1 text-xs text-muted">بررسی: {r.decided_by_name}{r.decision_note ? ` — ${r.decision_note}` : ''}</div>}
-              </div>
-              {r.status === 'pending' ? (
-                <div className="flex gap-1">
-                  <Button icon={<Check className="size-4" />} onClick={() => (setDecide({ r, decision: 'approve' }), setNote(''), setRole(r.role_name || ''))}>
-                    تأیید
-                  </Button>
-                  <Button variant="ghost" icon={<X className="size-4" />} onClick={() => (setDecide({ r, decision: 'reject' }), setNote(''), setRole(''))}>
-                    رد
-                  </Button>
-                </div>
-              ) : (
-                <Badge tone={REQUEST_STATUS[r.status]?.tone}>{REQUEST_STATUS[r.status]?.label || r.status}</Badge>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      <DataTable
+        id={pubId ? 'team-requests' : 'admin-requests'}
+        urlPrefix="req_"
+        title="درخواست‌های عضویت"
+        columns={pubId ? REQUEST_COLUMNS.filter((c) => c.key !== 'publication_title') : REQUEST_COLUMNS}
+        rows={rows}
+        rowKey={(r) => String(r.id)}
+        exportUrl="/api/membership/queue/export"
+        extraParams={{ publication_id: pubId, status }}
+        empty={<p className="text-sm text-muted">درخواستی وجود ندارد.</p>}
+        render={{
+          display_name: (r: any) => (
+            <span className="block min-w-40">
+              <span className="font-bold">{r.display_name}</span>
+              {!r.profile_completed_at && <Badge tone="warn" className="ms-1">پروفایل ناقص</Badge>}
+              {r.message && <span className="mt-1 block rounded-lg bg-surface-2 p-2 text-xs">{r.message}</span>}
+            </span>
+          ),
+          student_number: (r: any) => <span className="text-xs text-muted" dir="ltr">{r.student_number || r.username}</span>,
+          degree: (r: any) => DEGREE_LABEL[r.degree] || '—',
+          status: (r: any) => (
+            <span>
+              <Badge tone={REQUEST_STATUS[r.status]?.tone}>{REQUEST_STATUS[r.status]?.label || r.status}</Badge>
+              {r.status !== 'pending' && r.decided_by_name && <span className="mt-1 block text-xs text-muted">بررسی: {r.decided_by_name}{r.decision_note ? ` — ${r.decision_note}` : ''}</span>}
+            </span>
+          ),
+          created_at: (r: any) => <span className="text-xs text-muted">{faDate(r.created_at)}</span>
+        }}
+        actions={(r: any) =>
+          r.status === 'pending' ? (
+            <div className="flex justify-end gap-1">
+              <Button icon={<Check className="size-4" />} onClick={() => (setDecide({ r, decision: 'approve' }), setNote(''), setRole(r.role_name || ''))}>
+                تأیید
+              </Button>
+              <Button variant="ghost" icon={<X className="size-4" />} onClick={() => (setDecide({ r, decision: 'reject' }), setNote(''), setRole(''))}>
+                رد
+              </Button>
+            </div>
+          ) : null
+        }
+      />
       <Modal
         open={!!decide}
         onClose={() => setDecide(null)}
