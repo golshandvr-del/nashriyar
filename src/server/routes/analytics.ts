@@ -748,8 +748,15 @@ analyticsRoutes.get('/explore', async (c) => {
     [fromTs, toTs, ...s.params]
   )
   // Funnel (ROADMAP phase 6/8): explore post view -> issue page -> reading -> purchase (unique viewers per step)
-  const uniq = async (type: string) =>
-    Number((await db.first<{ n: number }>(`SELECT COUNT(DISTINCT v.viewer_hash) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.entity_type = ? AND v.day BETWEEN ? AND ?${s.sql}`, [type, from, to, ...s.params]))?.n ?? 0)
+  // ONE pass over the range for every distinct-viewer figure (ROADMAP phase 17: was five scans of raw view_events)
+  const FUNNEL_TYPES = ['post', 'post_read_full', 'issue', 'issue_read'] as const
+  const uq = await db.first<Record<string, number>>(
+    `SELECT COUNT(*) AS views, COUNT(DISTINCT v.viewer_hash) AS uniq,
+       ${FUNNEL_TYPES.map((t) => `COUNT(DISTINCT CASE WHEN v.entity_type = '${t}' THEN v.viewer_hash END) AS u_${t}`).join(', ')}
+     FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql}`,
+    [from, to, ...s.params]
+  )
+  const uniq = async (type: (typeof FUNNEL_TYPES)[number]) => Number(uq?.[`u_${type}`] ?? 0)
   const bought = Number((await db.first<{ n: number }>(`SELECT COUNT(DISTINCT ac.redeemed_by) AS n FROM access_codes ac JOIN publications p ON p.id = ac.publication_id WHERE ac.redeemed_at BETWEEN ? AND ?${s.sql}`, [fromTs, toTs, ...s.params]))?.n ?? 0)
   // Weekday × hour heatmap (Tehran local time, UTC+03:30) and daily calendar heatmap (ROADMAP phase 7)
   const hourly = await db.all<{ d: number; h: number; n: number }>(
@@ -766,10 +773,7 @@ analyticsRoutes.get('/explore', async (c) => {
     { key: 'purchase', label: 'خرید (بازخرید کد)', n: bought }
   ]
   // Public-space totals + most viewed categories/associations (ROADMAP phase 7)
-  const totals = await db.first<{ views: number; uniq: number }>(
-    `SELECT COUNT(*) AS views, COUNT(DISTINCT v.viewer_hash) AS uniq FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${s.sql}`,
-    [from, to, ...s.params]
-  )
+  const totals = { views: Number(uq?.views ?? 0), uniq: Number(uq?.uniq ?? 0) }
   const byCategory = await db.all(
     `SELECT cat.id, cat.name, COUNT(v.id) AS views, COUNT(DISTINCT v.viewer_hash) AS uniq
      FROM view_events v JOIN publications p ON p.id = v.publication_id JOIN publication_categories pc ON pc.publication_id = p.id JOIN categories cat ON cat.id = pc.category_id
