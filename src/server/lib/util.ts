@@ -2,7 +2,7 @@ import type { Context } from 'hono'
 import type { Db } from '../adapters/db'
 import { newId } from './crypto'
 import { deliverOutbound } from './notifier'
-import { normalizeFa } from '../../shared/fa'
+import { academicYearRange, normalizeFa } from '../../shared/fa'
 import { getClock } from '../adapters/clock'
 
 export const nowIso = () => new Date(getClock().now()).toISOString()
@@ -121,6 +121,13 @@ export function parseJson<T>(s: string | null | undefined, def: T): T {
 export const inList = (arr: unknown[]) => (arr.length ? arr.map(() => '?').join(',') : 'NULL')
 
 export function dateRange(c: Context, defDays = 365) {
+  // ?acad=1403 selects a whole academic year (1 Mehr 1403 → 31 Shahrivar 1404) — ROADMAP phase 17 academic-year dimension
+  const acad = Number(c.req.query('acad'))
+  if (Number.isInteger(acad) && acad >= 1380 && acad <= 1500) {
+    const r = academicYearRange(acad)
+    const to = r.to < today() ? r.to : today()
+    return { from: r.from, to, fromTs: r.from + 'T00:00:00.000Z', toTs: to + 'T23:59:59.999Z' }
+  }
   const to = c.req.query('to') || today()
   const from = c.req.query('from') || new Date(Date.now() - defDays * 86400000).toISOString().slice(0, 10)
   // inclusive end-of-day bound
