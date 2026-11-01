@@ -724,16 +724,23 @@ adminRoutes.get('/people', async (c) => {
   const params: unknown[] = [...s.params]
   let w = ''
   if (q) (w = ' AND (tm.full_name LIKE ? OR tm.student_number LIKE ?)'), params.push(`%${q}%`, `%${q}%`)
-  const rows = await c.get('db').all(
+  // ROADMAP phase 17: keyset pagination over the grouped rows. Order stays «most issues, then most sections»; the
+  // zero-padded inverted counts + person_key form one ascending, unique sort key filtered in HAVING.
+  const pg = cursorPage(c, { col: 'sort_key', idCol: 'person_key', dir: 'ASC', def: 200, max: 300 })
+  const rows = await c.get('db').all<any>(
     `SELECT COALESCE(NULLIF(tm.student_number, ''), tm.full_name) AS person_key, tm.full_name, tm.student_number, COUNT(DISTINCT tm.publication_id) AS publication_count,
        GROUP_CONCAT(DISTINCT p.title) AS publications,
        (SELECT COUNT(DISTINCT im.issue_id) FROM issue_members im JOIN team_members t2 ON t2.id = im.team_member_id WHERE COALESCE(NULLIF(t2.student_number, ''), t2.full_name) = COALESCE(NULLIF(tm.student_number, ''), tm.full_name)) AS issue_count,
        (SELECT COUNT(*) FROM toc_assignments ta JOIN team_members t3 ON t3.id = ta.team_member_id WHERE COALESCE(NULLIF(t3.student_number, ''), t3.full_name) = COALESCE(NULLIF(tm.student_number, ''), tm.full_name)) AS section_count
      FROM team_members tm JOIN publications p ON p.id = tm.publication_id WHERE p.deleted_at IS NULL${s.sql}${w}
-     GROUP BY person_key ORDER BY issue_count DESC, section_count DESC LIMIT 200`,
-    params
+     GROUP BY person_key
+     HAVING 1 = 1${pg.and.replace(/sort_key/g, "(printf('%08d', 99999999 - issue_count) || printf('%08d', 99999999 - section_count) || person_key)")}
+     ORDER BY issue_count DESC, section_count DESC, person_key ASC LIMIT ${pg.fetch}`,
+    [...params, ...pg.params]
   )
-  return c.json({ people: rows })
+  const sk = (r: any) => `${String(99999999 - r.issue_count).padStart(8, '0')}${String(99999999 - r.section_count).padStart(8, '0')}${r.person_key}`
+  const { rows: people, next_cursor } = pg.finish(rows, (r) => [sk(r), r.person_key])
+  return c.json({ people, next_cursor })
 })
 
 adminRoutes.get('/people/:key', async (c) => {
