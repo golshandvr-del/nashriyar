@@ -72,8 +72,16 @@ export function zipStore(files: { name: string; data: Uint8Array }[]): Uint8Arra
   return out
 }
 
-const xmlEsc = (s: string) =>
-  s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '')
+// XML 1.0 forbids C0 control characters except TAB, LF and CR: drop them (char-code filter, no control-char regex)
+const xmlSafe = (s: string) => {
+  let out = ''
+  for (const ch of s) {
+    const n = ch.charCodeAt(0)
+    if (n >= 0x20 || n === 0x09 || n === 0x0a || n === 0x0d) out += ch
+  }
+  return out
+}
+const xmlEsc = (s: string) => xmlSafe(s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!))
 
 function colName(i: number): string {
   let s = ''
