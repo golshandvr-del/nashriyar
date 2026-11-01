@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { LayoutGrid, Plus, Table2 } from 'lucide-react'
 import { api, mediaUrl } from '../lib/api'
 import { ISSUE_STATUS, faDate, formatNumber } from '../lib/format'
 import { Async, Badge, Empty, PageHeader, Progress, useAsync } from '../components/ui'
 import { Cover } from '../components/cards'
 import { useTeam } from './Layout'
+import { DataTable, fetchAllPages } from '../components/DataTable'
+import { ISSUE_COLUMNS } from '../../shared/columns'
 
 const FILTERS = [
   { k: 'all', label: 'همه' },
@@ -17,7 +19,10 @@ const FILTERS = [
 export default function TeamIssues() {
   const { pubId, base } = useTeam()
   const [f, setF] = useState<(typeof FILTERS)[number]['k']>('all')
-  const st = useAsync(() => api.get(`/api/team/${pubId}/issues`), [pubId])
+  // ROADMAP phase 18: every keyset page is loaded so the table view (DataTable) holds the whole list
+  const st = useAsync(async () => ({ issues: (await fetchAllPages(`/api/team/${pubId}/issues`, 'issues')).rows }), [pubId])
+  const [view, setView] = useState<'cards' | 'table'>(() => (localStorage.getItem('issues-view') === 'table' ? 'table' : 'cards'))
+  const pickView = (v: 'cards' | 'table') => (setView(v), localStorage.setItem('issues-view', v))
   return (
     <div>
       <PageHeader
@@ -28,8 +33,16 @@ export default function TeamIssues() {
           </Link>
         }
       />
-      <div className="no-scrollbar mb-4 flex gap-2 overflow-x-auto">
-        {FILTERS.map((x) => (
+      <div className="no-scrollbar mb-4 flex items-center gap-2 overflow-x-auto">
+        <span className="inline-flex shrink-0 rounded-xl border border-line p-0.5" role="group" aria-label="نوع نمایش">
+          <button type="button" className={`rounded-lg p-1.5 ${view === 'cards' ? 'bg-brand-soft text-brand' : 'text-muted'}`} aria-pressed={view === 'cards'} aria-label="نمایش کارتی" title="نمایش کارتی" onClick={() => pickView('cards')}>
+            <LayoutGrid className="size-4" />
+          </button>
+          <button type="button" className={`rounded-lg p-1.5 ${view === 'table' ? 'bg-brand-soft text-brand' : 'text-muted'}`} aria-pressed={view === 'table'} aria-label="نمایش جدولی" title="نمایش جدولی" onClick={() => pickView('table')}>
+            <Table2 className="size-4" />
+          </button>
+        </span>
+        {view === 'cards' && FILTERS.map((x) => (
           <button key={x.k} onClick={() => setF(x.k)} className={x.k === f ? 'chip border-brand bg-brand-soft font-bold text-brand' : 'chip'}>
             {x.label}
           </button>
@@ -37,6 +50,34 @@ export default function TeamIssues() {
       </div>
       <Async state={st}>
         {(d: any) => {
+          if (view === 'table')
+            return (
+              <DataTable
+                id="team-issues"
+                title="شماره‌ها"
+                columns={ISSUE_COLUMNS}
+                rows={d.issues}
+                rowKey={(i) => String(i.id)}
+                exportUrl={`/api/team/${pubId}/issues/export`}
+                empty={<Empty title="هنوز شماره‌ای ساخته نشده" action={<Link to={`${base}/issues/new`} className="btn-primary">شمارهٔ جدید</Link>} />}
+                render={{
+                  number: (i: any) => (
+                    <Link to={`${base}/issues/${i.id}`} className="font-bold hover:text-brand">
+                      {formatNumber(i.number)}
+                    </Link>
+                  ),
+                  title: (i: any) => (
+                    <Link to={`${base}/issues/${i.id}`} className="hover:text-brand">
+                      {i.title}
+                    </Link>
+                  ),
+                  status: (i: any) => {
+                    const s = ISSUE_STATUS[i.status] || { label: i.status, tone: 'muted' as const }
+                    return <Badge tone={s.tone}>{s.label}</Badge>
+                  }
+                }}
+              />
+            )
           const rows = d.issues.filter((i: any) =>
             f === 'all' ? true : f === 'active' ? ['planning', 'in_production', 'changes_requested'].includes(i.status) : i.status === f
           )
