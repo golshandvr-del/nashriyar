@@ -35,7 +35,8 @@ const app = createApp(async (c) => {
 export default {
   async fetch(req: Request, env: Env, ctx: any): Promise<Response> {
     const url = new URL(req.url)
-    if (url.pathname.startsWith('/api/') || url.pathname === '/robots.txt') return app.fetch(req, env, ctx)
+    // /a/<pid>: server-rendered article landing page (ROADMAP phase 19)
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/a/') || url.pathname === '/robots.txt') return app.fetch(req, env, ctx)
     const res = await env.ASSETS.fetch(req)
     // SPA fallback: unknown non-file paths render index.html (client-side routing)
     if (res.status === 404 && req.method === 'GET' && !/\.[a-z0-9]{2,5}$/i.test(url.pathname)) {
