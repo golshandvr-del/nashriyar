@@ -210,6 +210,21 @@ await expect(an, '/api/analytics/ranking', 200, 'analyst')
   ok(n1.status === 404, `unknown v1 path -> 404 (${n1.status})`)
 }
 
+// ───── ROADMAP phase 17: targeted analytics-cache invalidation ─────
+{
+  const xc = async (p) => (await of(p)).headers.get('x-cache') || 'miss'
+  await of('/api/analytics/forecast'); await of('/api/analytics/sales')
+  ok((await xc('/api/analytics/forecast')) === 'hit' && (await xc('/api/analytics/sales')) === 'hit', 'analytics reports are cached after the first read')
+  const iss = (await tm(`/api/team/${pubId}/issues?limit=1`)).data.issues[0]
+  const sale = await tm(`/api/team/${pubId}/physical-sales`, { json: { issue_id: iss.id, quantity: 1 } })
+  ok(sale.status === 200, `record a physical sale -> ${sale.status}`)
+  ok((await xc('/api/analytics/sales')) === 'miss', 'a sale invalidates the sales report')
+  ok((await xc('/api/analytics/forecast')) === 'hit', 'a sale does NOT invalidate the (content-only) forecast report')
+  const v1 = await of('/api/v1/analytics/forecast')
+  ok(v1.headers.get('x-cache') === 'hit', 'the /api/v1 alias shares the same cache entry')
+  if (sale.data?.id) await tm(`/api/team/${pubId}/physical-sales/${sale.data.id}`, { method: 'DELETE' })
+}
+
 // ───── ROADMAP phase 17: request id on every response and in every error body ─────
 {
   const h = await fetch(BASE + '/api/health')
