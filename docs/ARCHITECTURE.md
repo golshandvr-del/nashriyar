@@ -70,6 +70,18 @@ nashriyar/
 - **entry/node.ts**: adapters را از متغیرهای محیطی (مسیر فایل SQLite، اطلاعات S3) می‌سازد و با `@hono/node-server` اجرا می‌کند.
 - نتیجه: انتقال به هاست شخصی = تغییر نقطهٔ ورود + تنظیم env، بدون بازنویسی منطق.
 
+### ماژول‌های دامنه‌ای و لایهٔ سرویس (ROADMAP فاز ۱۷)
+
+سه فایل بزرگ مسیرها به ماژول‌های دامنه‌ای در `src/server/domains/` تفکیک شدند. فایل‌های `routes/admin.ts`، `routes/team.ts` و `routes/analytics.ts` فقط middlewareها (نگهبان نقش، رول‌آپ، کش هدفمند) و `route('/', …)` ماژول‌ها را نگه می‌دارند، پس رفتار، مسیرها و `/api/v1` بدون تغییر ماند (همهٔ آزمون‌ها و ممیزی query-plan سبز).
+
+| دامنه | لایهٔ سرویس (`service.ts`) | ماژول‌های مسیر |
+|---|---|---|
+| `domains/admin/` | نگهبان‌های `admin`/`monitor`، حوزهٔ دانشکده `scope`، `scopedPub`، نقش‌های اصلی | today, publications, users, structure, categories, approvals, moderation, storefront, communication, audit, allowlist, settings |
+| `domains/team/` | `pub` (دسترسی سه نقش اصلی همان نشریه)، `issueOf`، `assertEditable`، `refreshIssueSearch`، مراحل پیش‌فرض | dashboard, members, issues, sales, explore, comments, community, stats |
+| `domains/analytics/` | `pubScope`، شمارش بازدید رول‌آپ + دنبالهٔ خام (`viewCount`، `viewSeries`، `pubViewsSql`)، `kpis`، `sparklines` | overview, production, engagement, archive, insights, export, visuals, ai |
+
+قاعده: ماژول مسیر فقط HTTP را می‌داند و منطق مشترک داده را از `service.ts` همان دامنه می‌گیرد. ماژول جدید باید در فایل مسیر والد بعد از middlewareها mount شود.
+
 ## ۵. مسیرهای API (نمای کلی)
 
 | پیشوند | دسترسی | نمونه |
