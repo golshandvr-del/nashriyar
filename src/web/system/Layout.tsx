@@ -3,7 +3,7 @@
 // and TOTP is enabled (the server enforces the same rules on every /api/system/* call).
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Activity, Database, DatabaseBackup, KeyRound, LogOut, Menu, ScrollText, ShieldCheck, SlidersHorizontal, UserCog, X } from 'lucide-react'
+import { Activity, Database, DatabaseBackup, KeyRound, LogOut, Menu, Plug, ScrollText, ShieldCheck, SlidersHorizontal, UserCog, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { isDeveloper, useAuth } from '../lib/auth'
 import { api } from '../lib/api'
@@ -22,6 +22,7 @@ const NAV: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
   { to: 'sessions', label: 'نشست‌ها و قفل‌ها', icon: KeyRound },
   { to: 'database', label: 'پایگاه داده', icon: Database },
   { to: 'staff', label: 'کارکنان ارشد', icon: UserCog },
+  { to: 'api-keys', label: 'کلیدهای API', icon: Plug },
   { to: 'audit', label: 'گزارش فنی', icon: ScrollText }
 ]
 
