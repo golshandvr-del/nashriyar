@@ -244,5 +244,60 @@ const dev = await developer()
   ok((await oai('verb=GetRecord&metadataPrefix=oai_dc&identifier=oai:x:NSH-1400-AAAAAAAA')).text.includes('code="idDoesNotExist"'), 'oai: idDoesNotExist')
 }
 
+// ───────── 3. digitised archive of old printed issues (/api/admin/print-archive, /api/public/print-archive) ─────────
+{
+  const pubs = (await officer('/api/admin/publications')).json?.publications || []
+  const pa = pubs.find((p) => p.status === 'active') || pubs[0]
+  ok(!!pa, 'archive: officer sees a publication')
+  const number = 90000 + Math.floor(Math.random() * 9000)
+  const token = `zqarch${Date.now().toString(36)}`
+  const reg = {
+    publication_id: pa?.id, number, title: 'شمارهٔ چاپی آزمایشی', original_jy: 1378, original_jm: 7,
+    summary: 'نسخهٔ اسکن‌شدهٔ قدیمی', keywords: 'آرشیو، چاپی',
+    toc: [{ title: 'سرمقالهٔ قدیمی', page_start: 1, page_end: 1 }, { title: 'گفت‌وگوی قدیمی', page_start: 2, page_end: 2 }]
+  }
+  ok((await student('/api/admin/print-archive', { json: reg })).status === 403, 'archive: student cannot register')
+  ok((await officer('/api/admin/print-archive', { json: { ...reg, original_jy: 1490 } })).status === 400, 'archive: future print date rejected')
+  ok((await officer('/api/admin/print-archive', { json: { ...reg, original_jm: null, original_jd: 5 } })).status === 400, 'archive: day without month rejected')
+  const cr = await officer('/api/admin/print-archive', { json: reg })
+  ok(cr.status === 200 && /^1999-09-2\d$/.test(cr.json?.original_date || '') && cr.json?.original_label === 'مهر ۱۳۷۸', `archive: registered -> ${cr.status} ${cr.text.slice(0, 160)}`)
+  const id = cr.json?.id
+  ok((await officer('/api/admin/print-archive', { json: reg })).status === 400, 'archive: duplicate number rejected')
+  const list = (await officer('/api/admin/print-archive')).json?.issues || []
+  ok(list.some((r) => r.id === id && r.status === 'planning' && r.pages_uploaded === 0), 'archive: listed as waiting for scan')
+  ok((await officer(`/api/admin/print-archive/${id}/publish`, { json: {} })).status === 400, 'archive: cannot publish before the scan is uploaded')
+  ok((await officer(`/api/team/${pa?.id}/issues/${id}/request-approval`, { json: {} })).status === 400, 'archive: team approval flow refused for archival issues')
+  // scanned pages (tiny PNG) with a text layer
+  const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='), (ch) => ch.charCodeAt(0))
+  for (const n of [1, 2]) {
+    const fd = new FormData()
+    fd.set('file', new Blob([png], { type: 'image/png' }), `p${n}.png`)
+    fd.set('page_number', String(n))
+    fd.set('text', n === 2 ? `متن صفحهٔ دوم ${token} پایان` : 'متن صفحهٔ اول')
+    const up = await officer(`/api/media/pages/${id}`, { method: 'POST', body: fd })
+    ok(up.status === 200, `archive: page ${n} uploaded -> ${up.status} ${up.text.slice(0, 120)}`)
+  }
+  ok((await student(`/api/admin/print-archive/${id}/publish`, { json: {} })).status === 403, 'archive: student cannot publish')
+  const pub = await officer(`/api/admin/print-archive/${id}/publish`, { json: { pricing: 'free' } })
+  ok(pub.status === 200 && pub.json?.published_at?.startsWith(cr.json?.original_date) && pub.json?.pages === 2 && pub.json?.articles_indexed === 2, `archive: published with the ORIGINAL date -> ${pub.text.slice(0, 160)}`)
+  ok((await officer(`/api/admin/print-archive/${id}/publish`, { json: {} })).status === 400, 'archive: double publish rejected')
+  // public surfaces
+  const pi = (await anon(`/api/public/issues/${id}`)).json?.issue
+  ok(pi?.archival === 1 && pi?.original_label === 'مهر ۱۳۷۸' && !!pi?.cover_key, 'archive: public issue carries archival flag, label and a cover from page 1')
+  const arc = (q) => anon(`/api/public/print-archive?${q}`)
+  const all = await arc('')
+  ok(all.status === 200 && all.json.issues.some((i) => i.id === id) && all.json.publications.length > 0 && !!all.json.span.from, 'archive: public list')
+  ok((await arc(`q=${token}`)).json.issues.map((i) => i.id).join() === id, 'archive: full-text search hits the scanned text layer')
+  ok((await arc('q=' + encodeURIComponent('گفت‌وگوی قدیمی'))).json.issues.some((i) => i.id === id), 'archive: search by TOC title')
+  ok((await arc('from=1378&to=1378')).json.issues.some((i) => i.id === id), 'archive: year range includes the original year')
+  ok(!(await arc('from=1379')).json.issues.some((i) => i.id === id), 'archive: year range excludes later years')
+  ok(!(await arc(`publication=nope-${token}`)).json.issues.length, 'archive: publication filter')
+  ok(!(await anon('/api/public/home')).text.includes(id), 'archive: does not flood the "latest" shelves')
+  const arts = (await officer(`/api/team/${pa?.id}/issues/${id}/articles`)).json?.articles || []
+  ok(arts.length === 2 && arts.every((a) => /^NSH-1999-/.test(a.pid) || /^NSH-13\d\d-/.test(a.pid)), `archive: TOC items got persistent ids (${arts.map((a) => a.pid).join(',')})`)
+  const spa = await anon('/archive')
+  ok(spa.status === 200 && /text\/html/.test(spa.ct), 'archive: /archive SPA route')
+}
+
 console.log(failures ? `future-e2e: ${failures} failed, ${passed} passed` : `future-e2e: ${passed} checks passed`)
 process.exit(failures ? 1 : 0)
