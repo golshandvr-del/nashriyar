@@ -12,7 +12,7 @@ import type { AppEnv, SessionUser, SystemRole } from '../context'
 import { checkRateLimit, clearFailures, clientIp, recordFailure } from '../auth'
 import { hashPassword, newId, tempPassword, verifyPassword } from '../lib/crypto'
 import { verifyTotp } from '../lib/totp'
-import { HttpError, bad, body, getSetting, notFound, nowIso, oneOf, setSetting, str } from '../lib/util'
+import { HttpError, bad, body, cursorPage, getSetting, notFound, nowIso, oneOf, setSetting, str } from '../lib/util'
 import { toEnDigits } from '../../shared/fa'
 import { FEATURE_LABELS, getFeatures, sanitizeFeatures } from '../lib/features'
 import { getAiStatus } from '../ai'
@@ -407,12 +407,15 @@ systemRoutes.post('/staff/:id/status', async (c) => {
 
 // ───────── independent, append-only technical audit log ─────────
 systemRoutes.get('/audit', async (c) => {
+  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 200); legacy ?before=<iso> still accepted
   const before = c.req.query('before')
-  const rows = await c.get('db').all(
+  const pg = cursorPage(c, { col: 'a.created_at', idCol: 'a.id', def: 100, max: 200 })
+  const rows = await c.get('db').all<any>(
     `SELECT a.id, a.action, a.detail_json, a.ip, a.created_at, u.username AS actor
      FROM system_audit a LEFT JOIN users u ON u.id = a.actor_user_id
-     ${before ? 'WHERE a.created_at < ?' : ''} ORDER BY a.created_at DESC LIMIT 100`,
-    before ? [before] : []
+     WHERE ${before ? 'a.created_at < ?' : '1 = 1'}${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    [...(before ? [before] : []), ...pg.params]
   )
-  return c.json({ items: rows })
+  const { rows: items, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
+  return c.json({ items, next_cursor })
 })
