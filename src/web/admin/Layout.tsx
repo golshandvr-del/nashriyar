@@ -52,7 +52,8 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { to: 'analytics', label: 'آمار و نمودارها', icon: BarChart3, access: 'monitor' },
       { to: 'insights', label: 'نکته‌ها و هشدارها', icon: Lightbulb, access: 'monitor' },
       { to: 'report', label: 'گزارش برای معاونت', icon: FileText, access: 'monitor' },
-      { to: 'archive', label: 'آرشیو سال‌های تحصیلی', icon: Archive, access: 'monitor' }
+      { to: 'archive', label: 'آرشیو سال‌های تحصیلی', icon: Archive, access: 'monitor' },
+      { to: 'print-archive', label: 'آرشیو شماره‌های چاپی', icon: ScrollText, access: 'monitor' }
     ]
   },
   {
