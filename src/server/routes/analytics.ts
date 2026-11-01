@@ -123,6 +123,57 @@ async function viewCount(c: Context<AppEnv>, from: string, to: string, type?: st
   return rolled + raw
 }
 
+/** Last day already rolled up into view_daily ('0000-00-00' when none). */
+async function rolledUntil(c: Context<AppEnv>) {
+  return (await getSetting<string | null>(c.get('db'), 'analytics_rollup_until', null)) || '0000-00-00'
+}
+
+/**
+ * Grouped view counts over [from, to] (ROADMAP phase 17, 10-year data): finished days are read from view_daily and only
+ * the not-yet-rolled tail from raw view_events, so a one-year chart reads ~365×pubs rows instead of every raw event.
+ * `group` is an SQL expression over `v.day` only (same column in both tables). Rows are merged by key and sorted.
+ */
+async function viewSeries(c: Context<AppEnv>, from: string, to: string, group: string, type?: string) {
+  const db = c.get('db')
+  const s = pubScope(c)
+  const until = await rolledUntil(c)
+  const t = type ? ' AND v.entity_type = ?' : ''
+  const tp = type ? [type] : []
+  const cols = (n: string) =>
+    `${group} AS k, SUM(${n}) AS n, SUM(CASE WHEN v.entity_type = 'issue_read' THEN ${n} ELSE 0 END) AS reads, SUM(CASE WHEN v.entity_type = 'post' THEN ${n} ELSE 0 END) AS post_views`
+  type Row = { k: string | number; n: number; reads: number; post_views: number }
+  const rolled = await db.all<Row>(
+    `SELECT ${cols('v.n')} FROM view_daily v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ? AND v.day <= ?${t}${s.sql} GROUP BY k`,
+    [from, to, until, ...tp, ...s.params]
+  )
+  const raw = await db.all<Row>(
+    `SELECT ${cols('1')} FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ? AND v.day > ?${t}${s.sql} GROUP BY k`,
+    [from, to, until, ...tp, ...s.params]
+  )
+  const out = new Map<string, Row>()
+  for (const r of [...rolled, ...raw]) {
+    const key = String(r.k)
+    const o = out.get(key) || { k: r.k, n: 0, reads: 0, post_views: 0 }
+    o.n += Number(r.n) || 0
+    o.reads += Number(r.reads) || 0
+    o.post_views += Number(r.post_views) || 0
+    out.set(key, o)
+  }
+  return [...out.values()].sort((a, b) => (String(a.k) < String(b.k) ? -1 : String(a.k) > String(b.k) ? 1 : 0))
+}
+
+/**
+ * Correlated "views of publication p over [?, ?]" for per-publication tables (ranking, scorecard, CSV): rolled days
+ * from view_daily + raw tail, both index range scans on (publication_id, day). `type` is a fixed literal, never input.
+ * Bind with pubViewsParams(from, to, until).
+ */
+const pubViewsSql = (type?: 'issue_read' | 'post') => {
+  const t = (a: string) => (type ? ` AND ${a}.entity_type = '${type}'` : '')
+  return `((SELECT COALESCE(SUM(vd.n),0) FROM view_daily vd WHERE vd.publication_id = p.id${t('vd')} AND vd.day BETWEEN ? AND ? AND vd.day <= ?)
+    + (SELECT COUNT(*) FROM view_events ve WHERE ve.publication_id = p.id${t('ve')} AND ve.day BETWEEN ? AND ? AND ve.day > ?))`
+}
+const pubViewsParams = (from: string, to: string, until: string) => [from, to, until, from, to, until]
+
 async function kpis(c: Context<AppEnv>, from: string, to: string) {
   const db = c.get('db')
   const s = pubScope(c)
