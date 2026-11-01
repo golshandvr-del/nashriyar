@@ -32,6 +32,8 @@ export async function ensureRollup(db: Db, maxDays = 120): Promise<string | null
     }
   ])
   await setSetting(db, 'analytics_rollup_until', until)
+  // new finished days are now in view_daily: reports that read views must recompute (targeted invalidation)
+  await bumpCache(db, ['views'])
   return until
 }
 
