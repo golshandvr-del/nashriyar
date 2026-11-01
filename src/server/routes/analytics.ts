@@ -221,11 +221,8 @@ async function sparklines(c: Context<AppEnv>, from: string, to: string) {
   }
   const fromTs = from + 'T00:00:00.000Z'
   const toTs = to + 'T23:59:59.999Z'
-  const views = (type?: string) =>
-    db.all<{ d: string; n: number }>(
-      `SELECT v.day AS d, COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ?${type ? ' AND v.entity_type = ?' : ''}${s.sql} GROUP BY v.day`,
-      [from, to, ...(type ? [type] : []), ...s.params]
-    )
+  // rolled-up days + raw tail (ROADMAP phase 17): no full-year scan of raw view_events
+  const views = async (type?: string) => (await viewSeries(c, from, to, 'v.day', type)).map((r) => ({ d: String(r.k), n: r.n }))
   return {
     published: fill(await db.all(`SELECT substr(i.published_at,1,10) AS d, COUNT(*) AS n FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY d`, [fromTs, toTs, ...s.params])),
     pages: fill(await db.all(`SELECT substr(i.published_at,1,10) AS d, COALESCE(SUM(i.page_count),0) AS n FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?${s.sql} GROUP BY d`, [fromTs, toTs, ...s.params])),
