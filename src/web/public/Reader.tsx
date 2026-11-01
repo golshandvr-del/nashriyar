@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowRight, Bookmark, ChevronLeft, ChevronRight, Columns2, KeyRound, List, Maximize, Moon, Trash2, ZoomIn, ZoomOut } from 'lucide-react'
+import { ArrowRight, Bookmark, ChevronLeft, ChevronRight, Columns2, KeyRound, List, Maximize, Moon, Trash2, Type, ZoomIn, ZoomOut } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useFeature } from '../lib/features'
 import { toFaDigits, cx } from '../lib/format'
 import { Button, ErrorBox, Modal, PageLoader, Spinner, useToast } from '../components/ui'
+import ReaderText from './ReaderText'
 
 interface Manifest {
   issue: { id: string; title: string; number: number; page_count: number; pricing: string; publication_title: string; publication_slug: string }
@@ -133,6 +134,13 @@ export default function Reader() {
     const v = !night
     setNight(v)
     localStorage.setItem('nsh-reader-night', v ? '1' : '0')
+  }
+  // Reflowable text mode (ROADMAP phase 19): text layer of the allowed pages, remembered per device; ?mode=text opens it directly.
+  const [textMode, setTextMode] = useState(() => sp.get('mode') === 'text' || localStorage.getItem('nsh-reader-text') === '1')
+  const toggleText = () => {
+    const v = !textMode
+    setTextMode(v)
+    localStorage.setItem('nsh-reader-text', v ? '1' : '0')
   }
   const touch = useRef<number | null>(null)
 
@@ -267,6 +275,9 @@ export default function Reader() {
         <button className={cx('hidden rounded-lg p-2 hover:bg-surface-2 lg:block', spread && 'bg-surface-2 text-brand')} onClick={toggleSpread} aria-label="نمای دوصفحه‌ای" aria-pressed={spread}>
           <Columns2 className="size-5" />
         </button>
+        <button className={cx('rounded-lg p-2 hover:bg-surface-2', textMode && 'bg-surface-2 text-brand')} onClick={toggleText} aria-label="حالت متنی" aria-pressed={textMode} title="حالت متنی (بازچینی برای موبایل)">
+          <Type className="size-5" />
+        </button>
         <button className={cx('rounded-lg p-2 hover:bg-surface-2', night && 'bg-surface-2 text-brand')} onClick={toggleNight} aria-label="حالت شب" aria-pressed={night}>
           <Moon className="size-5" />
         </button>
@@ -293,6 +304,8 @@ export default function Reader() {
       >
         {m.allowed === 0 ? (
           <Locked m={m} />
+        ) : textMode ? (
+          <ReaderText issueId={m.issue.id} startPage={cur} night={night} onPage={setPage} />
         ) : p && p2 ? (
           // RTL: the first page of the spread sits on the right, like a printed magazine.
           <div className="mx-auto flex gap-1" style={{ width: `${zoom}%`, maxWidth: zoom > 100 ? 'none' : 1600 }}>
