@@ -123,3 +123,23 @@ export const AUDIT_COLUMNS: TableColumn[] = [
   { key: 'before_json', label: 'قبل', hidden: true },
   { key: 'after_json', label: 'بعد', hidden: true }
 ]
+
+export const REQUEST_STATUS_LABEL: Record<string, string> = { pending: 'در انتظار بررسی', approved: 'تأییدشده', rejected: 'ردشده', cancelled: 'لغوشده' }
+
+/** membership request queue (team page + officer view) */
+export const REQUEST_COLUMNS: TableColumn[] = [
+  { key: 'display_name', label: 'درخواست‌دهنده' },
+  { key: 'student_number', label: 'شمارهٔ دانشجویی' },
+  { key: 'publication_title', label: 'نشریه', filter: 'select', groupable: true },
+  { key: 'role_name', label: 'سمت درخواستی', filter: 'select', groupable: true },
+  { key: 'status', label: 'وضعیت', labels: REQUEST_STATUS_LABEL, filter: 'select', groupable: true, total: 'count' },
+  { key: 'faculty_name', label: 'دانشکده', filter: 'select', groupable: true },
+  { key: 'major_name', label: 'رشته', filter: 'select', groupable: true, hidden: true },
+  { key: 'degree', label: 'مقطع', labels: DEGREE_LABEL, filter: 'select', groupable: true, hidden: true },
+  { key: 'entry_year', label: 'سال ورود', type: 'number', filter: 'number', groupable: true, hidden: true },
+  { key: 'message', label: 'پیام', hidden: true },
+  { key: 'created_at', label: 'تاریخ درخواست', type: 'datetime', filter: 'date' },
+  { key: 'decided_by_name', label: 'بررسی‌کننده', hidden: true },
+  { key: 'decided_at', label: 'تاریخ بررسی', type: 'datetime', filter: 'date', hidden: true },
+  { key: 'decision_note', label: 'یادداشت بررسی', hidden: true }
+]
