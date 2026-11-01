@@ -109,6 +109,8 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     const body = [
       'User-agent: *',
       'Allow: /api/public/sitemap.xml',
+      // ROADMAP phase 19: article metadata (JSON / BibTeX / RIS / OAI-PMH) is public by design
+      'Allow: /api/articles/',
       'Disallow: /api/',
       'Disallow: /admin',
       'Disallow: /team',
