@@ -1016,7 +1016,7 @@ analyticsRoutes.get('/visuals', async (c) => {
     }
     return [...m.entries()].map(([key, n]) => ({ key, n })).sort((a, b) => b.n - a.n)
   }
-  const team = {
+  const teamMix = {
     total: tm.length,
     linked: tm.filter((r) => r.degree != null || r.entry_year != null || r.gender != null).length,
     gender: tally((r) => r.gender),
@@ -1038,7 +1038,7 @@ analyticsRoutes.get('/visuals', async (c) => {
     yoy: { years: years.map(({ label, months }) => ({ label, months })), month_labels: [...JALALI_MONTHS.slice(6), ...JALALI_MONTHS.slice(0, 6)] },
     categories: cats.map((r) => ({ name: r.name, n: Number(r.n) })),
     gantt: { issues: gantt, deadlines },
-    team
+    team: teamMix
   })
 })
 
