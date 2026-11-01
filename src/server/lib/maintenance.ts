@@ -6,6 +6,7 @@
 import type { Db } from '../adapters/db'
 import { ensureRollup } from './rollup'
 import { ensureReminders } from './reminders'
+import { backfillArticleIndex } from './articles'
 import { nowIso, setSetting } from './util'
 
 export interface MaintenanceReport {
@@ -15,6 +16,7 @@ export interface MaintenanceReport {
   cache_purged: number
   login_attempts_purged: number
   stories_expired: number
+  articles_indexed?: number
   at: string
 }
 
@@ -46,7 +48,10 @@ export async function runMaintenance(db: Db): Promise<MaintenanceReport> {
   // the team's archive and in analytics).
   const stories_expired = await count(db, "SELECT COUNT(*) AS n FROM posts WHERE is_story = 1 AND status = 'published' AND expires_at <= ?", [now])
 
-  const report: MaintenanceReport = { rollup_until, reminders, sessions_purged, cache_purged, login_attempts_purged, stories_expired, at: now }
+  // ROADMAP phase 19: persistent article ids for published/archival issues that do not have them yet (bounded, idempotent)
+  const articles_indexed = await backfillArticleIndex(db).catch(() => 0)
+
+  const report: MaintenanceReport = { rollup_until, reminders, sessions_purged, cache_purged, login_attempts_purged, stories_expired, articles_indexed, at: now }
   await setSetting(db, 'maintenance_last', report)
   return report
 }
