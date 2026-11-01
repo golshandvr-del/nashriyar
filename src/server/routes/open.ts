@@ -9,7 +9,7 @@
 import { Hono, type Context, type MiddlewareHandler } from 'hono'
 import type { AppEnv } from '../context'
 import { sha256 } from '../lib/crypto'
-import { HttpError, cursorPage, notFound, nowIso, parseJson } from '../lib/util'
+import { HttpError, cursorPage, notFound, nowIso } from '../lib/util'
 import { normalizeFa } from '../../shared/fa'
 
 export const openRoutes = new Hono<AppEnv>()
@@ -32,14 +32,6 @@ export async function findApiKey(c: Context<AppEnv>, plain: string): Promise<Api
 }
 
 const cors: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (c.req.method === 'OPTIONS') {
-    return c.body(null, 204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'X-API-Key, Content-Type',
-      'Access-Control-Max-Age': '86400'
-    })
-  }
   await next()
   c.header('Access-Control-Allow-Origin', '*')
   c.header('Access-Control-Expose-Headers', 'X-RateLimit-Limit, X-RateLimit-Remaining, Retry-After, X-Request-Id')
@@ -66,6 +58,7 @@ async function rateLimit(c: Context<AppEnv>, key: ApiKeyRow) {
 }
 
 const auth: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (c.req.method === 'OPTIONS') return next()
   if (c.req.method !== 'GET' && c.req.method !== 'HEAD') throw new HttpError(405, 'این API فقط‌خواندنی است', 'method_not_allowed')
   if (/\/openapi\.json$/.test(c.req.path)) return next()
   const plain = c.req.header('x-api-key') || c.req.query('api_key') || ''
@@ -78,6 +71,14 @@ const auth: MiddlewareHandler<AppEnv> = async (c, next) => {
 
 openRoutes.use('*', cors)
 openRoutes.use('*', auth)
+// CORS preflight (no key needed; the browser never sends custom headers on a preflight)
+openRoutes.options('*', (c) =>
+  c.body(null, 204, {
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'X-API-Key, Content-Type',
+    'Access-Control-Max-Age': '86400'
+  })
+)
 
 const pubOut = (p: any) => ({
   id: p.id,
@@ -215,4 +216,3 @@ openRoutes.get('/openapi.json', (c) => {
   })
 })
 
-export const _test = { parseJson }
