@@ -2,7 +2,7 @@
 // Mounted by routes/analytics.ts under /api/analytics (role guard, rollup and cache middleware apply from there).
 import { Hono } from 'hono'
 import type { AppEnv } from '../../context'
-import { nowIso } from '../../lib/util'
+import { notFound, nowIso } from '../../lib/util'
 import { computeInsights } from '../../insights'
 import { aiExplain } from '../../ai'
 import { gatherEvidence, ruleHypotheses } from '../../lib/explain'
@@ -32,10 +32,10 @@ insightsRoutes.post('/insights/:key/explain', async (c) => {
   const key = c.req.param('key')
   const items = await computeInsights(c.get('db'), pubScope(c))
   const it = items.find((x) => x.key === key)
-  if (!it) return c.json({ error: 'این بینش در محدودهٔ دسترسی شما یافت نشد' }, 404)
+  if (!it) throw notFound('این بینش در محدودهٔ دسترسی شما یافت نشد')
   if (!it.publication_id) return c.json({ insight: it, evidence: null, hypotheses: [{ text: 'این بینش به نشریهٔ مشخصی مربوط نیست؛ تحلیل علت برای بینش‌های کلی در دسترس نیست.', source: 'rule' }] })
   const evidence = await gatherEvidence(c.get('db'), it.publication_id)
-  if (!evidence) return c.json({ error: 'نشریه یافت نشد' }, 404)
+  if (!evidence) throw notFound('نشریه یافت نشد')
   const hypotheses = [...ruleHypotheses(evidence), ...(await aiExplain(c, it, evidence)).map((text) => ({ text, source: 'ai' as const }))]
   return c.json({ insight: it, evidence, hypotheses })
 })
