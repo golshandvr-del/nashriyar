@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LayoutGrid, Plus, Table2 } from 'lucide-react'
-import { api, mediaUrl } from '../lib/api'
+import { mediaUrl } from '../lib/api'
 import { ISSUE_STATUS, faDate, formatNumber } from '../lib/format'
 import { Async, Badge, Empty, PageHeader, Progress, useAsync } from '../components/ui'
 import { Cover } from '../components/cards'
