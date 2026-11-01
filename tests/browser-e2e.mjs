@@ -1,4 +1,4 @@
-// Browser E2E (ROADMAP phase 12): visits every route of every role at 390px and 1440px and fails on
+// Browser E2E (ROADMAP phases 12 + 16): visits every route of every role at 320, 390, 768, 1024 and 1440px and fails on
 // console errors, uncaught exceptions, horizontal overflow, or overlapping navigation controls.
 // Playwright is optional: if it is not installed the suite is skipped (exit 0) so CI without browsers still passes.
 // Usage: BASE=http://127.0.0.1:3000 node tests/browser-e2e.mjs   (or via `npm test`, which seeds a fresh DB)
@@ -55,7 +55,8 @@ async function totpCode(secret) {
   const o = h[h.length - 1] & 15
   return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1e6).padStart(6, '0')
 }
-const WIDTHS = (process.env.WIDTHS || '390,1440').split(',').map(Number)
+// override for a quick local run: WIDTHS=390,1440 node tests/browser-e2e.mjs
+const WIDTHS = (process.env.WIDTHS || '320,390,768,1024,1440').split(',').map(Number)
 // Benign noise that is not an app bug (aborted fetches when navigating quickly, favicon in headless).
 const IGNORE = [/net::ERR_ABORTED/, /favicon/i, /Failed to load resource.*40[13]/]
 
