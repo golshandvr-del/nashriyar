@@ -8,30 +8,43 @@ import { toEnDigits } from '../../../shared/fa'
 import { requireFeature } from '../../lib/features'
 import { traceCode } from '../../routes/reader'
 import { issueOf, pub } from './service'
+import { streamExport } from '../../lib/export'
+import { CODE_COLUMNS, SALE_COLUMNS } from '../../../shared/columns'
+import type { Context } from 'hono'
+import type { PageOverride } from '../../lib/util'
 
 export const salesRoutes = new Hono<AppEnv>()
 
 // ───────── Purchase codes (no payment gateway; raw code shown once, only hash stored) ─────────
-salesRoutes.get('/:pubId/codes', async (c) => {
-  const { pub: p } = await pub(c)
+/** The purchase-codes query (screen and export share it; `page` lets the export walk every keyset page). */
+async function listCodes(c: Context<AppEnv>, pubId: string, page?: PageOverride) {
   const issueId = c.req.query('issue')
-  const params: unknown[] = [p.id]
+  const params: unknown[] = [pubId]
   let w = ''
   if (issueId) (w = ' AND ac.issue_id = ?'), params.push(issueId)
   const now = nowIso()
   // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 500)
-  const pg = cursorPage(c, { col: 'ac.created_at', idCol: 'ac.id', def: 500, max: 500 })
+  const pg = cursorPage(c, { col: 'ac.created_at', idCol: 'ac.id', def: 500, max: 500, page })
   const rows = await c.get('db').all<any>(
     `SELECT ac.id, ac.issue_id, ac.code_last4, ac.bound_student_number, ac.price_paid, ac.channel, ac.note, ac.created_at, ac.expires_at, ac.redeemed_at, ac.revoked_at,
        i.number AS issue_number, i.title AS issue_title, u.display_name AS redeemed_by_name, u.student_number AS redeemed_by_sn
      FROM access_codes ac JOIN issues i ON i.id = ac.issue_id LEFT JOIN users u ON u.id = ac.redeemed_by WHERE ac.publication_id = ?${w}${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
     [...params, ...pg.params]
   )
-  const { rows: page, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
-  return c.json({
-    codes: page.map((r) => ({ ...r, state: r.revoked_at ? 'revoked' : r.redeemed_at ? 'redeemed' : r.expires_at <= now ? 'expired' : 'active' })),
-    next_cursor
-  })
+  const { rows: list, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
+  return { rows: list.map((r) => ({ ...r, state: r.revoked_at ? 'revoked' : r.redeemed_at ? 'redeemed' : r.expires_at <= now ? 'expired' : 'active' })), next_cursor }
+}
+
+salesRoutes.get('/:pubId/codes', async (c) => {
+  const { pub: p } = await pub(c)
+  const { rows: codes, next_cursor } = await listCodes(c, p.id)
+  return c.json({ codes, next_cursor })
+})
+
+/** Streaming XLSX/CSV of the purchase codes (last 4 only — raw codes are never stored; ROADMAP phase 18). */
+salesRoutes.get('/:pubId/codes/export', async (c) => {
+  const { pub: p } = await pub(c)
+  return streamExport(c, { name: `codes-${p.slug || 'pub'}`, title: `کدهای خرید ${p.title || ''}`.trim(), columns: CODE_COLUMNS, fetchPage: (cursor) => listCodes(c, p.id, { cursor, limit: 500 }) })
 })
 
 salesRoutes.post('/:pubId/codes', async (c) => {
@@ -113,16 +126,27 @@ salesRoutes.post('/:pubId/issues/:issueId/revoke-reader', async (c) => {
   return c.json({ ok: true })
 })
 
+/** The physical-sales query (screen and export share it); `amount` = quantity × unit price. */
+async function listSales(c: Context<AppEnv>, pubId: string, page?: PageOverride) {
+  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 300)
+  const pg = cursorPage(c, { col: 'ps.sold_at', idCol: 'ps.id', def: 300, max: 300, page })
+  const rows = await c.get('db').all<any>(
+    `SELECT ps.*, ps.quantity * COALESCE(ps.unit_price, 0) AS amount, i.number AS issue_number, i.title AS issue_title FROM physical_sales ps JOIN issues i ON i.id = ps.issue_id WHERE ps.publication_id = ?${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    [pubId, ...pg.params]
+  )
+  return pg.finish(rows, (r) => [r.sold_at, r.id])
+}
+
 salesRoutes.get('/:pubId/physical-sales', async (c) => {
   const { pub: p } = await pub(c)
-  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 300)
-  const pg = cursorPage(c, { col: 'ps.sold_at', idCol: 'ps.id', def: 300, max: 300 })
-  const rows = await c.get('db').all<any>(
-    `SELECT ps.*, i.number AS issue_number, i.title AS issue_title FROM physical_sales ps JOIN issues i ON i.id = ps.issue_id WHERE ps.publication_id = ?${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
-    [p.id, ...pg.params]
-  )
-  const { rows: sales, next_cursor } = pg.finish(rows, (r) => [r.sold_at, r.id])
+  const { rows: sales, next_cursor } = await listSales(c, p.id)
   return c.json({ sales, next_cursor })
+})
+
+/** Streaming XLSX/CSV of the physical sales with the on-screen table state (ROADMAP phase 18). */
+salesRoutes.get('/:pubId/physical-sales/export', async (c) => {
+  const { pub: p } = await pub(c)
+  return streamExport(c, { name: `print-sales-${p.slug || 'pub'}`, title: `فروش چاپی ${p.title || ''}`.trim(), columns: SALE_COLUMNS, fetchPage: (cursor) => listSales(c, p.id, { cursor, limit: 300 }) })
 })
 
 salesRoutes.post('/:pubId/physical-sales', async (c) => {
