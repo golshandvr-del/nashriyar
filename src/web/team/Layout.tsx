@@ -132,8 +132,9 @@ export default function TeamLayout() {
         {drawer && <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setDrawer(false)} aria-hidden />}
         <aside
           id="team-drawer"
+          style={{ ['--motif-opacity' as any]: 0.05 }}
           className={cx(
-            'no-print fixed inset-y-0 right-0 z-50 w-72 max-w-[85vw] overflow-y-auto border-l border-line bg-surface shadow-xl transition-transform duration-200',
+            'motif-girih no-print fixed inset-y-0 right-0 z-50 w-72 max-w-[85vw] overflow-y-auto border-l border-line bg-surface shadow-xl transition-transform duration-200',
             drawer ? 'translate-x-0' : 'translate-x-full',
             'md:sticky md:top-0 md:z-auto md:h-dvh md:w-60 md:max-w-none md:shrink-0 md:translate-x-0 md:shadow-none'
           )}
