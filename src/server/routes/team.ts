@@ -1018,13 +1018,16 @@ teamRoutes.get('/:pubId/stats', async (c) => {
 
 teamRoutes.get('/:pubId/activity', async (c) => {
   const { pub: p } = await pub(c)
-  const rows = await c.get('db').all(
+  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 200, default 100)
+  const pg = cursorPage(c, { col: 'a.created_at', idCol: 'a.id', def: 100, max: 200 })
+  const rows = await c.get('db').all<any>(
     `SELECT a.id, a.type, a.payload_json, a.created_at, a.issue_id, u.display_name AS actor_name, i.number AS issue_number
      FROM activity_events a LEFT JOIN users u ON u.id = a.actor_user_id LEFT JOIN issues i ON i.id = a.issue_id
-     WHERE a.publication_id = ? AND a.type NOT IN ('follow','unfollow') ORDER BY a.created_at DESC LIMIT 100`,
-    [p.id]
+     WHERE a.publication_id = ? AND a.type NOT IN ('follow','unfollow')${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    [p.id, ...pg.params]
   )
-  return c.json({ items: rows })
+  const { rows: items, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
+  return c.json({ items, next_cursor })
 })
 
 teamRoutes.get('/:pubId/search-issues', async (c) => {
