@@ -7,7 +7,7 @@ import type { AppEnv } from '../context'
 import type { Db } from '../adapters/db'
 import { requireUser } from '../auth'
 import { newId } from '../lib/crypto'
-import { activity, audit, bad, body, HttpError, notFound, notify, nowIso, oneOf, str } from '../lib/util'
+import { activity, audit, bad, body, cursorPage, HttpError, notFound, notify, nowIso, oneOf, str } from '../lib/util'
 import { normalizeFa } from '../../shared/fa'
 
 export const membershipRoutes = new Hono<AppEnv>()
@@ -126,16 +126,19 @@ membershipRoutes.get('/queue', async (c) => {
   const params: unknown[] = []
   if (pubId) (where.push('r.publication_id = ?'), params.push(pubId))
   if (status !== 'all') (where.push('r.status = ?'), params.push(oneOf(status, ['pending', 'approved', 'rejected', 'cancelled'] as const, 'وضعیت')))
-  const rows = await db.all(
+  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 300)
+  const pg = cursorPage(c, { col: 'r.created_at', idCol: 'r.id', def: 300, max: 300 })
+  const rows = await db.all<any>(
     `SELECT r.id, r.status, r.role_name, r.message, r.decision_note, r.created_at, r.decided_at, r.publication_id, p.title AS publication_title,
             us.id AS user_id, us.display_name, us.username, us.student_number, us.degree, us.entry_year, us.profile_completed_at, f.name AS faculty_name, m.name AS major_name,
             d.display_name AS decided_by_name
        FROM membership_requests r JOIN publications p ON p.id = r.publication_id JOIN users us ON us.id = r.user_id
        LEFT JOIN faculties f ON f.id = us.faculty_id LEFT JOIN majors m ON m.id = us.major_id LEFT JOIN users d ON d.id = r.decided_by
-      WHERE ${where.join(' AND ')} ORDER BY r.created_at DESC LIMIT 300`,
-    params
+      WHERE ${where.join(' AND ')}${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    [...params, ...pg.params]
   )
-  return c.json({ requests: rows })
+  const { rows: requests, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
+  return c.json({ requests, next_cursor })
 })
 
 membershipRoutes.post('/requests/:id/decide', async (c) => {
