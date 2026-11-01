@@ -196,7 +196,12 @@ export function jalaliPresets(now = new Date()) {
     { key: 'acad', label: 'سال تحصیلی', from: acadStart, to: today },
     { key: 'year', label: 'سال شمسی جاری', from: yearStart, to: today },
     { key: 'prevYear', label: 'سال گذشته', from: jalaliToIso(j.jy - 1, 1, 1), to: jalaliToIso(j.jy - 1, 12, jalaliMonthLength(j.jy - 1, 12)) },
-    { key: 'all', label: 'از ابتدا', from: '2015-01-01', to: today }
+    { key: 'all', label: 'از ابتدا', from: '2015-01-01', to: today },
+    // academic-year dimension (ROADMAP phase 17): the five previous whole academic years, Mehr → Shahrivar
+    ...[1, 2, 3, 4, 5].map((k) => {
+      const y = acadY - k
+      return { key: `acad-${y}`, label: `سال تحصیلی ${toFaDigits(y)}–${toFaDigits(y + 1)}`, from: jalaliToIso(y, 7, 1), to: jalaliToIso(y + 1, 6, 31) }
+    })
   ]
 }
 
