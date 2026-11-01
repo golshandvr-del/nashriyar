@@ -151,3 +151,16 @@
   - **وضعیت رودمپ:** ۱۹۱ مورد تیک‌خورده (`[x]`) و فقط ۱۰ مورد باز (`[ ]`) که هر ۱۰ مورد مربوط به **فاز ۱۲ (آینده / پس از نسخهٔ ۱٫۰)** هستند. فازهای ۰ تا ۱۱ به‌طور ۱۰۰٪ کامل شدند.
 
 - **گفتگوی فاز ۱۸ (پایان) — ۱۴۰۵/۰۸/۱۰:** فاز ۱۸ کامل و تیک خورد (۲۶۷ انجام، ۱۰ باز = فاز ۱۹). `npm test` کامل سبز (EXIT=0؛ export-e2e ۲۲۷، print-e2e ۱۴، browser-e2e، query-plan ۰ اسکن). اصلاح query-plan: ALLOW شمارش کل جدول با نام داخل گیومه (پنل پایش system.ts). Playwright برای آزمون‌ها: `mkdir /tmp/pw && cd /tmp/pw && npm i playwright@1 && npx playwright install --with-deps chromium` سپس `PLAYWRIGHT_PATH=/tmp/pw/node_modules/playwright/index.mjs npm test`. ابزارها: `~/ck.sh` (ck)، `~/tick.py`، `~/rep.py` (edit(path, [(old,new)]) با یکتایی). مرحلهٔ بعد: فاز ۱۹ به ترتیب موارد ROADMAP.
+
+## فاز ۱۹ — نقشهٔ اجرا (ترتیب انجام؛ هر گام = یک چک‌پوینت)
+1. **API عمومی فقط‌خواندنی:** migration 0015 (`api_keys` هش‌شده)، `src/server/routes/open.ts` زیر `/api/open/v1/*` (CORS، کلید `X-API-Key`، سقف نرخ هر کلید)، مدیریت کلید در کنسول طراح (`/api/system/api-keys`)، `openapi.json`، docs/OPEN_API.md.
+2. **نمایه‌سازی مقالات با شناسهٔ پایدار:** migration 0016 (`articles`: pid تغییرناپذیر، doi اختیاری، چکیده، کلیدواژه)، صفحهٔ `/a/:pid` با متای `citation_*`، BibTeX/RIS، OAI-PMH در `/api/open/oai`.
+3. **آرشیو شماره‌های چاپی قدیمی:** ستون‌های `issues.archival`/`original_date`، ثبت مستقیم توسط مسئول، استخراج متن با pdftotext (اختیاری)، صفحهٔ `/archive`.
+4. **EPUB/متن بازچینی‌پذیر:** حالت متنی کتاب‌خوان (فقط صفحه‌های مجاز) + EPUB برای شماره‌های رایگان (`src/shared/epub.ts` روی zip.ts).
+5. **TTS (افزونهٔ AI):** `/audio/speech` سازگار با OpenAI، کش در storage، جایگزین Web Speech در مرورگر.
+6. **اعلان بله/ایتا/ایمیل:** Notifierهای واقعی + اتصال حساب (کد اتصال ربات بله، شناسهٔ ایتا، ایمیل) و ترجیحات کانال.
+7. **OTP پیامکی و SSO دانشگاه (OIDC):** `SmsProvider` (Null/HTTP)، جدول otp، OIDC با PKCE و بررسی امضای id_token.
+8. **ویدیوی کوتاه:** ffmpeg → HLS + MP4 + بندانگشتی، سقف مدت؛ فقط هاست Node (capabilities).
+9. **اپ اندروید:** `android/` (WebView + FLAG_SECURE) + workflow ساخت APK + تنظیم «خواندن نسخهٔ پولی فقط در اپ».
+10. **چنددانشگاهی:** پایگاه‌دادهٔ جدا برای هر دانشگاه، انتخاب با Host (`TENANTS`)، CLI با `--tenant`.
+آزمون همه: `tests/future-e2e.mjs` در npm test.
