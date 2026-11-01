@@ -117,7 +117,9 @@ authRoutes.post('/register', async (c) => {
     }
   }
   await createSession(c, id)
-  return c.json({ ok: true, home: request || join_error ? '/settings?tab=membership' : '/', request, join_error })
+  // a legacy team record with this student number is linked right away (ROADMAP phase 15), so the member lands correctly
+  const h = await homeForUser(db, id, 'student')
+  return c.json({ ok: true, home: request || join_error ? '/settings?tab=membership' : h.home, desk: h.desk, request, join_error })
 })
 
 authRoutes.post('/logout', async (c) => {
