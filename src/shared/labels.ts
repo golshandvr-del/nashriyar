@@ -45,3 +45,46 @@ export const COMMENT_STATUS: Record<string, string> = { pending: 'در انتظ�
 
 /** status → label only (for table columns / exports) */
 export const ISSUE_STATUS_LABEL: Record<string, string> = Object.fromEntries(Object.entries(ISSUE_STATUS).map(([k, v]) => [k, v.label]))
+
+// Audit log (ROADMAP phase 18 — shared by the events DataTable and its server export)
+/** Action prefixes → Persian group labels (server stores dotted action names, e.g. "user.password_reset"). */
+export const AUDIT_GROUPS: Record<string, string> = {
+  '': 'همه',
+  'publication': 'نشریه',
+  'user': 'کاربر',
+  'issue': 'شماره',
+  'approval': 'تأیید',
+  'post': 'پست',
+  'comment': 'نظر',
+  'report': 'گزارش',
+  'category': 'دسته‌بندی',
+  'shelf': 'ویترین',
+  'announcement': 'اطلاعیه',
+  'deadline': 'مهلت',
+  'settings': 'تنظیمات'
+}
+
+export const AUDIT_ACTION_FA: Record<string, string> = {
+  'publication.create': 'ایجاد نشریه',
+  'publication.update': 'ویرایش نشریه',
+  'publication.status': 'تغییر وضعیت نشریه',
+  'publication.role_replace': 'تعویض رکن نشریه',
+  'user.create': 'ایجاد کاربر',
+  'user.status': 'تغییر وضعیت کاربر',
+  'user.password_reset': 'بازنشانی رمز',
+  'post.visibility': 'تغییر نمایش پست',
+  'comment.approve': 'تأیید نظر',
+  'comment.reject': 'رد نظر',
+  'comment.spam': 'هرزنامه',
+  'report.resolved': 'رسیدگی به گزارش',
+  'report.dismissed': 'رد گزارش',
+  'report.open': 'بازگشایی گزارش',
+  'shelf.save': 'ذخیرهٔ قفسه',
+  'shelf.delete': 'حذف قفسه',
+  'banners.update': 'به‌روزرسانی بنرها',
+  'announcement.create': 'ارسال اطلاعیه',
+  'announcement.delete': 'حذف اطلاعیه',
+  'deadline.create': 'ثبت مهلت',
+  'deadline.delete': 'حذف مهلت',
+  'settings.update': 'تغییر تنظیمات'
+}
