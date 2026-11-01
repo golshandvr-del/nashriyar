@@ -23,7 +23,7 @@ export default function Home() {
       {(d) => (
         <div>
           {!user && (
-            <section id="hero-section" className="motif-girih frame-arch card mb-6 overflow-hidden bg-gradient-to-l from-brand to-teal-500 p-6 text-white" style={{ ['--motif-color' as any]: '#ffffff', ['--motif-opacity' as any]: 0.14, ['--frame-color' as any]: '#ffffff', ['--frame-opacity' as any]: 0.5 }}>
+            <section id="hero-section" className="motif-girih frame-arch card bg-banner mb-6 overflow-hidden p-6 text-white" style={{ ['--motif-color' as any]: '#ffffff', ['--motif-opacity' as any]: 0.14, ['--frame-color' as any]: '#ffffff', ['--frame-opacity' as any]: 0.5 }}>
               {/* ROADMAP phase 16: «نقش جهان» banner — the square's arcade and Shah mosque drawn in white over the girih tiles */}
               <Illustration name="square" className="pointer-events-none absolute bottom-2 left-3 hidden h-28 w-56 text-white opacity-35 sm:block" />
               <h1 className="text-2xl font-extrabold">پیشخوان نشریات دانشجویی</h1>
