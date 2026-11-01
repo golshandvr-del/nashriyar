@@ -82,6 +82,8 @@ export type AppEnv = {
     db: Db
     user: SessionUser | null
     sessionId: string | null
+    /** ROADMAP phase 17: per-request id (X-Request-Id), echoed in every response, error body and log line */
+    requestId: string
   }
 }
 
