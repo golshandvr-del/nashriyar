@@ -816,13 +816,16 @@ adminRoutes.post('/posts/:id/visibility', async (c) => {
 adminRoutes.get('/comments', async (c) => {
   admin(c)
   const status = oneOf(c.req.query('status'), ['pending', 'approved', 'rejected', 'spam'] as const, 'وضعیت', 'pending')
-  const rows = await c.get('db').all(
+  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 200)
+  const pg = cursorPage(c, { col: 'cm.created_at', idCol: 'cm.id', def: 200, max: 200 })
+  const rows = await c.get('db').all<any>(
     `SELECT cm.id, cm.body, cm.status, cm.flagged, cm.created_at, u.display_name AS author, u.student_number, p.title AS publication_title, cm.post_id
      FROM comments cm JOIN posts po ON po.id = cm.post_id JOIN publications p ON p.id = po.publication_id LEFT JOIN users u ON u.id = cm.user_id
-     WHERE cm.status = ? ORDER BY cm.created_at DESC LIMIT 200`,
-    [status]
+     WHERE cm.status = ?${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    [status, ...pg.params]
   )
-  return c.json({ comments: rows })
+  const { rows: comments, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
+  return c.json({ comments, next_cursor })
 })
 
 adminRoutes.post('/comments/:id', async (c) => {
