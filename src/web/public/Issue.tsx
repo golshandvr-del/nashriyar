@@ -16,6 +16,10 @@ interface IssueData {
     price_print: number | null
     print_run: number | null
     free_preview_pages: number | null
+    // ROADMAP phase 19: digitised old printed issue (original print date shown instead of the upload date)
+    archival?: number
+    original_date?: string | null
+    original_label?: string | null
     publication_id: string
     logo_key: string | null
     association_name: string
@@ -93,7 +97,13 @@ export default function Issue() {
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
                   <span>شمارهٔ {toFaDigits(i.number)}</span>
                   <span>·</span>
-                  <span>{faDate(i.published_at)}</span>
+                  {i.archival ? (
+                    <Link to="/archive" className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-900 hover:underline dark:bg-amber-900/40 dark:text-amber-100" title="شمارهٔ چاپی قدیمی، دیجیتال‌شده">
+                      آرشیو چاپی · {i.original_label || faDate(i.original_date)}
+                    </Link>
+                  ) : (
+                    <span>{faDate(i.published_at)}</span>
+                  )}
                   {i.page_count ? (
                     <>
                       <span>·</span>
