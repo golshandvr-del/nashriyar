@@ -11,6 +11,7 @@ export const addHours = (h: number, from = Date.now()) => new Date(from + h * 36
 
 // HTTP errors live in lib/errors.ts (shared with the zod validation layer); re-exported for existing imports.
 import { bad } from './errors'
+import { check, v as vz } from './validate'
 export { HttpError, bad, notFound, forbidden } from './errors'
 
 /** Read JSON body safely. */
@@ -22,34 +23,21 @@ export async function body<T = any>(c: Context): Promise<T> {
   }
 }
 
-/** Minimal field validation helpers (keeps the worker bundle small). */
+/**
+ * Field validation helpers — thin wrappers over the unified zod schemas in lib/validate.ts (ROADMAP phase 17), so routes
+ * that validate field by field and routes that use `parseBody(c, shape)` share one implementation and one set of
+ * Persian messages. Failures throw HttpError(400, message, 'validation', { fields }).
+ */
 export function str(v: unknown, name: string, opts: { min?: number; max?: number; optional?: boolean } = {}): string {
-  const s = typeof v === 'string' ? v.trim() : v == null ? '' : String(v).trim()
-  if (!s) {
-    if (opts.optional) return ''
-    throw bad(`«${name}» الزامی است`)
-  }
-  if (opts.min && s.length < opts.min) throw bad(`«${name}» باید حداقل ${opts.min} نویسه باشد`)
-  if (s.length > (opts.max ?? 5000)) throw bad(`«${name}» بیش از حد طولانی است`)
-  return s
+  return check(vz.str(name, opts), v) as string
 }
 
 export function int(v: unknown, name: string, opts: { min?: number; max?: number; optional?: boolean } = {}): number | null {
-  if (v === '' || v == null) {
-    if (opts.optional) return null
-    throw bad(`«${name}» الزامی است`)
-  }
-  const n = Number(v)
-  if (!Number.isFinite(n) || !Number.isInteger(n)) throw bad(`«${name}» باید عدد صحیح باشد`)
-  if (opts.min != null && n < opts.min) throw bad(`«${name}» نباید کمتر از ${opts.min} باشد`)
-  if (opts.max != null && n > opts.max) throw bad(`«${name}» نباید بیشتر از ${opts.max} باشد`)
-  return n
+  return check(vz.int(name, opts), v) as number | null
 }
 
 export function oneOf<T extends string>(v: unknown, allowed: readonly T[], name: string, def?: T): T {
-  if ((v == null || v === '') && def) return def
-  if (!allowed.includes(v as T)) throw bad(`مقدار «${name}» نامعتبر است`)
-  return v as T
+  return check(vz.oneOf(allowed, name, def), v)
 }
 
 export function slugify(s: string): string {
