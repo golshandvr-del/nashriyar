@@ -22,7 +22,7 @@ const BIG = [
   'festival_entries', 'festival_scores', 'system_audit', 'login_attempts', 'highlight_items'
 ]
 // statement fragments that are intentionally whole-table (maintenance, exports, backups, rollups over a bounded window)
-const ALLOW = [/^PRAGMA/i, /sqlite_master/i, /_migrations/i, /COUNT\(\*\) AS n FROM \w+$/i, /DELETE FROM login_attempts/i, /DELETE FROM sessions WHERE expires_at/i]
+const ALLOW = [/^PRAGMA/i, /sqlite_master/i, /_migrations/i, /COUNT\(\*\) AS n FROM "?\w+"?$/i, /DELETE FROM login_attempts/i, /DELETE FROM sessions WHERE expires_at/i]
 
 const db = new DatabaseSync(DB_FILE, { readOnly: true })
 const sqls = [...new Set(fs.readFileSync(LOG, 'utf8').split('\n').map((s) => s.trim()).filter(Boolean))]
