@@ -3,6 +3,7 @@
 import type { Deps } from './context'
 import { hashPassword, newId, normalizePurchaseCode, randomId, sha256 } from './lib/crypto'
 import { normalizeFa } from '../shared/fa'
+import { backfillArticleIndex } from './lib/articles'
 
 type Stmt = { sql: string; params?: unknown[] }
 
@@ -610,5 +611,7 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
   await addUser('developer', 'طراح سامانه', 'developer', 'dev12345678')
 
   await flush()
+  // ROADMAP phase 19: persistent article ids for every published demo issue (crypto random → PRNG sequence untouched)
+  log(`article index: ${await backfillArticleIndex(db, 100000)} articles`)
   log(`done: ${PUBS.length} publications, ${issueCards.length} published issues`)
 }
