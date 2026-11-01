@@ -21,7 +21,7 @@ interface IssueData {
     association_name: string
     contacts: { kind: string; value: string; label?: string }[]
   }
-  toc: { id: string; parent_id: string | null; title: string; kind: string; page_start: number | null; page_end: number | null; bylines: { role: string; name: string }[] }[]
+  toc: { id: string; parent_id: string | null; title: string; kind: string; page_start: number | null; page_end: number | null; pid?: string | null; bylines: { role: string; name: string }[] }[]
   media: { id: string; kind: string; role: string; title: string | null; access: string; mime?: string | null; storage_key?: string | null; url?: string | null }[]
   credits: { production_role: string; full_name: string }[]
   categories: { id: string; name: string; slug: string }[]
@@ -234,11 +234,21 @@ function TocRow({ t, canRead, issueId }: { t: IssueData['toc'][number]; canRead:
       {t.page_start ? <span className="shrink-0 text-xs text-muted">ص {toFaDigits(t.page_start)}</span> : null}
     </div>
   )
-  return canRead && t.page_start ? (
+  const row = canRead && t.page_start ? (
     <Link to={`/read/${issueId}?page=${t.page_start}`} className="block rounded-lg hover:text-brand">
       {body}
     </Link>
   ) : (
     body
+  )
+  if (!t.pid) return row
+  // ROADMAP phase 19: permanent article id → server-rendered landing page with citation meta (BibTeX / RIS there)
+  return (
+    <div>
+      {row}
+      <a href={`/a/${t.pid}`} className="mt-0.5 inline-block text-[11px] text-muted underline-offset-2 hover:text-brand hover:underline" title="شناسهٔ پایدار و استناد">
+        <span dir="ltr">{t.pid}</span> · استناد
+      </a>
+    </div>
   )
 }
