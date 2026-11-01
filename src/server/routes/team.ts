@@ -730,11 +730,14 @@ teamRoutes.post('/:pubId/issues/:issueId/revoke-reader', async (c) => {
 
 teamRoutes.get('/:pubId/physical-sales', async (c) => {
   const { pub: p } = await pub(c)
-  const rows = await c.get('db').all(
-    'SELECT ps.*, i.number AS issue_number, i.title AS issue_title FROM physical_sales ps JOIN issues i ON i.id = ps.issue_id WHERE ps.publication_id = ? ORDER BY ps.sold_at DESC LIMIT 300',
-    [p.id]
+  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 300)
+  const pg = cursorPage(c, { col: 'ps.sold_at', idCol: 'ps.id', def: 300, max: 300 })
+  const rows = await c.get('db').all<any>(
+    `SELECT ps.*, i.number AS issue_number, i.title AS issue_title FROM physical_sales ps JOIN issues i ON i.id = ps.issue_id WHERE ps.publication_id = ?${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    [p.id, ...pg.params]
   )
-  return c.json({ sales: rows })
+  const { rows: sales, next_cursor } = pg.finish(rows, (r) => [r.sold_at, r.id])
+  return c.json({ sales, next_cursor })
 })
 
 teamRoutes.post('/:pubId/physical-sales', async (c) => {
