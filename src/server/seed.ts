@@ -250,14 +250,27 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
   log('organization, categories and roles')
 
   // ───────── staff accounts ─────────
-  const addUser = async (username: string, name: string, role: string, password: string, extra: { sn?: string; faculty?: string; scope?: string; major?: string } = {}) => {
+  type Profile = { gender?: string; birth_year?: number; degree?: string; entry_year?: number; consent?: boolean }
+  const addUser = async (username: string, name: string, role: string, password: string, extra: { sn?: string; faculty?: string; scope?: string; major?: string; profile?: Profile } = {}) => {
     const id = newId()
+    const created = iso(NOW - ri(200, 700) * DAY)
+    const p = extra.profile || {}
+    const consent = p.consent ? created : null
+    const complete = !!(extra.sn && extra.faculty && p.degree && p.entry_year && consent && p.gender)
     q(
-      'INSERT INTO users (id, username, student_number, display_name, faculty_id, major_id, password_hash, must_change_password, system_role, scope_faculty_id, status, created_at) VALUES (?,?,?,?,?,?,?,0,?,?,?,?)',
-      id, username, extra.sn ?? null, name, extra.faculty ?? null, extra.major ?? null, await pw(password), role, extra.scope ?? null, 'active', iso(NOW - ri(200, 700) * DAY)
+      'INSERT INTO users (id, username, student_number, display_name, faculty_id, major_id, password_hash, must_change_password, system_role, scope_faculty_id, status, created_at, gender, birth_year, degree, entry_year, profile_consent_at, profile_completed_at) VALUES (?,?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?)',
+      id, username, extra.sn ?? null, name, extra.faculty ?? null, extra.major ?? null, await pw(password), role, extra.scope ?? null, 'active', created,
+      consent ? p.gender ?? null : null, consent ? p.birth_year ?? null : null, p.degree ?? null, p.entry_year ?? null, consent, complete ? created : null
     )
     return id
   }
+  // ROADMAP phase 15 demo profiles: deterministic (no rnd() calls), so the rest of the random demo data stays identical.
+  // Two thirds consent to sensitive fields (gender, birth year) and are therefore complete; the rest stay incomplete.
+  const DEGREE_CYCLE = ['bachelor', 'bachelor', 'master', 'bachelor', 'phd', 'associate', 'master']
+  const demoProfile = (k: number): Profile => ({
+    degree: DEGREE_CYCLE[k % DEGREE_CYCLE.length], entry_year: 1397 + (k % 7),
+    consent: k % 3 !== 0, gender: k % 2 ? 'female' : 'male', birth_year: 1376 + (k % 9)
+  })
   const adminId = await addUser('admin', 'مدیر سامانه', 'super_admin', 'admin1234')
   const officerId = await addUser('officer', 'مسئول نشریات دانشگاه', 'pub_officer', 'officer1234')
   await addUser('supervisor', 'ناظر دانشکدهٔ فنی', 'faculty_supervisor', 'super1234', { scope: facultyIds[0] })
@@ -265,12 +278,17 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
 
   // ───────── students ─────────
   const studentIds: string[] = []
+  // students who also serve as linked team members (ROADMAP phase 15: «اعضای دارای حساب»)
+  const studentInfo: { id: string; sn: string; name: string; faculty: string }[] = []
   const mainStudent = await addUser('40012345', 'سارا محمدی', 'student', 'student1234', { sn: '40012345', faculty: facultyIds[2], major: majorIds[2][0] })
   studentIds.push(mainStudent)
   for (let k = 1; k < 60; k++) {
     const fi = ri(0, FACULTIES.length - 1)
     const sn = String(39010000 + k * 137 + ri(0, 99))
-    studentIds.push(await addUser(sn, `${pick(FIRST)} ${pick(LAST)}`, 'student', 'student1234', { sn, faculty: facultyIds[fi], major: pick(majorIds[fi]) }))
+    const name = `${pick(FIRST)} ${pick(LAST)}`
+    const sid = await addUser(sn, name, 'student', 'student1234', { sn, faculty: facultyIds[fi], major: pick(majorIds[fi]), profile: demoProfile(k) })
+    studentIds.push(sid)
+    studentInfo.push({ id: sid, sn, name, faculty: facultyIds[fi] })
   }
   await flush()
   log(`users: ${studentIds.length} students + staff`)
@@ -325,9 +343,13 @@ export async function seed(deps: Deps, opts: SeedOptions = {}): Promise<void> {
       const id = newId()
       members.push(id)
       const joined = founded + ri(0, 300) * DAY
+      const name = `${pick(FIRST)} ${pick(LAST)}`
+      const role = pick(PRODUCTION_ROLES)
+      // the first two members of each publication are students with their own accounts (linked records)
+      const acc = m < 2 && studentInfo.length ? studentInfo[(pi * 2 + m) % studentInfo.length] : null
       q(
-        'INSERT INTO team_members (id, publication_id, full_name, student_number, faculty_id, default_role, joined_at, is_active, created_at) VALUES (?,?,?,?,?,?,?,1,?)',
-        id, pubId, `${pick(FIRST)} ${pick(LAST)}`, String(39900000 + pi * 100 + m), facultyId, pick(PRODUCTION_ROLES), iso(joined), iso(joined)
+        'INSERT INTO team_members (id, publication_id, user_id, full_name, student_number, faculty_id, default_role, joined_at, is_active, created_at) VALUES (?,?,?,?,?,?,?,?,1,?)',
+        id, pubId, acc?.id ?? null, acc?.name ?? name, acc?.sn ?? String(39900000 + pi * 100 + m), acc?.faculty ?? facultyId, role, iso(joined), iso(joined)
       )
       q("INSERT INTO activity_events (id, actor_user_id, publication_id, type, created_at) VALUES (?,?,?,'member.added',?)", newId(), director, pubId, iso(Math.min(NOW - DAY, joined)))
     }
