@@ -20,7 +20,8 @@ analyticsRoutes.use('*', async (c, next) => {
 
 // ROADMAP phase 7 infrastructure: lazy daily rollup (no cron) + 5-minute result cache for read-only reports.
 // Cache key includes the viewer's role and faculty scope, so a faculty supervisor never sees another scope's numbers.
-const NO_CACHE = ['/live', '/insights', '/ai/']
+// /academic-years and /archive/ read stored snapshots (already cheap) and must see a freshly frozen year at once
+const NO_CACHE = ['/live', '/insights', '/ai/', '/academic-years', '/archive/']
 // ROADMAP phase 17: data domains each report reads. The cache key embeds those domains' generation counters, so a
 // write only invalidates the reports that depend on it (lib/rollup.ts → writeDomains/bumpCache). Unlisted → all.
 const ALL_DOMAINS: CacheDomain[] = ['content', 'sales', 'social', 'people', 'settings', 'views']
