@@ -894,11 +894,11 @@ analyticsRoutes.get('/export/ranking.csv', async (c) => {
   const { from, to } = dateRange(c, 365)
   const rows = await db.all<any>(
     `SELECT p.title, f.name AS faculty, (SELECT COUNT(*) FROM issues i WHERE i.publication_id = p.id AND i.status IN ('published','archived') AND substr(i.published_at,1,10) BETWEEN ? AND ?) AS published,
-       (SELECT COUNT(*) FROM view_events v WHERE v.publication_id = p.id AND v.day BETWEEN ? AND ?) AS views,
+       ${pubViewsSql()} AS views,
        (SELECT COUNT(*) FROM follows fo WHERE fo.publication_id = p.id AND fo.unfollowed_at IS NULL) AS followers,
        (SELECT COUNT(*) FROM access_codes ac WHERE ac.publication_id = p.id AND substr(ac.redeemed_at,1,10) BETWEEN ? AND ?) AS digital_sold
      FROM publications p LEFT JOIN faculties f ON f.id = p.faculty_id WHERE p.deleted_at IS NULL${s.sql} ORDER BY published DESC`,
-    [from, to, from, to, from, to, ...s.params]
+    [from, to, ...pubViewsParams(from, to, await rolledUntil(c)), from, to, ...s.params]
   )
   const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
   const csv = '\uFEFF' + ['نشریه,دانشکده,شماره‌های منتشرشده,بازدید,دنبال‌کننده,فروش دیجیتال', ...rows.map((r) => [r.title, r.faculty, r.published, r.views, r.followers, r.digital_sold].map(esc).join(','))].join('\r\n')
