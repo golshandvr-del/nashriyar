@@ -19,7 +19,8 @@ function tokens() {
   return { text: v('--text'), muted: v('--muted'), line: v('--line'), brand: v('--brand'), surface: v('--surface'), danger: v('--danger'), warn: v('--warn'), ok: v('--ok') }
 }
 
-export const PALETTE = ['#0f766e', '#2563eb', '#d97706', '#db2777', '#7c3aed', '#059669', '#dc2626', '#0891b2', '#65a30d', '#9333ea']
+// ROADMAP phase 16 «کاشی اصفهان»: turquoise, lapis, gold, brick ochre, then supporting tile tones (distinguishable in both themes)
+export const PALETTE = ['#0b8a8f', '#1e40af', '#c58b1b', '#b5502a', '#7c3aed', '#0e7490', '#be185d', '#4d7c0f', '#64748b', '#9333ea']
 
 function themed(opt: EOption): EOption {
   const t = tokens()
