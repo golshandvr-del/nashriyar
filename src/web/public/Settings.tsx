@@ -381,11 +381,12 @@ export default function Settings() {
   // ROADMAP phase 15: a team member with an incomplete profile is sent here on first sign-in (?complete=1)
   const [sp] = useSearchParams()
   const completing = sp.get('complete') === '1'
+  const signedIn = !!user
   useEffect(() => {
-    if (!completing || !user) return
+    if (!completing || !signedIn) return
     const t = setTimeout(() => document.getElementById('profile-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400)
     return () => clearTimeout(t)
-  }, [completing, !!user])
+  }, [completing, signedIn])
   if (!loading && !user) return <Navigate to="/login?next=/settings" replace />
   if (!user) return null
   return (
