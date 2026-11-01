@@ -5,6 +5,8 @@ import { hmac, newId, timingSafeEqual } from '../lib/crypto'
 import { body, HttpError, int, notFound, nowIso, str } from '../lib/util'
 import { trackView } from './public'
 import { buildEpub } from '../../shared/epub'
+import { TTS_MAX_CHARS, aiSpeech, ttsConfig } from '../ai'
+import { sha256 } from '../lib/crypto'
 
 export const readerRoutes = new Hono<AppEnv>()
 
@@ -172,7 +174,9 @@ readerRoutes.get('/:issueId/text', async (c) => {
       pages: pages.map((p) => ({ n: p.n, text: p.text || '' })),
       toc,
       has_text: withText > 0,
-      epub: issue.pricing === 'free' && withText > 0
+      epub: issue.pricing === 'free' && withText > 0,
+      // server TTS available (AI add-on configured); otherwise the browser falls back to Web Speech
+      tts_server: withText > 0 && !!(await ttsConfig(c))
     },
     200,
     { 'Cache-Control': 'private, no-store' }
@@ -206,6 +210,46 @@ readerRoutes.get('/:issueId/epub', async (c) => {
       'Content-Type': 'application/epub+zip',
       'Content-Disposition': `attachment; filename="${name.replace(/[^\w.-]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(name)}`,
       'Cache-Control': 'private, max-age=300',
+      'X-Content-Type-Options': 'nosniff'
+    }
+  })
+})
+
+/**
+ * Audio edition of one page (ROADMAP phase 19 — TTS as an AI add-on). Same access rule as the page image (only allowed
+ * pages). The MP3 is cached in storage keyed by a hash of text + model + voice, so each page is synthesised once and
+ * later listeners cost nothing. 503 `tts_off` when the AI layer / TTS is not configured (client uses Web Speech).
+ */
+readerRoutes.get('/:issueId/speech/:n', async (c) => {
+  const issueId = c.req.param('issueId')
+  const n = Number(c.req.param('n'))
+  if (!Number.isInteger(n) || n < 1) throw notFound('صفحه یافت نشد')
+  await checkPageRate(c, issueId)
+  const { issue, allowed } = await accessFor(c, issueId)
+  if (n > allowed) throw new HttpError(403, 'برای شنیدن این صفحه باید شماره را تهیه کنید', 'locked')
+  const page = await c.get('db').first<{ text: string | null }>('SELECT text_content AS text FROM issue_pages WHERE issue_id = ? AND page_number = ?', [issue.id, n])
+  const text = (page?.text || '').replace(/\s+/g, ' ').trim().slice(0, TTS_MAX_CHARS)
+  if (!text) throw new HttpError(404, 'این صفحه متنی برای خواندن ندارد', 'no_text')
+  const cfg = await ttsConfig(c)
+  if (!cfg) throw new HttpError(503, 'نسخهٔ صوتی سمت سرور فعال نیست', 'tts_off')
+  const storage = c.get('deps').storage
+  const key = `tts/${issue.id}/${String(n).padStart(4, '0')}-${(await sha256(`${cfg.model}|${cfg.voice}|${text}`)).slice(0, 16)}.mp3`
+  let bytes: Uint8Array | null = null
+  const cached = await storage.get(key)
+  if (cached) bytes = new Uint8Array(await new Response(cached.body as any).arrayBuffer())
+  else {
+    try {
+      bytes = await aiSpeech(c, cfg, text)
+    } catch (e: any) {
+      throw new HttpError(502, e?.message || 'ساخت صدا ممکن نشد', 'tts_failed')
+    }
+    await storage.put(key, bytes, 'audio/mpeg')
+  }
+  return new Response(bytes as any, {
+    headers: {
+      'Content-Type': 'audio/mpeg',
+      'Cache-Control': 'private, max-age=3600',
+      'X-TTS-Cache': cached ? 'hit' : 'miss',
       'X-Content-Type-Options': 'nosniff'
     }
   })
