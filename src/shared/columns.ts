@@ -22,3 +22,13 @@ export const USER_COLUMNS: TableColumn[] = [
   { key: 'last_login_at', label: 'آخرین ورود', type: 'datetime', filter: 'date' },
   { key: 'created_at', label: 'تاریخ ایجاد', type: 'date', filter: 'date', hidden: true }
 ]
+
+/** /admin/people — person dossiers across publications */
+export const PEOPLE_COLUMNS: TableColumn[] = [
+  { key: 'full_name', label: 'نام' },
+  { key: 'student_number', label: 'شمارهٔ دانشجویی' },
+  { key: 'publications', label: 'نشریات', list: true, filter: 'select', groupable: true },
+  { key: 'publication_count', label: 'تعداد نشریه', type: 'number', filter: 'number', groupable: true },
+  { key: 'issue_count', label: 'شماره‌ها', type: 'number', filter: 'number', total: 'sum' },
+  { key: 'section_count', label: 'بخش‌ها', type: 'number', filter: 'number', total: 'sum' }
+]
