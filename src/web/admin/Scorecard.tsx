@@ -51,7 +51,8 @@ export default function AdminScorecard() {
           const p = d.publication
           return (
             <article className="scorecard card space-y-5 p-6">
-              <header className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-4">
+              {/* ROADMAP phase 16: scorecard masthead under a «سردر» arch (screen only) */}
+              <header className="frame-arch flex flex-wrap items-start justify-between gap-3 border-b border-line px-2 pt-10 pb-4 print:px-0 print:pt-0">
                 <div>
                   <div className="text-xs text-muted">کارنامهٔ نشریه</div>
                   <h1 className="text-2xl font-extrabold" style={{ color: p.theme_color || undefined }}>{p.title}</h1>
