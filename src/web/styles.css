@@ -332,3 +332,30 @@ html.text-lg-mode {
     transition: none !important;
   }
 }
+
+/* ROADMAP phase 18 — DataTable professional print. The table is rendered into a body-level .dt-print sheet; while
+   html.dt-printing is set only that sheet prints: header row repeated on every page (thead = table-header-group),
+   rows never split, totals once at the end, university letterhead, page size/orientation from an injected @page rule,
+   «صفحه N از M» in the bottom margin box, and a zoom computed from the paper's printable width. */
+.dt-print { display: none; }
+html.dt-measuring .dt-print { display: block; position: absolute; top: 0; right: 0; visibility: hidden; width: max-content; }
+html.dt-measuring .dt-print table { width: auto; }
+.dt-print { font-family: var(--font-sans); color: #000; background: #fff; }
+.dt-print-head { text-align: center; margin-bottom: 6mm; border-bottom: 1.5px solid #000; padding-bottom: 3mm; }
+.dt-print-head h1 { font-family: var(--font-sans); font-weight: 800; font-size: 14pt; margin: 1mm 0; }
+.dt-print-uni { font-size: 10pt; font-weight: 700; }
+.dt-print-meta { font-size: 8pt; color: #333; }
+.dt-print table { border-collapse: collapse; width: 100%; font-size: 9pt; line-height: 1.5; }
+.dt-print th, .dt-print td { border: 0.6pt solid #777; padding: 2pt 4pt; text-align: right; vertical-align: top; }
+.dt-print th { background: #e9e9e9; font-weight: 700; white-space: nowrap; }
+.dt-print thead { display: table-header-group; }
+.dt-print tfoot { display: table-row-group; }
+.dt-print tfoot td { font-weight: 700; background: #f3f3f3; }
+.dt-print tr { break-inside: avoid; page-break-inside: avoid; }
+.dt-print-group td { background: #f5f5f5; font-weight: 700; }
+@media print {
+  html.dt-printing #root { display: none !important; }
+  html.dt-printing .dt-print { display: block; position: static; visibility: visible; width: auto; }
+  html.dt-printing body { background: #fff !important; }
+  .dt-print th, .dt-print-group td, .dt-print tfoot td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
