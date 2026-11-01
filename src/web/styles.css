@@ -164,6 +164,15 @@ html.no-motifs .motif-divider::before, html.no-motifs .motif-divider::after {
 html.no-motifs .frame-arch::after, html.no-motifs .tile-corners::after { display: none; }
 @media print { .frame-arch::after, .tile-corners::after { display: none; } }
 
+/* ROADMAP phase 16 — «کاشی» banner background: turquoise → lapis, fixed in both themes so white text on it always
+   meets WCAG AA (white on #0b6b73 ≈ 6.4:1, on #1e3a8a ≈ 10:1). tests/contrast.mjs checks both stops. */
+.bg-banner {
+  --banner-from: #0b6b73;
+  --banner-to: #1e3a8a;
+  background-color: var(--banner-from);
+  background-image: linear-gradient(to left, var(--banner-from), var(--banner-to));
+  color: #ffffff;
+}
 html,
 body {
   background: var(--bg);
