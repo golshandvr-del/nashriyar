@@ -300,7 +300,7 @@ export async function aiCommentLabels(c: Context<AppEnv>, items: { id: string; b
     )
     const res: Record<string, CommentLabel> = {}
     for (const line of out.split('\n')) {
-      const m = line.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).match(/(\d+)\s*[:：)\-]\s*(ok|spam|abusive)/i)
+      const m = line.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).match(/(\d+)\s*[:：)-]\s*(ok|spam|abusive)/i)
       const it = m && items[Number(m[1]) - 1]
       if (it) res[it.id] = m![2].toLowerCase() as CommentLabel
     }
