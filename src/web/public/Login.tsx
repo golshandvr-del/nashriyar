@@ -62,7 +62,7 @@ export default function Login() {
   return (
     <div className="mx-auto mt-6 max-w-sm">
       {/* ROADMAP phase 16: «نقش جهان» banner with girih tiles above the sign-in card */}
-      <div id="login-banner" className="motif-girih frame-arch mb-3 flex h-28 items-end justify-center overflow-hidden rounded-2xl bg-gradient-to-l from-brand to-teal-500 pb-1" style={{ ['--motif-color' as any]: '#ffffff', ['--motif-opacity' as any]: 0.14, ['--frame-color' as any]: '#ffffff', ['--frame-opacity' as any]: 0.5 }} aria-hidden="true">
+      <div id="login-banner" className="motif-girih frame-arch bg-banner mb-3 flex h-28 items-end justify-center overflow-hidden rounded-2xl pb-1" style={{ ['--motif-color' as any]: '#ffffff', ['--motif-opacity' as any]: 0.14, ['--frame-color' as any]: '#ffffff', ['--frame-opacity' as any]: 0.5 }} aria-hidden="true">
         <Illustration name="square" className="h-20 w-44 text-white opacity-80" />
       </div>
       <Card className="tile-corners">
