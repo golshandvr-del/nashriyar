@@ -93,7 +93,8 @@ export default function AdminReport() {
           const fd = vis?.funnel?.avg_days || {}
           return (
             <article className="print-sheet card space-y-5 p-6">
-              <header className="border-b border-line pb-4">
+              {/* ROADMAP phase 16: report masthead under a «سردر» arch (hidden in print, padding dropped there too) */}
+              <header className="frame-arch border-b border-line px-2 pt-10 pb-4 text-center print:px-0 print:pt-0 print:text-start">
                 <div className="text-xs text-muted">سامانهٔ نشریار · گزارش دوره‌ای نشریات دانشجویی</div>
                 <h1 className="text-2xl font-extrabold">{label}</h1>
                 <p className="text-sm text-muted">
