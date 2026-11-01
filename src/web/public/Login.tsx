@@ -60,7 +60,7 @@ export default function Login() {
 
   return (
     <div className="mx-auto mt-6 max-w-sm">
-      <Card>
+      <Card className="tile-corners">
         <h1 className="mb-1 flex items-center gap-2 text-xl font-extrabold">
           <LogIn className="size-6 text-brand" /> ورود به نشریار
         </h1>
