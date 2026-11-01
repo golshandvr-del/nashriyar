@@ -527,7 +527,7 @@
 - [x] شناسهٔ درخواست (request id) و لاگ ساخت‌یافته در همهٔ پاسخ‌ها و خطاها — ✅ app.ts: میان‌افزار سراسری X-Request-Id (شناسهٔ سالم ورودی پراکسی حفظ، وگرنه UUID)؛ request_id در بدنهٔ همهٔ خطاها (HttpError، 500، 404)؛ logLine یک‌خط JSON (t، level، request_id، method، مسیر بدون شماره‌های طولانی، status، ms، user) برای 4xx/5xx و درخواست‌های کند ≥۱ث (همه با LOG_REQUESTS=1)؛ کلاینت: ApiError.requestId و «کد پیگیری» در پیام خطاهای 5xx؛ آزمون در smoke.mjs
 - [ ] کش تجمیع‌ها با ابطال هدفمند و زمان‌بندی شبانه
 - [ ] آزمون بار با دادهٔ ساختگی ۱۰ ساله (۱۰۰ نشریه، ۵۰۰۰ شماره، یک میلیون بازدید) با p95 کمتر از ۳۰۰ میلی‌ثانیه
-- [ ] typecheck سخت و lint بدون خطا در CI و افزایش پوشش آزمون واحد منطق کسب‌وکار
+- [x] typecheck سخت و lint بدون خطا در CI و افزایش پوشش آزمون واحد منطق کسب‌وکار — ✅ tsconfig سخت‌تر (strict + noFallthroughCasesInSwitch + noImplicitOverride + noImplicitReturns + noUnusedLocals) با ۰ خطا؛ oxlint با ۰ خطا (۷ خطا رفع شد) — هر دو گام CI؛ آزمون واحد از ۱۱ به ۱۵ (cursorPage، csvToRows، buildXlsx)
 - [ ] سیاست نسخه‌بندی API و مایگریشن‌های بدون توقف (افزایشی، برگشت‌پذیر)
 
 ### معیار پذیرش
