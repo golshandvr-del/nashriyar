@@ -65,7 +65,7 @@ export default function AdminLive() {
                     const stale = i.last_progress_at ? (Date.now() - new Date(i.last_progress_at).getTime()) / 86400000 > STALE_DAYS : true
                     const s = ISSUE_STATUS[i.status]
                     return (
-                      <Link key={i.id} to={`/admin/issues/${i.id}`} className="card block p-4 hover:border-brand" style={{ borderInlineStartWidth: 4, borderInlineStartColor: i.theme_color || undefined }}>
+                      <Link key={i.id} to={`/admin/issues/${i.id}`} className="card block min-w-0 p-4 hover:border-brand" style={{ borderInlineStartWidth: 4, borderInlineStartColor: i.theme_color || undefined }}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <div className="truncate text-xs text-muted">{i.publication_title}</div>
