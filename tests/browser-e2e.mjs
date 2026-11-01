@@ -24,6 +24,8 @@ const ROLES = [
   { name: 'team', user: ['pub1-director', 'team1234'], routes: ['/settings', ...TEAM.map((r) => '__TEAM__' + r)] },
   // __PUB__ = the first publication's dossier (phase 14 tabs), resolved after login
   { name: 'officer', user: ['officer', 'officer1234'], routes: ['/settings', ...ADMIN.map((r) => '/admin' + r), '__PUB__', '__PUB__?tab=license', '__PUB__?tab=stats', '__PUB__?tab=sales', '__PUB__?tab=activity'] },
+  // ROADMAP phase 15: a regular team member whose student account is linked (seeded) ⇒ «میز کار عضو»; resolved at start
+  { name: 'member', user: 'linked', routes: ['/desk', '/settings', '/settings?complete=1', '/settings?tab=membership'] },
   { name: 'analyst', user: ['analyst', 'analyst1234'], routes: ['/admin', '/admin/analytics', '/admin/insights', '/admin/report'] },
   // developer console (phase 13): a fresh CLI-created account per run; password change + TOTP are done in-page
   { name: 'developer', user: 'cli', routes: SYSTEM.map((r) => '/system' + r) }
@@ -62,6 +64,17 @@ const fail = (msg) => {
   failures++
   console.log('  ✗ ' + msg)
 }
+
+/** A seeded student who is a linked team member (phase 15 demo data), found through the officer's users filter. */
+async function linkedMember() {
+  const r = await fetch(BASE + '/api/auth/login', { method: 'POST', headers: { Origin: BASE, 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'officer', password: 'officer1234' }) })
+  const cookie = (r.headers.get('set-cookie') || '').split(';')[0]
+  const d = await (await fetch(BASE + '/api/admin/users?category=team&role=student', { headers: { Cookie: cookie } })).json()
+  const u = (d.users || []).find((x) => x.system_role === 'student' && x.memberships)
+  if (!u) throw new Error('no linked team member in the demo data')
+  return [u.username, 'student1234']
+}
+for (const role of ROLES) if (role.user === 'linked') role.user = await linkedMember()
 
 const browser = await chromium.launch()
 for (const width of WIDTHS) {
