@@ -153,6 +153,7 @@ export default function PublicLayout() {
       )}
       {!hideChrome && (
         <footer className="mx-auto hidden max-w-6xl justify-center gap-4 px-4 pb-8 text-xs text-muted md:flex">
+          <Link to="/archive" className="hover:text-brand">آرشیو چاپی</Link>
           <Link to="/guide" className="hover:text-brand">راهنما</Link>
           <Link to="/terms" className="hover:text-brand">قوانین استفاده</Link>
           <Link to="/privacy" className="hover:text-brand">حریم خصوصی</Link>
