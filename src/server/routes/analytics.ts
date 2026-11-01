@@ -442,6 +442,7 @@ analyticsRoutes.get('/scorecard/:id', async (c) => {
     [c.req.param('id'), ...s.params]
   )
   if (!pub) return c.json({ error: 'not_found', message: 'نشریه پیدا نشد' }, 404)
+  const until = await rolledUntil(c)
   const metric = (id: string | null) => {
     const w = id ? 'p.id = ?' : "p.status = 'active' AND p.deleted_at IS NULL" + s.sql
     const wp = id ? [id] : s.params
@@ -449,15 +450,15 @@ analyticsRoutes.get('/scorecard/:id', async (c) => {
       `SELECT COUNT(*) AS n_pubs,
          SUM((SELECT COUNT(*) FROM issues i WHERE i.publication_id = p.id AND i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?)) AS published,
          SUM((SELECT COALESCE(SUM(page_count),0) FROM issues i WHERE i.publication_id = p.id AND i.status IN ('published','archived') AND i.published_at BETWEEN ? AND ?)) AS pages,
-         SUM((SELECT COUNT(*) FROM view_events v WHERE v.publication_id = p.id AND v.day BETWEEN ? AND ?)) AS views,
-         SUM((SELECT COUNT(*) FROM view_events v WHERE v.publication_id = p.id AND v.entity_type = 'issue_read' AND v.day BETWEEN ? AND ?)) AS reads,
+         SUM(${pubViewsSql()}) AS views,
+         SUM(${pubViewsSql('issue_read')}) AS reads,
          SUM((SELECT COUNT(*) FROM follows fo WHERE fo.publication_id = p.id AND fo.created_at BETWEEN ? AND ?)) AS new_followers,
          SUM((SELECT COUNT(*) FROM posts po WHERE po.publication_id = p.id AND po.published_at BETWEEN ? AND ?)) AS posts,
          SUM((SELECT COUNT(*) FROM access_codes ac WHERE ac.publication_id = p.id AND ac.redeemed_at BETWEEN ? AND ?)) AS digital_sold,
          SUM((SELECT COALESCE(SUM(quantity),0) FROM physical_sales ps WHERE ps.publication_id = p.id AND ps.sold_at BETWEEN ? AND ?)) AS print_sold,
          SUM((SELECT COUNT(*) FROM team_members tm WHERE tm.publication_id = p.id AND tm.is_active = 1)) AS members
        FROM publications p WHERE ${w}`,
-      [fromTs, toTs, fromTs, toTs, from, to, from, to, fromTs, toTs, fromTs, toTs, fromTs, toTs, from, to, ...wp]
+      [fromTs, toTs, fromTs, toTs, ...pubViewsParams(from, to, until), ...pubViewsParams(from, to, until), fromTs, toTs, fromTs, toTs, fromTs, toTs, from, to, ...wp]
     )
   }
   const mine = await metric(pub.id)
