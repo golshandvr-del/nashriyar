@@ -117,10 +117,19 @@ async function viewCount(c: Context<AppEnv>, from: string, to: string, type?: st
   const raw = Number(
     (await db.first<{ n: number }>(
       `SELECT COUNT(*) AS n FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ? AND v.day > ?${t}${s.sql}`,
-      [from, to, until, ...tp, ...s.params]
+      [tailFrom(from, until), to, until, ...tp, ...s.params]
     ))?.n ?? 0
   )
   return rolled + raw
+}
+
+/**
+ * Effective lower bound of the not-yet-rolled raw tail: max(from, until + 1 day). SQLite picks ONE lower bound for an
+ * index range, so `day BETWEEN from AND to AND day > until` would still walk the whole [from, to] range of raw events.
+ */
+const tailFrom = (from: string, until: string) => {
+  const next = new Date(new Date(until + 'T00:00:00Z').getTime() + 86400_000).toISOString().slice(0, 10)
+  return until === '0000-00-00' || from > until ? from : next
 }
 
 /** Last day already rolled up into view_daily ('0000-00-00' when none). */
@@ -148,7 +157,7 @@ async function viewSeries(c: Context<AppEnv>, from: string, to: string, group: s
   )
   const raw = await db.all<Row>(
     `SELECT ${cols('1')} FROM view_events v JOIN publications p ON p.id = v.publication_id WHERE v.day BETWEEN ? AND ? AND v.day > ?${t}${s.sql} GROUP BY k`,
-    [from, to, until, ...tp, ...s.params]
+    [tailFrom(from, until), to, until, ...tp, ...s.params]
   )
   const out = new Map<string, Row>()
   for (const r of [...rolled, ...raw]) {
@@ -172,7 +181,7 @@ const pubViewsSql = (type?: 'issue_read' | 'post') => {
   return `((SELECT COALESCE(SUM(vd.n),0) FROM view_daily vd WHERE vd.publication_id = p.id${t('vd')} AND vd.day BETWEEN ? AND ? AND vd.day <= ?)
     + (SELECT COUNT(*) FROM view_events ve WHERE ve.publication_id = p.id${t('ve')} AND ve.day BETWEEN ? AND ? AND ve.day > ?))`
 }
-const pubViewsParams = (from: string, to: string, until: string) => [from, to, until, from, to, until]
+const pubViewsParams = (from: string, to: string, until: string) => [from, to, until, tailFrom(from, until), to, until]
 
 async function kpis(c: Context<AppEnv>, from: string, to: string) {
   const db = c.get('db')
