@@ -112,7 +112,9 @@ export function validationError(err: z.ZodError): HttpError {
     const k = i.path.map(String).join('.') || '_'
     if (!(k in fields)) fields[k] = i.message
   }
-  return new HttpError(400, err.issues[0]?.message || 'ورودی نامعتبر است', 'validation', { fields })
+  // single-value checks (legacy str/int/oneOf) have no path: the message alone is the whole story
+  const named = Object.keys(fields).some((k) => k !== '_')
+  return new HttpError(400, err.issues[0]?.message || 'ورودی نامعتبر است', 'validation', named ? { fields } : undefined)
 }
 
 /** Validates one value with a field schema (used by the legacy util helpers). */
