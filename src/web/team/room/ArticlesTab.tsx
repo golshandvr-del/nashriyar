@@ -7,6 +7,7 @@ import { api } from '../../lib/api'
 import { Async, Button, Card, Empty, Field, Input, Select, Textarea, useAsync, useToast } from '../../components/ui'
 import { toFaDigits } from '../../lib/format'
 import type { RoomProps } from './TocTab'
+import { useTeam } from '../Layout'
 
 type A = { pid: string; doi: string | null; abstract: string | null; keywords: string | null; lang: string; toc_item_id: string; title: string; kind: string; page_start: number | null; page_end: number | null }
 
@@ -82,7 +83,9 @@ function ArticleRow({ a, base, canEdit, onSaved }: { a: A; base: string; canEdit
 export default function ArticlesTab({ d, pubId }: RoomProps) {
   const base = `/api/team/${pubId}/issues/${d.issue.id}`
   const st = useAsync(() => api.get<{ articles: A[] }>(`${base}/articles`), [base])
-  const canEdit = d.can_write !== false
+  // same rule as requirePubAccess(write): admins (pub = null) always, team members only while the publication is active
+  const { pub } = useTeam()
+  const canEdit = !pub || pub.status === 'active'
   return (
     <Card title="نمایهٔ مقالات و شناسه‌های پایدار">
       <p className="mb-2 text-sm text-muted">
