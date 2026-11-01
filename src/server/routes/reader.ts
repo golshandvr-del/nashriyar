@@ -4,6 +4,7 @@ import { clientIp, requireUser } from '../auth'
 import { hmac, newId, timingSafeEqual } from '../lib/crypto'
 import { body, HttpError, int, notFound, nowIso, str } from '../lib/util'
 import { trackView } from './public'
+import { buildEpub } from '../../shared/epub'
 
 export const readerRoutes = new Hono<AppEnv>()
 
@@ -144,6 +145,67 @@ readerRoutes.get('/:issueId/page/:n', async (c) => {
       'Content-Type': obj.contentType,
       'Cache-Control': 'private, max-age=240, no-transform',
       'Content-Disposition': 'inline',
+      'X-Content-Type-Options': 'nosniff'
+    }
+  })
+})
+
+/**
+ * Reflowable text mode (ROADMAP phase 19): the text layer of the pages this visitor may read — never more than the
+ * image reader would show (free preview pages for a paid issue without entitlement). Same page-rate guard as images.
+ */
+readerRoutes.get('/:issueId/text', async (c) => {
+  const issueId = c.req.param('issueId')
+  await checkPageRate(c, issueId)
+  const { issue, full, allowed } = await accessFor(c, issueId)
+  const db = c.get('db')
+  const pages = allowed
+    ? await db.all<{ n: number; text: string | null }>('SELECT page_number AS n, text_content AS text FROM issue_pages WHERE issue_id = ? AND page_number <= ? ORDER BY page_number', [issue.id, allowed])
+    : []
+  const toc = await db.all('SELECT title, page_start FROM issue_toc_items WHERE issue_id = ? AND page_start IS NOT NULL AND page_start <= ? ORDER BY sort_order', [issue.id, allowed])
+  const withText = pages.filter((p) => (p.text || '').trim()).length
+  return c.json(
+    {
+      issue: { id: issue.id, title: issue.title, number: issue.number, page_count: issue.page_count, pricing: issue.pricing, publication_title: issue.publication_title },
+      full,
+      allowed,
+      pages: pages.map((p) => ({ n: p.n, text: p.text || '' })),
+      toc,
+      has_text: withText > 0,
+      epub: issue.pricing === 'free' && withText > 0
+    },
+    200,
+    { 'Cache-Control': 'private, no-store' }
+  )
+})
+
+/** EPUB 3 edition built on the fly from the text layer — free issues only (paid content stays inside the protected reader). */
+readerRoutes.get('/:issueId/epub', async (c) => {
+  const { issue } = await accessFor(c, c.req.param('issueId'))
+  if (issue.pricing !== 'free') throw new HttpError(403, 'نسخهٔ EPUB فقط برای شماره‌های رایگان ارائه می‌شود', 'paid')
+  const db = c.get('db')
+  const pages = await db.all<{ n: number; text: string | null }>('SELECT page_number AS n, text_content AS text FROM issue_pages WHERE issue_id = ? ORDER BY page_number', [issue.id])
+  if (!pages.some((p) => (p.text || '').trim())) throw new HttpError(404, 'این شماره لایهٔ متنی ندارد', 'no_text')
+  const toc = await db.all<{ title: string; page_start: number | null }>('SELECT title, page_start FROM issue_toc_items WHERE issue_id = ? ORDER BY sort_order', [issue.id])
+  const meta = await db.first<{ summary: string | null; updated_at: string | null }>('SELECT summary, updated_at FROM issues WHERE id = ?', [issue.id])
+  const bytes = buildEpub({
+    id: `urn:nashriyar:${issue.id}`,
+    title: issue.title,
+    publication: issue.publication_title,
+    number: issue.number,
+    date: issue.published_at,
+    description: meta?.summary || null,
+    pages: pages.map((p) => ({ n: p.n, text: p.text || '' })),
+    toc: toc.map((t) => ({ title: t.title, page: t.page_start })),
+    modified: meta?.updated_at || issue.published_at || undefined
+  })
+  await trackView(c, 'issue_read', issue.id, issue.publication_id)
+  const name = `${issue.publication_slug}-${issue.number}.epub`
+  return new Response(bytes as any, {
+    headers: {
+      'Content-Type': 'application/epub+zip',
+      'Content-Disposition': `attachment; filename="${name.replace(/[^\w.-]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+      'Cache-Control': 'private, max-age=300',
       'X-Content-Type-Options': 'nosniff'
     }
   })
