@@ -47,8 +47,53 @@ function VisualsBody({ d }: { d: any }) {
         <Subjects d={d} />
       </div>
       <YearOverYear d={d} />
+      <TeamMix d={d} />
       <Gantt d={d} />
     </div>
+  )
+}
+
+// ROADMAP phase 14 (after phase 15 profiles): composition of active team members. Aggregates only; gender counts only
+// people who consented, everyone else is «نامشخص».
+const MIX_LABEL: Record<string, Record<string, string>> = {
+  gender: { male: 'مرد', female: 'زن' },
+  degree: { associate: 'کاردانی', bachelor: 'کارشناسی', master: 'کارشناسی ارشد', phd: 'دکتری' }
+}
+const mixName = (dim: string, key: string) => (key === 'unknown' ? 'نامشخص' : MIX_LABEL[dim]?.[key] || (dim === 'entry_year' ? toFaDigits(key) : key))
+
+function TeamMix({ d }: { d: any }) {
+  const t = d.team
+  if (!t || !t.total) return <Card title="ترکیب اعضای تیم‌ها"><Empty title="عضو فعالی ثبت نشده" /></Card>
+  const pie = (dim: string) => ({
+    tooltip: { ...item, formatter: (p: any) => `${p.name}: ${toFaDigits(p.value)} نفر (${toFaDigits(Math.round(p.percent))}٪)` },
+    legend: { type: 'scroll', bottom: 0, top: 'auto' },
+    series: [{ type: 'pie', radius: ['38%', '66%'], center: ['50%', '44%'], label: { fontFamily: 'inherit', formatter: (p: any) => `${toFaDigits(Math.round(p.percent))}٪` }, data: (t[dim] || []).map((r: any) => ({ name: mixName(dim, r.key), value: r.n })) }]
+  })
+  const bar = (dim: string, horizontal = false) => {
+    const rows = (t[dim] || []).slice(0, 14)
+    const names = rows.map((r: any) => mixName(dim, r.key))
+    const cat = { type: 'category', data: horizontal ? [...names].reverse() : names, axisLabel: { fontFamily: 'inherit', interval: 0, width: 110, overflow: 'truncate' } }
+    const val = { type: 'value', minInterval: 1, axisLabel: { formatter: (v: number) => toFaDigits(v) } }
+    return {
+      tooltip: { trigger: 'axis', formatter: (p: any) => `${p[0].name}: ${toFaDigits(p[0].value)} نفر` },
+      grid: { left: horizontal ? 120 : 40, right: 16, top: 16, bottom: 30, containLabel: false },
+      xAxis: horizontal ? val : cat,
+      yAxis: horizontal ? cat : val,
+      series: [{ type: 'bar', barMaxWidth: 26, itemStyle: { color: PALETTE[dim === 'faculty' ? 1 : 0], borderRadius: 4 }, data: horizontal ? rows.map((r: any) => r.n).reverse() : rows.map((r: any) => r.n) }]
+    }
+  }
+  return (
+    <Card title="ترکیب اعضای تیم‌ها">
+      <p id="team-mix-note" className="mb-3 text-xs leading-6 text-muted">
+        {toFaDigits(t.total)} عضو فعال؛ {toFaDigits(t.linked)} نفر دارای حساب با پروفایل. جنسیت فقط برای کسانی که رضایت داده‌اند شمرده می‌شود؛ بقیه «نامشخص» هستند.
+      </p>
+      <div id="team-mix" className="grid gap-4 lg:grid-cols-2">
+        <div><h3 className="mb-1 text-sm font-bold">جنسیت</h3><Chart option={pie('gender')} height={240} csvName="team-gender" /></div>
+        <div><h3 className="mb-1 text-sm font-bold">مقطع تحصیلی</h3><Chart option={pie('degree')} height={240} csvName="team-degree" /></div>
+        <div><h3 className="mb-1 text-sm font-bold">دانشکده</h3><Chart option={bar('faculty', true)} height={280} csvName="team-faculty" /></div>
+        <div><h3 className="mb-1 text-sm font-bold">سال ورود</h3><Chart option={bar('entry_year')} height={280} csvName="team-entry-year" /></div>
+      </div>
+    </Card>
   )
 }
 
