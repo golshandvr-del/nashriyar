@@ -421,6 +421,8 @@ issuesRoutes.post('/:pubId/issues/:issueId/request-approval', async (c) => {
   const db = c.get('db')
   const i = await issueOf(c, p.id, c.req.param('issueId'))
   if (!['planning', 'in_production', 'changes_requested'].includes(i.status)) throw bad('این شماره قبلاً برای تأیید ارسال یا منتشر شده است')
+  // ROADMAP phase 19: digitised old printed issues are published by the officer with their original date (admin print archive)
+  if (i.archival) throw bad('این شمارهٔ آرشیو چاپی است و از بخش «آرشیو چاپی» در پنل مسئول منتشر می‌شود')
   const pages = (await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM issue_pages WHERE issue_id = ?', [i.id]))?.n ?? 0
   const problems: string[] = []
   if (!pages) problems.push('نسخهٔ دیجیتال (PDF) بارگذاری و پردازش نشده است')
