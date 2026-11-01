@@ -54,7 +54,9 @@ async function main() {
 
   const sqlite = new DatabaseSync(DB_FILE)
   sqlite.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = OFF; PRAGMA busy_timeout = 5000;')
-  const db = nodeSqliteDb(sqlite)
+  // SQL_LOG=<file>: append every distinct statement once (query-plan audit, tests/query-plan.mjs). Off by default.
+  const sqlLog = process.env.SQL_LOG
+  const db = nodeSqliteDb(sqlite, sqlLog ? (sql) => fs.appendFileSync(sqlLog, sql.replace(/\s+/g, ' ').trim() + '\n') : undefined)
   const storage = diskStorage(path.join(DATA_DIR, 'files'), fs, path)
   await ensureMigrated(db)
   const deps: Deps = {
