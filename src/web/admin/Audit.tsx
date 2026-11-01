@@ -4,48 +4,7 @@ import { api, qs } from '../lib/api'
 import { faDate, toFaDigits } from '../lib/format'
 import { Async, Badge, Empty, PageHeader, useAsync } from '../components/ui'
 import { ExportButtons } from '../components/Chart'
-
-/** Action prefixes → Persian group labels (server stores dotted action names, e.g. "user.password_reset"). */
-const GROUPS: Record<string, string> = {
-  '': 'همه',
-  'publication': 'نشریه',
-  'user': 'کاربر',
-  'issue': 'شماره',
-  'approval': 'تأیید',
-  'post': 'پست',
-  'comment': 'نظر',
-  'report': 'گزارش',
-  'category': 'دسته‌بندی',
-  'shelf': 'ویترین',
-  'announcement': 'اطلاعیه',
-  'deadline': 'مهلت',
-  'settings': 'تنظیمات'
-}
-
-const ACTION_FA: Record<string, string> = {
-  'publication.create': 'ایجاد نشریه',
-  'publication.update': 'ویرایش نشریه',
-  'publication.status': 'تغییر وضعیت نشریه',
-  'publication.role_replace': 'تعویض رکن نشریه',
-  'user.create': 'ایجاد کاربر',
-  'user.status': 'تغییر وضعیت کاربر',
-  'user.password_reset': 'بازنشانی رمز',
-  'post.visibility': 'تغییر نمایش پست',
-  'comment.approve': 'تأیید نظر',
-  'comment.reject': 'رد نظر',
-  'comment.spam': 'هرزنامه',
-  'report.resolved': 'رسیدگی به گزارش',
-  'report.dismissed': 'رد گزارش',
-  'report.open': 'بازگشایی گزارش',
-  'shelf.save': 'ذخیرهٔ قفسه',
-  'shelf.delete': 'حذف قفسه',
-  'banners.update': 'به‌روزرسانی بنرها',
-  'announcement.create': 'ارسال اطلاعیه',
-  'announcement.delete': 'حذف اطلاعیه',
-  'deadline.create': 'ثبت مهلت',
-  'deadline.delete': 'حذف مهلت',
-  'settings.update': 'تغییر تنظیمات'
-}
+import { AUDIT_ACTION_FA as ACTION_FA, AUDIT_GROUPS as GROUPS } from '../../shared/labels'
 
 const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
 const csvOf = (head: string[], rows: unknown[][]) => [head.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n')
