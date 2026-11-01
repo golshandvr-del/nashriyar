@@ -217,6 +217,8 @@ const dev = await developer()
   ok(page.status === 200 && /text\/html/.test(page.ct), `articles: /a/:pid -> ${page.status}`)
   ok(page.text.includes('name="citation_title"') && page.text.includes(`content="${doi}"`) && page.text.includes('citation_journal_title') && page.text.includes('rel="canonical"'), 'articles: landing page carries citation_* meta, DOI and canonical')
   ok((await anon('/a/NSH-1400-AAAAAAAA')).status === 404, 'articles: unknown landing page -> 404')
+  ok((await anon('/api/public/sitemap.xml')).text.includes(`/a/${pid}</loc>`), 'articles: sitemap lists the landing page')
+  ok(/^Allow: \/api\/articles\/$/m.test((await anon('/robots.txt')).text), 'articles: robots.txt allows /api/articles/')
 
   // OAI-PMH 2.0
   const oai = (q) => anon(`/api/articles/oai?${q}`)
