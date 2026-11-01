@@ -23,7 +23,7 @@ export function applyTheme(t: Theme, sync = true) {
   } catch {}
   document.documentElement.classList.toggle('dark', isDark(t))
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.setAttribute('content', isDark(t) ? '#0b0f14' : '#0f766e')
+  if (meta) meta.setAttribute('content', isDark(t) ? '#0a1324' : '#0b6b73')
   if (sync) {
     fetch('/api/auth/theme', {
       method: 'POST',
