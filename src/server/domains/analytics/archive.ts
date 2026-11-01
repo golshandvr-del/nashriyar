@@ -3,7 +3,8 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
 import type { AppEnv } from '../../context'
-import { nowIso, parseJson } from '../../lib/util'
+import { HttpError, nowIso, parseJson } from '../../lib/util'
+import { check, v } from '../../lib/validate'
 import { academicYearOf, academicYearRange, academicYears } from '../../../shared/fa'
 import { pubViewsParams, pubViewsSql, rolledUntil, viewSeries } from './service'
 
@@ -79,10 +80,10 @@ archiveRoutes.get('/academic-years', async (c) => {
 archiveRoutes.get('/archive/:year', async (c) => {
   const db = c.get('db')
   const u = c.get('user')!
-  const year = Number(c.req.param('year'))
-  if (!Number.isInteger(year) || year < 1380 || year > 1500) return c.json({ error: 'bad_year', message: 'سال تحصیلی نامعتبر است' }, 400)
+  // unified zod validation (ROADMAP phase 17): standard 400 shape with the Persian message in `error`
+  const year = check(v.int('سال تحصیلی', { min: 1380, max: 1500 }), c.req.param('year')) as number
   const range = academicYearRange(year)
-  if (range.to >= nowIso().slice(0, 10)) return c.json({ error: 'not_finished', message: 'این سال تحصیلی هنوز تمام نشده؛ از گزارش‌های زنده با فیلتر سال تحصیلی استفاده کنید' }, 409)
+  if (range.to >= nowIso().slice(0, 10)) throw new HttpError(409, 'این سال تحصیلی هنوز تمام نشده؛ از گزارش‌های زنده با فیلتر سال تحصیلی استفاده کنید', 'not_finished')
   let row = await db.first<{ data_json: string; created_at: string }>(`SELECT data_json, created_at FROM academic_year_archive WHERE year = ?`, [year])
   if (!row) {
     const snap = await archiveSnapshot(c, year)
