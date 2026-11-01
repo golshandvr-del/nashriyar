@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'\nexport { writeDomains } from './src/server/lib/rollup'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds, academicYearOf, academicYearRange, academicYears } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'\nexport { writeDomains } from './src/server/lib/rollup'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -175,5 +175,20 @@ t('writeDomains: reads and tracking never invalidate; writes map to their domain
   assert.deepEqual(m.writeDomains('PUT', '/api/team/p1/issues/i1'), ['content'])
   assert.ok(m.writeDomains('POST', '/api/admin/settings').includes('settings'))
   assert.ok(m.writeDomains('POST', '/api/admin/something-new').length >= 5, 'unknown writes bump everything')
+})
+// ROADMAP phase 17: academic-year dimension (1 Mehr → 31 Shahrivar)
+t('academic year: boundaries at 1 Mehr, ranges contiguous, list newest first', () => {
+  assert.equal(m.academicYearOf('2026-09-22'), 1404) // 31 Shahrivar 1405
+  assert.equal(m.academicYearOf('2026-09-23'), 1405) // 1 Mehr 1405
+  assert.equal(m.academicYearOf('2026-03-21T10:00:00Z'), 1404) // 1 Farvardin 1405 still belongs to 1404–1405
+  const r = m.academicYearRange(1404)
+  assert.equal(r.from, '2025-09-23')
+  assert.equal(r.to, '2026-09-22')
+  assert.ok(r.label.includes('۱۴۰۴') && r.label.includes('۱۴۰۵'))
+  const next = m.academicYearRange(1405)
+  assert.equal(new Date(next.from).getTime() - new Date(r.to).getTime(), 86400000, 'no gap / overlap between years')
+  const ys = m.academicYears('2023-01-01', new Date('2026-11-01T00:00:00Z'))
+  assert.deepEqual(ys.map((y) => y.year), [1405, 1404, 1403, 1402, 1401])
+  assert.equal(ys.filter((y) => y.current).length, 1)
 })
 console.log(`unit: ${n} passed`)
