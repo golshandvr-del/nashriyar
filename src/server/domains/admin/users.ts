@@ -3,15 +3,19 @@
 import { Hono } from 'hono'
 import type { AppEnv, SystemRole } from '../../context'
 import { hashPassword, newId, tempPassword } from '../../lib/crypto'
-import { audit, bad, body, cursorPage, int, notFound, nowIso, oneOf, str } from '../../lib/util'
+import { audit, bad, body, cursorPage, int, notFound, nowIso, oneOf, str, type PageOverride } from '../../lib/util'
+import { streamExport } from '../../lib/export'
+import type { Context } from 'hono'
+import type { TableColumn } from '../../../shared/table'
+import { SYSTEM_ROLE_LABEL } from '../../../shared/roles'
 import { normalizeFa, toEnDigits } from '../../../shared/fa'
 import { PUB_ROLES, admin } from './service'
 
 export const usersRoutes = new Hono<AppEnv>()
 
 // ───────── Users (system staff & students) ─────────
-usersRoutes.get('/users', async (c) => {
-  admin(c)
+/** The users list query (screen and export share it; `page` lets the export walk every keyset page). */
+async function listUsers(c: Context<AppEnv>, page?: PageOverride) {
   const role = c.req.query('role')
   const q = normalizeFa(c.req.query('q') || '')
   const where = ['u.deleted_at IS NULL']
@@ -33,7 +37,7 @@ usersRoutes.get('/users', async (c) => {
   if (f('gender')) (where.push('u.gender = ? AND u.profile_consent_at IS NOT NULL'), params.push(oneOf(f('gender'), ['male', 'female'] as const, 'جنسیت')))
   const db = c.get('db')
   // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 300)
-  const pg = cursorPage(c, { col: 'u.created_at', idCol: 'u.id', def: 300, max: 300 })
+  const pg = cursorPage(c, { col: 'u.created_at', idCol: 'u.id', def: 300, max: 300, page })
   const rows = await db.all<any>(
     `SELECT u.id, u.username, u.display_name, u.student_number, u.system_role, u.status, u.scope_faculty_id, u.last_login_at, u.created_at, u.must_change_password, u.totp_enabled, f.name AS faculty_name,
        u.degree, u.entry_year,
@@ -43,10 +47,40 @@ usersRoutes.get('/users', async (c) => {
      FROM users u LEFT JOIN faculties f ON f.id = u.faculty_id WHERE ${where.join(' AND ')}${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
     [...params, ...pg.params]
   )
-  const { rows: users, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
+  return pg.finish(rows, (r) => [r.created_at, r.id])
+}
+
+usersRoutes.get('/users', async (c) => {
+  admin(c)
+  const db = c.get('db')
+  const { rows: users, next_cursor } = await listUsers(c)
   // filter options: production roles in the officer-defined display order
   const production_roles = await db.all('SELECT id, name FROM production_roles ORDER BY sort_order, name')
   return c.json({ users, production_roles, next_cursor })
+})
+
+const DEGREE_LABEL = { associate: 'کاردانی', bachelor: 'کارشناسی', master: 'کارشناسی ارشد', phd: 'دکتری' }
+const STATUS_LABEL = { active: 'فعال', suspended: 'تعلیق', pending: 'در انتظار' }
+/** Columns of the users DataTable (the web view declares the same keys; ROADMAP phase 18). */
+export const USER_COLUMNS: TableColumn[] = [
+  { key: 'display_name', label: 'نام', sortable: true },
+  { key: 'username', label: 'نام کاربری', sortable: true },
+  { key: 'student_number', label: 'شمارهٔ دانشجویی', sortable: true },
+  { key: 'system_role', label: 'نقش', labels: SYSTEM_ROLE_LABEL, filter: 'select', sortable: true, groupable: true, total: 'count' },
+  { key: 'status', label: 'وضعیت', labels: STATUS_LABEL, filter: 'select', sortable: true, groupable: true },
+  { key: 'faculty_name', label: 'دانشکده', filter: 'select', sortable: true, groupable: true },
+  { key: 'degree', label: 'مقطع', labels: DEGREE_LABEL, filter: 'select', sortable: true, groupable: true },
+  { key: 'entry_year', label: 'سال ورود', type: 'number', filter: 'number', sortable: true, groupable: true },
+  { key: 'publications', label: 'نشریات (سمت)', list: true, filter: 'select', groupable: true },
+  { key: 'memberships', label: 'عضویت تیم', list: true, hidden: true },
+  { key: 'last_login_at', label: 'آخرین ورود', type: 'datetime', filter: 'date', sortable: true },
+  { key: 'created_at', label: 'تاریخ ایجاد', type: 'date', filter: 'date', sortable: true, hidden: true }
+]
+
+/** Streaming XLSX/CSV of the users list: same server filters + the on-screen table state (ROADMAP phase 18). */
+usersRoutes.get('/users/export', async (c) => {
+  admin(c)
+  return streamExport(c, { name: 'users', title: 'کاربران', columns: USER_COLUMNS, fetchPage: (cursor) => listUsers(c, { cursor, limit: 300 }) })
 })
 
 usersRoutes.post('/users', async (c) => {
