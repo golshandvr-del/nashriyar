@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Pencil, Plus } from 'lucide-react'
 import { api } from '../lib/api'
-import { ISSUE_STATUS, TOC_STATUS, faDate, formatNumber, normalizeFa } from '../lib/format'
+import { ISSUE_STATUS, TOC_STATUS, faDate, formatNumber } from '../lib/format'
 import { Async, Avatar, Badge, Button, Empty, Field, Input, Modal, PageHeader, Select, useAction, useAsync } from '../components/ui'
 import { useTeam } from './Layout'
 import MembershipRequests from './MembershipRequests'
