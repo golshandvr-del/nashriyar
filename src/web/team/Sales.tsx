@@ -5,6 +5,8 @@ import { CHANNEL, CODE_STATE, faDate, formatNumber, formatToman, relativeFa, toE
 import { Async, Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Stat, Tabs, useAction, useAsync, useToast } from '../components/ui'
 import { useTeam } from './Layout'
 import { qrDataUrl } from '../lib/qr'
+import { DataTable, fetchAllPages } from '../components/DataTable'
+import { CODE_COLUMNS, SALE_COLUMNS } from '../../shared/columns'
 
 const STATE_TONE: Record<string, 'ok' | 'muted' | 'warn' | 'danger' | 'brand'> = { active: 'brand', redeemed: 'ok', expired: 'muted', revoked: 'danger' }
 
@@ -32,8 +34,8 @@ export default function TeamSales() {
 // ───────── Digital purchase codes ─────────
 function Codes({ pubId, issues }: { pubId: string; issues: any[] }) {
   const [issue, setIssue] = useState('')
-  const [state, setState] = useState('')
-  const st = useAsync(() => api.get(`/api/team/${pubId}/codes${qs({ issue })}`), [pubId, issue])
+  // ROADMAP phase 18: every keyset page is loaded; DataTable filters/sorts/groups/exports the whole list
+  const st = useAsync(async () => ({ codes: (await fetchAllPages(`/api/team/${pubId}/codes${qs({ issue })}`, 'codes')).rows }), [pubId, issue])
   const [creating, setCreating] = useState(false)
   const [created, setCreated] = useState<any | null>(null)
   const { confirm } = useToast()
@@ -54,9 +56,6 @@ function Codes({ pubId, issues }: { pubId: string; issues: any[] }) {
         <div className="min-w-56">
           <Select value={issue} onChange={(e) => setIssue(e.target.value)} placeholder="همهٔ شماره‌ها" options={paid.map((i) => ({ value: i.id, label: `شمارهٔ ${formatNumber(i.number)} — ${i.title}` }))} />
         </div>
-        <div className="min-w-40">
-          <Select value={state} onChange={(e) => setState(e.target.value)} placeholder="همهٔ وضعیت‌ها" options={Object.entries(CODE_STATE).map(([value, label]) => ({ value, label }))} />
-        </div>
         <div className="flex-1" />
         <Button icon={<Plus className="size-4" />} disabled={!paid.length} onClick={() => setCreating(true)} title={paid.length ? '' : 'شمارهٔ پولی منتشرشده‌ای ندارید'}>
           ساخت کد
@@ -67,7 +66,6 @@ function Codes({ pubId, issues }: { pubId: string; issues: any[] }) {
           const all = d.codes as any[]
           const count = (s: string) => all.filter((c) => c.state === s).length
           const revenue = all.filter((c) => c.state === 'redeemed').reduce((a, c) => a + (c.price_paid || 0), 0)
-          const rows = state ? all.filter((c) => c.state === state) : all
           return (
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -76,55 +74,45 @@ function Codes({ pubId, issues }: { pubId: string; issues: any[] }) {
                 <Stat label="منقضی/باطل" value={formatNumber(count('expired') + count('revoked'))} tone="muted" />
                 <Stat label="درآمد اعلامی (کدهای استفاده‌شده)" value={formatToman(revenue)} />
               </div>
-              {!rows.length ? (
-                <Empty title="کدی یافت نشد" hint="پس از دریافت وجه (کارت‌به‌کارت، نقدی…) یک کد بسازید؛ اعتبار کد حداکثر ۲۴ ساعت است." />
-              ) : (
-                <div className="card overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-surface-2 text-xs text-muted">
-                      <tr>
-                        <th className="p-3 text-right">کد</th>
-                        <th className="p-3 text-right">شماره</th>
-                        <th className="p-3 text-right">وضعیت</th>
-                        <th className="hidden p-3 text-right md:table-cell">مبلغ / روش</th>
-                        <th className="hidden p-3 text-right sm:table-cell">ساخت / انقضا</th>
-                        <th className="p-3 text-right">استفاده‌کننده</th>
-                        <th className="p-3" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((c) => (
-                        <tr key={c.id} className="border-t border-line">
-                          <td className="p-3 font-mono" dir="ltr">
-                            NSH-····-{c.code_last4.slice(0, 4)}
-                          </td>
-                          <td className="p-3">ش {formatNumber(c.issue_number)}</td>
-                          <td className="p-3">
-                            <Badge tone={STATE_TONE[c.state]}>{CODE_STATE[c.state]}</Badge>
-                            {c.bound_student_number && <div className="mt-1 text-[11px] text-muted">مخصوص {c.bound_student_number}</div>}
-                          </td>
-                          <td className="hidden p-3 md:table-cell">
-                            {formatToman(c.price_paid || 0)}
-                            <div className="text-[11px] text-muted">{CHANNEL[c.channel] || c.channel}</div>
-                          </td>
-                          <td className="hidden p-3 text-xs text-muted sm:table-cell">
-                            {relativeFa(c.created_at)}
-                            <div>تا {faDate(c.expires_at, true)}</div>
-                          </td>
-                          <td className="p-3 text-xs">{c.redeemed_at ? `${c.redeemed_by_name || ''} ${c.redeemed_by_sn ? `(${c.redeemed_by_sn})` : ''}` : '—'}</td>
-                          <td className="p-3">
-                            {c.state === 'active' && (
-                              <button className="text-xs text-danger" disabled={busy} onClick={() => revoke(c)}>
-                                ابطال
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <DataTable
+                id="team-codes"
+                title="کدهای خرید"
+                columns={CODE_COLUMNS}
+                rows={all}
+                rowKey={(c) => String(c.id)}
+                exportUrl={`/api/team/${pubId}/codes/export`}
+                extraParams={{ issue }}
+                empty={<Empty title="کدی یافت نشد" hint="پس از دریافت وجه (کارت‌به‌کارت، نقدی…) یک کد بسازید؛ اعتبار کد حداکثر ۲۴ ساعت است." />}
+                render={{
+                  code_last4: (c: any) => (
+                    <span className="font-mono" dir="ltr">
+                      NSH-····-{String(c.code_last4).slice(0, 4)}
+                    </span>
+                  ),
+                  issue_number: (c: any) => <>ش {formatNumber(c.issue_number)}</>,
+                  state: (c: any) => (
+                    <>
+                      <Badge tone={STATE_TONE[c.state]}>{CODE_STATE[c.state]}</Badge>
+                      {c.bound_student_number && <div className="mt-1 text-[11px] text-muted">مخصوص {c.bound_student_number}</div>}
+                    </>
+                  ),
+                  price_paid: (c: any) => formatToman(c.price_paid || 0),
+                  created_at: (c: any) => (
+                    <span className="text-xs text-muted">
+                      {relativeFa(c.created_at)}
+                      <span className="block">تا {faDate(c.expires_at, true)}</span>
+                    </span>
+                  ),
+                  redeemed_by_name: (c: any) => <span className="text-xs">{c.redeemed_at ? `${c.redeemed_by_name || ''} ${c.redeemed_by_sn ? `(${c.redeemed_by_sn})` : ''}` : '—'}</span>
+                }}
+                actions={(c: any) =>
+                  c.state === 'active' ? (
+                    <button className="text-xs text-danger" disabled={busy} onClick={() => revoke(c)}>
+                      ابطال
+                    </button>
+                  ) : null
+                }
+              />
             </>
           )
         }}
