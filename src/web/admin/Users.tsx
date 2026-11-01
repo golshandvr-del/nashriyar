@@ -2,14 +2,16 @@ import { useState } from 'react'
 import { KeyRound, Plus, Search, ShieldOff, UserCheck, UserX } from 'lucide-react'
 import { api, qs } from '../lib/api'
 import { ROLE_LABEL } from '../lib/auth'
-import { relativeFa, toFaDigits } from '../lib/format'
+import { relativeFa } from '../lib/format'
+import { DataTable, fetchAllPages } from '../components/DataTable'
+import { USER_COLUMNS } from '../../shared/columns'
 import { Async, Badge, Button, Empty, Input, Modal, PageHeader, Select, useAction, useAsync, useToast } from '../components/ui'
 import { CredentialsSheet, type Credential } from './PublicationNew'
 import { useAdminRole } from './Layout'
 
 const ROLE_FILTERS = ['', 'super_admin', 'pub_officer', 'faculty_supervisor', 'analyst', 'team', 'student'] as const
 const PUB_ROLE_FA: Record<string, string> = { managing_director: 'مدیرمسئول', editor_in_chief: 'سردبیر', license_holder: 'صاحب امتیاز' }
-const DEGREE_FA: Record<string, string> = { associate: 'کاردانی', bachelor: 'کارشناسی', master: 'کارشناسی ارشد', phd: 'دکتری' }
+import { DEGREE_LABEL as DEGREE_FA } from '../../shared/columns'
 type Filters = { category: string; pub_role: string; production_role: string; publication_id: string; faculty_id: string; gender: string; degree: string; entry_year: string }
 const EMPTY_FILTERS: Filters = { category: '', pub_role: '', production_role: '', publication_id: '', faculty_id: '', gender: '', degree: '', entry_year: '' }
 
@@ -22,7 +24,8 @@ export default function AdminUsers() {
   const [fl, setFl] = useState<Filters>(EMPTY_FILTERS)
   const setF = (k: keyof Filters, v: string) => setFl((x) => ({ ...x, [k]: v }))
   const opts = useAsync(() => Promise.all([api.get<any>('/api/membership/options'), api.get<any>('/api/public/categories')]), [])
-  const st = useAsync(() => api.get('/api/admin/users' + qs({ role, q: term, ...fl })), [role, term, JSON.stringify(fl)])
+  // ROADMAP phase 18: the whole (server-filtered) list is loaded; DataTable filters/sorts/groups/exports it
+  const st = useAsync(() => fetchAllPages('/api/admin/users' + qs({ role, q: term, ...fl }), 'users'), [role, term, JSON.stringify(fl)])
   const [creating, setCreating] = useState(false)
   const [creds, setCreds] = useState<Credential[] | null>(null)
   const { run, busy } = useAction()
@@ -93,65 +96,55 @@ export default function AdminUsers() {
         ))}
       </div>
       <Async state={st}>
-        {(d: any) =>
-          !d.users.length ? (
-            <Empty title="کاربری یافت نشد" />
-          ) : (
-            <div className="card overflow-x-auto">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>نام</th>
-                    <th>نام کاربری</th>
-                    <th>نقش</th>
-                    <th>دانشکده / نشریه</th>
-                    <th>آخرین ورود</th>
-                    <th>وضعیت</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {d.users.map((u: any) => (
-                    <tr key={u.id}>
-                      <td className="font-medium">
-                        {u.display_name}
-                        {u.must_change_password ? <Badge tone="warn" className="ms-2">رمز موقت</Badge> : null}
-                        {u.totp_enabled ? <Badge tone="ok" className="ms-2">2FA</Badge> : null}
-                      </td>
-                      <td dir="ltr" className="text-start text-muted">{u.username || (u.student_number && toFaDigits(u.student_number)) || '—'}</td>
-                      <td><Badge tone={['super_admin', 'pub_officer'].includes(u.system_role) ? 'brand' : 'muted'}>{ROLE_LABEL[u.system_role as keyof typeof ROLE_LABEL] || u.system_role}</Badge></td>
-                      <td className="max-w-64 text-xs text-muted">
-                        <span className="block truncate">{u.publications || u.faculty_name || '—'}</span>
-                        {u.pub_roles && <span className="block truncate">{String(u.pub_roles).split(',').map((r: string) => PUB_ROLE_FA[r] || r).join('، ')}</span>}
-                        {u.memberships && <span className="block truncate">عضو: {u.memberships}</span>}
-                        {(u.degree || u.entry_year) && <span className="block truncate">{[DEGREE_FA[u.degree], u.entry_year ? `ورودی ${toFaDigits(u.entry_year)}` : null].filter(Boolean).join(' · ')}</span>}
-                      </td>
-                      <td className="text-xs text-muted">{u.last_login_at ? relativeFa(u.last_login_at) : 'هرگز'}</td>
-                      <td>{u.status === 'suspended' ? <Badge tone="danger">تعلیق</Badge> : <Badge tone="ok">فعال</Badge>}</td>
-                      <td>
-                        {canManage(u) && (
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" disabled={busy} onClick={() => reset(u)} aria-label="بازنشانی رمز" title="بازنشانی رمز">
-                              <KeyRound className="size-4" />
-                            </Button>
-                            {!!u.totp_enabled && (
-                              <Button variant="ghost" disabled={busy} onClick={() => resetTotp(u)} aria-label="بازنشانی رمز دومرحله‌ای" title="بازنشانی رمز دومرحله‌ای">
-                                <ShieldOff className="size-4" />
-                              </Button>
-                            )}
-                            <Button variant={u.status === 'suspended' ? 'ghost' : 'danger'} disabled={busy} onClick={() => toggle(u)} aria-label={u.status === 'suspended' ? 'فعال‌سازی' : 'تعلیق'} title={u.status === 'suspended' ? 'فعال‌سازی' : 'تعلیق'}>
-                              {u.status === 'suspended' ? <UserCheck className="size-4" /> : <UserX className="size-4" />}
-                            </Button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        }
+        {(d) => (
+          <DataTable
+            id="admin-users"
+            title="کاربران"
+            columns={USER_COLUMNS}
+            rows={d.rows}
+            truncated={d.truncated}
+            rowKey={(u) => String(u.id)}
+            exportUrl="/api/admin/users/export"
+            extraParams={{ role, q: term, ...fl }}
+            empty={<Empty title="کاربری یافت نشد" />}
+            render={{
+              display_name: (u: any) => (
+                <span className="font-medium">
+                  {u.display_name}
+                  {u.must_change_password ? <Badge tone="warn" className="ms-2">رمز موقت</Badge> : null}
+                  {u.totp_enabled ? <Badge tone="ok" className="ms-2">2FA</Badge> : null}
+                </span>
+              ),
+              username: (u: any) => <span dir="ltr" className="text-muted">{u.username || '—'}</span>,
+              system_role: (u: any) => <Badge tone={['super_admin', 'pub_officer'].includes(u.system_role) ? 'brand' : 'muted'}>{ROLE_LABEL[u.system_role as keyof typeof ROLE_LABEL] || u.system_role}</Badge>,
+              status: (u: any) => (u.status === 'suspended' ? <Badge tone="danger">تعلیق</Badge> : <Badge tone="ok">فعال</Badge>),
+              publications: (u: any) => (
+                <span className="block max-w-64 text-xs text-muted">
+                  <span className="block truncate">{u.publications || '—'}</span>
+                  {u.pub_roles && <span className="block truncate">{String(u.pub_roles).split(',').map((r: string) => PUB_ROLE_FA[r] || r).join('، ')}</span>}
+                </span>
+              ),
+              last_login_at: (u: any) => <span className="text-xs text-muted">{u.last_login_at ? relativeFa(u.last_login_at) : 'هرگز'}</span>
+            }}
+            actions={(u: any) =>
+              canManage(u) ? (
+                <div className="flex justify-end gap-1">
+                  <Button variant="ghost" disabled={busy} onClick={() => reset(u)} aria-label="بازنشانی رمز" title="بازنشانی رمز">
+                    <KeyRound className="size-4" />
+                  </Button>
+                  {!!u.totp_enabled && (
+                    <Button variant="ghost" disabled={busy} onClick={() => resetTotp(u)} aria-label="بازنشانی رمز دومرحله‌ای" title="بازنشانی رمز دومرحله‌ای">
+                      <ShieldOff className="size-4" />
+                    </Button>
+                  )}
+                  <Button variant={u.status === 'suspended' ? 'ghost' : 'danger'} disabled={busy} onClick={() => toggle(u)} aria-label={u.status === 'suspended' ? 'فعال‌سازی' : 'تعلیق'} title={u.status === 'suspended' ? 'فعال‌سازی' : 'تعلیق'}>
+                    {u.status === 'suspended' ? <UserCheck className="size-4" /> : <UserX className="size-4" />}
+                  </Button>
+                </div>
+              ) : null
+            }
+          />
+        )}
       </Async>
       {creating && (
         <CreateModal
