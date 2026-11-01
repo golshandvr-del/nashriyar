@@ -71,7 +71,17 @@ const pct = (arr, q) => {
 }
 
 const home = await (await fetch(BASE + '/api/public/home')).json().catch(() => null)
-const issueId = home?.free?.[0]?.id
+// first free issue whose page 1 really renders (synthetic 10-year issues from scripts/gen-10y.mjs have no page files)
+let issueId = process.env.ISSUE || null
+for (const it of issueId ? [] : home?.free || []) {
+  const h = { 'User-Agent': 'nashriyar-load-probe' }
+  const man = await (await fetch(`${BASE}/api/reader/${it.id}/manifest`, { headers: h })).json().catch(() => null)
+  const first = man?.pages?.[0]?.url
+  if (first && (await fetch(BASE + first, { headers: h })).ok) {
+    issueId = it.id
+    break
+  }
+}
 if (!issueId) console.log('warning: no free issue found — reader scenario skipped')
 console.log(`load: ${VUS} visitors + ${issueId ? READERS : 0} readers for ${DURATION / 1000}s against ${BASE}`)
 const end = Date.now() + DURATION
