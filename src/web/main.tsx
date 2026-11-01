@@ -86,6 +86,7 @@ const SystemSessions = lazy(() => import('./system/Sessions'))
 const SystemDatabase = lazy(() => import('./system/Database'))
 const SystemStaff = lazy(() => import('./system/Staff'))
 const SystemAudit = lazy(() => import('./system/Audit'))
+const SystemApiKeys = lazy(() => import('./system/ApiKeys'))
 
 
 if (getLargeText()) setLargeText(true)
@@ -154,6 +155,7 @@ function App() {
           <Route path="database" element={<SystemDatabase />} />
           <Route path="staff" element={<SystemStaff />} />
           <Route path="audit" element={<SystemAudit />} />
+          <Route path="api-keys" element={<SystemApiKeys />} />
           <Route path="*" element={<NotFound />} />
         </Route>
         <Route element={<PublicLayout />}>
