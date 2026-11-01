@@ -141,6 +141,56 @@ await expect(sup, '/api/analytics/summary', 200, 'supervisor')
 const an = await login('analyst', 'analyst1234')
 await expect(an, '/api/analytics/ranking', 200, 'analyst')
 
+// ───── ROADMAP phase 17: keyset (cursor) pagination on list endpoints ─────
+{
+  // walk every page with a small limit: no duplicates, page sizes respected, union equals the single big page
+  async function walk(c, path, key, limit = 3, maxPages = 400) {
+    const seen = []
+    let cursor = null
+    for (let i = 0; i < maxPages; i++) {
+      const sep = path.includes('?') ? '&' : '?'
+      const r = await c(`${path}${sep}limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`)
+      ok(r.status === 200, `paginate ${path} page ${i} -> ${r.status} ${JSON.stringify(r.data).slice(0, 160)}`)
+      if (r.status !== 200) return seen
+      const rows = r.data[key] || []
+      ok(rows.length <= limit, `paginate ${path}: page size ${rows.length} <= ${limit}`)
+      seen.push(...rows)
+      cursor = r.data.next_cursor
+      if (!cursor) return seen
+      ok(rows.length === limit, `paginate ${path}: a non-final page is full`)
+    }
+    return seen
+  }
+  const idOf = (x) => x.id ?? x.person_key
+  const cases = [
+    [of, '/api/admin/audit', 'items'],
+    [of, '/api/admin/users', 'users'],
+    [of, '/api/admin/people', 'people'],
+    [of, '/api/admin/posts', 'posts'],
+    [of, '/api/admin/reports', 'reports'],
+    [of, '/api/admin/comments?status=approved', 'comments'],
+    [tm, `/api/team/${pubId}/issues`, 'issues'],
+    [tm, `/api/team/${pubId}/codes`, 'codes'],
+    [tm, `/api/team/${pubId}/activity`, 'items'],
+    [tm, `/api/team/${pubId}/physical-sales`, 'sales'],
+    [tm, `/api/team/${pubId}/comments?status=approved`, 'comments']
+  ]
+  for (const [c, path, key] of cases) {
+    const all = (await c(path)).data?.[key] || []
+    const paged = await walk(c, path, key)
+    const ids = paged.map(idOf)
+    ok(new Set(ids).size === ids.length, `paginate ${path}: no duplicates across pages`)
+    // the first page of the default request is a prefix of the walk, in the same order
+    const n = Math.min(all.length, ids.length)
+    ok(all.slice(0, n).map(idOf).join() === ids.slice(0, n).join(), `paginate ${path}: same order as the unpaged list`)
+    if (all.length < 200) ok(ids.length === all.length, `paginate ${path}: walk covers every row (${ids.length} vs ${all.length})`)
+  }
+  const badCur = await of('/api/admin/audit?cursor=%%%not-a-cursor')
+  ok(badCur.status === 400 && badCur.data?.code === 'bad_cursor', `invalid cursor -> 400 bad_cursor (${badCur.status})`)
+  const big = await of('/api/admin/audit?limit=100000')
+  ok(big.status === 200 && big.data.items.length <= 300, 'limit is clamped to the endpoint maximum')
+}
+
 // ───── ROADMAP phase 17: request id on every response and in every error body ─────
 {
   const h = await fetch(BASE + '/api/health')
