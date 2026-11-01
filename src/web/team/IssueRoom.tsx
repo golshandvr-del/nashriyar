@@ -9,15 +9,17 @@ import TocTab from './room/TocTab'
 import ProgressTab from './room/ProgressTab'
 import MediaTab from './room/MediaTab'
 import PublishTab from './room/PublishTab'
+import ArticlesTab from './room/ArticlesTab'
 import type { RoomProps } from './room/TocTab'
 
-type TabKey = 'overview' | 'toc' | 'progress' | 'media' | 'publish'
+type TabKey = 'overview' | 'toc' | 'progress' | 'media' | 'publish' | 'articles'
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'overview', label: 'کلی' },
   { key: 'toc', label: 'فهرست مطالب' },
   { key: 'progress', label: 'پیشرفت' },
   { key: 'media', label: 'رسانه' },
-  { key: 'publish', label: 'انتشار و تأیید' }
+  { key: 'publish', label: 'انتشار و تأیید' },
+  { key: 'articles', label: 'نمایهٔ مقالات' }
 ]
 
 function OverviewTab({ d, reload, pubId }: RoomProps) {
@@ -180,6 +182,7 @@ export default function IssueRoom() {
             {tab === 'progress' && <ProgressTab {...props} />}
             {tab === 'media' && <MediaTab {...props} />}
             {tab === 'publish' && <PublishTab key={d.issue.updated_at} {...props} />}
+            {tab === 'articles' && <ArticlesTab {...props} />}
           </div>
         )
       }}
