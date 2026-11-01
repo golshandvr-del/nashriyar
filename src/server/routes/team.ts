@@ -216,7 +216,10 @@ teamRoutes.get('/:pubId/issues', async (c) => {
 
 teamRoutes.get('/:pubId/keywords', async (c) => {
   const { pub: p } = await pub(c)
-  const rows = await c.get('db').all<{ keywords: string }>("SELECT keywords FROM issues WHERE keywords IS NOT NULL AND keywords <> '' AND deleted_at IS NULL")
+  // bounded vocabulary (ROADMAP phase 17): the latest 2000 issues via idx_issues_published, not a full scan that grows forever
+  const rows = await c.get('db').all<{ keywords: string }>(
+    "SELECT keywords FROM issues WHERE keywords IS NOT NULL AND keywords <> '' AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 2000"
+  )
   const counts = new Map<string, number>()
   for (const r of rows) for (const k of r.keywords.split('،')) if (k.trim()) counts.set(k.trim(), (counts.get(k.trim()) || 0) + 1)
   for (const k of String(p.keywords || '').split('،')) if (k.trim()) counts.set(k.trim(), (counts.get(k.trim()) || 0) + 5)
