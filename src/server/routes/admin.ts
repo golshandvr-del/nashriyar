@@ -843,10 +843,15 @@ adminRoutes.post('/comments/:id', async (c) => {
 
 adminRoutes.get('/reports', async (c) => {
   admin(c)
-  const rows = await c.get('db').all(
-    `SELECT r.*, u.display_name AS reporter_name FROM reports r LEFT JOIN users u ON u.id = r.reporter_user_id ORDER BY r.status = 'open' DESC, r.created_at DESC LIMIT 200`
+  // ROADMAP phase 17: keyset pagination; open reports first, then newest — one composite sort key keeps that order
+  const SK = "(CASE WHEN r.status = 'open' THEN '1' ELSE '0' END || r.created_at)"
+  const pg = cursorPage(c, { col: SK, idCol: 'r.id', def: 200, max: 200 })
+  const rows = await c.get('db').all<any>(
+    `SELECT r.*, ${SK} AS sort_key, u.display_name AS reporter_name FROM reports r LEFT JOIN users u ON u.id = r.reporter_user_id WHERE 1 = 1${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    pg.params
   )
-  return c.json({ reports: rows })
+  const { rows: page, next_cursor } = pg.finish(rows, (r) => [r.sort_key, r.id])
+  return c.json({ reports: page.map(({ sort_key, ...r }) => r), next_cursor })
 })
 
 adminRoutes.post('/reports/:id', async (c) => {
