@@ -19,6 +19,7 @@ import { festivalRoutes } from './routes/festivals'
 import { membershipRoutes } from './routes/membership'
 import { deskRoutes } from './routes/desk'
 import { openRoutes } from './routes/open'
+import { articlePage, articleRoutes } from './routes/articles'
 
 const SLOW_MS = 1000
 /**
@@ -194,6 +195,14 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     }
   }
   app.get('/healthz', healthHandler)
+  // ROADMAP phase 19: permanent, server-rendered article landing page (citation_* meta for Google Scholar & co.)
+  app.get('/a/:pid', async (c) => {
+    const deps = await getDeps(c)
+    c.set('deps', deps)
+    c.set('db', deps.db)
+    await ensureMigrated(deps.db)
+    return articlePage(c)
+  })
   app.get('/api/health', healthHandler)
   app.get('/api/v1/health', healthHandler)
   const modules = {
@@ -210,7 +219,9 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     membership: membershipRoutes,
     desk: deskRoutes,
     // ROADMAP phase 19: read-only public API for other university systems (API key, CORS, per-key rate limit)
-    open: openRoutes
+    open: openRoutes,
+    // ROADMAP phase 19: article index with persistent ids (JSON, BibTeX, RIS, OAI-PMH) — public metadata only
+    articles: articleRoutes
   }
   // every module at the unversioned alias and at the explicit v1 prefix (same handlers, same contract)
   for (const [name, routes] of Object.entries(modules)) {
