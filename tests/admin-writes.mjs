@@ -305,6 +305,14 @@ await call(sa, 'POST', '/api/admin/settings', { site_name: s0.settings.site_name
   await call(lc, 'POST', '/api/me/profile', { faculty_id: lcats.faculties[0].id, degree: 'bachelor', entry_year: 1403, gender: 'female', consent: true })
   const llog = await login(lsn, 'abcd12345')
   ok((await call(llog, 'GET', '/api/auth/me')).home === '/desk', 'after completing the profile the member lands on the desk')
+  // team composition chart (phase 14): aggregates only, gender counted only with consent, scoped for the faculty supervisor
+  const vis = await call(of, 'GET', '/api/analytics/visuals')
+  const mix = vis.team
+  const sum = (a) => (a || []).reduce((s, r) => s + r.n, 0)
+  ok(mix && mix.total > 0 && sum(mix.gender) === mix.total && sum(mix.degree) === mix.total && sum(mix.faculty) === mix.total, 'team composition buckets add up to the total')
+  ok(!JSON.stringify(mix).includes('student_number') && !JSON.stringify(mix).includes('display_name'), 'team composition exposes no individual')
+  const supv = await login('supervisor', 'super1234')
+  ok((await call(supv, 'GET', '/api/analytics/visuals')).team.total < mix.total, 'faculty supervisor sees only their faculty in the team composition')
   const pr2 = await call(nu, 'GET', '/api/me/profile')
   ok(pr2.user.phone === null && pr2.user.gender === null, 'withdrawing consent erases sensitive fields')
 }
