@@ -265,6 +265,39 @@ publicRoutes.get('/issues/:id', async (c) => {
   })
 })
 
+// ROADMAP phase 19: digitised archive of old printed issues — filter by publication, original year range and text
+// (title / summary / TOC / OCR text layer of the scanned pages). Ordered by the ORIGINAL print date, newest first.
+publicRoutes.get('/print-archive', async (c) => {
+  const db = c.get('db')
+  const where = [PUBLISHED, 'i.archival = 1']
+  const params: unknown[] = []
+  const pubSlug = c.req.query('publication')
+  if (pubSlug) (where.push('p.slug = ?'), params.push(pubSlug))
+  const yr = (v?: string) => (v && /^1[34]\d\d$/.test(v) ? Number(v) : null)
+  const from = yr(c.req.query('from')), to = yr(c.req.query('to'))
+  // Jalali year jy starts on ~21 March of gregorian jy + 621
+  if (from) (where.push('i.original_date >= ?'), params.push(`${from + 621}-03-20`))
+  if (to) (where.push('i.original_date < ?'), params.push(`${to + 622}-03-22`))
+  const q = normalizeFa((c.req.query('q') || '').slice(0, 100))
+  if (q.length >= 2) {
+    const like = `%${q}%`
+    where.push('(i.search_text LIKE ? OR i.id IN (SELECT t.issue_id FROM issue_toc_items t WHERE t.title LIKE ?) OR i.id IN (SELECT ip.issue_id FROM issue_pages ip WHERE ip.text_content LIKE ?))')
+    params.push(like, like, like)
+  }
+  const issues = await db.all(
+    `SELECT ${ISSUE_CARD}, i.original_date, i.original_label FROM issues i JOIN publications p ON p.id = i.publication_id
+     WHERE ${where.join(' AND ')} ORDER BY i.original_date DESC, i.number DESC LIMIT 200`,
+    params
+  )
+  const publications = await db.all(
+    `SELECT p.slug, p.title, COUNT(*) AS n FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED} AND i.archival = 1 GROUP BY p.id ORDER BY p.title`
+  )
+  const span = await db.first<{ a: string | null; b: string | null }>(
+    `SELECT MIN(i.original_date) AS a, MAX(i.original_date) AS b FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED} AND i.archival = 1`
+  )
+  return c.json({ issues, publications, span: { from: span?.a ?? null, to: span?.b ?? null } })
+})
+
 publicRoutes.get('/search', async (c) => {
   const db = c.get('db')
   const raw = (c.req.query('q') || '').slice(0, 100)
