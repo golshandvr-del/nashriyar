@@ -122,7 +122,7 @@ for (const width of WIDTHS) {
       try {
         await page.goto(BASE + path, { timeout: 20000 })
         await page.waitForLoadState('networkidle', { timeout: 20000 })
-      } catch (e) {
+      } catch {
         fail(`${path}: load timeout`)
         continue
       }
