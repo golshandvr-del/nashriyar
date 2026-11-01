@@ -12,6 +12,7 @@ import m0009 from '../../migrations/0009_festivals.sql'
 import m0010 from '../../migrations/0010_profiles_membership.sql'
 import m0011 from '../../migrations/0011_query_plan_indexes.sql'
 import m0012 from '../../migrations/0012_query_plan_indexes_2.sql'
+import m0013 from '../../migrations/0013_sessions_purge_indexes.sql'
 
 export const MIGRATIONS: { name: string; sql: string }[] = [
   { name: '0001_init', sql: m0001 },
@@ -25,7 +26,8 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
   { name: '0009_festivals', sql: m0009 },
   { name: '0010_profiles_membership', sql: m0010 },
   { name: '0011_query_plan_indexes', sql: m0011 },
-  { name: '0012_query_plan_indexes_2', sql: m0012 }
+  { name: '0012_query_plan_indexes_2', sql: m0012 },
+  { name: '0013_sessions_purge_indexes', sql: m0013 }
 ]
 
 /** Split a SQL script into single statements (strips `--` comments). */
