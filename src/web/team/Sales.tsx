@@ -254,7 +254,7 @@ function CreatedCodes({ data, onClose }: { data: any; onClose: () => void }) {
 
 // ───────── Physical (print) sales ─────────
 function PrintSales({ pubId, issues }: { pubId: string; issues: any[] }) {
-  const st = useAsync(() => api.get(`/api/team/${pubId}/physical-sales`), [pubId])
+  const st = useAsync(async () => ({ sales: (await fetchAllPages(`/api/team/${pubId}/physical-sales`, 'sales')).rows }), [pubId])
   const [f, setF] = useState({ issue_id: '', quantity: '', unit_price: '', sold_at: new Date().toISOString().slice(0, 10), channel: '' })
   const { confirm } = useToast()
   const { busy, run } = useAction()
@@ -319,36 +319,24 @@ function PrintSales({ pubId, issues }: { pubId: string; issues: any[] }) {
                 <Stat label="نسخهٔ فروخته‌شده" value={formatNumber(total)} />
                 <Stat label="درآمد اعلامی" value={formatToman(revenue)} />
               </div>
-              <div className="card overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-surface-2 text-xs text-muted">
-                    <tr>
-                      <th className="p-3 text-right">تاریخ</th>
-                      <th className="p-3 text-right">شماره</th>
-                      <th className="p-3 text-center">تعداد</th>
-                      <th className="p-3 text-right">مبلغ</th>
-                      <th className="hidden p-3 text-right sm:table-cell">محل</th>
-                      <th className="p-3" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {d.sales.map((s: any) => (
-                      <tr key={s.id} className="border-t border-line">
-                        <td className="p-3">{faDate(s.sold_at)}</td>
-                        <td className="p-3">ش {formatNumber(s.issue_number)}</td>
-                        <td className="p-3 text-center">{formatNumber(s.quantity)}</td>
-                        <td className="p-3">{formatToman(s.quantity * (s.unit_price || 0))}</td>
-                        <td className="hidden p-3 text-muted sm:table-cell">{s.channel || '—'}</td>
-                        <td className="p-3">
-                          <button className="rounded-lg p-1.5 text-danger hover:bg-surface-2" onClick={() => del(s)} aria-label="حذف">
-                            <Trash2 className="size-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                id="team-print-sales"
+                title="فروش چاپی"
+                columns={SALE_COLUMNS}
+                rows={d.sales}
+                rowKey={(r) => String(r.id)}
+                exportUrl={`/api/team/${pubId}/physical-sales/export`}
+                render={{
+                  issue_number: (r: any) => <>ش {formatNumber(r.issue_number)}</>,
+                  unit_price: (r: any) => (r.unit_price == null ? '—' : formatToman(r.unit_price)),
+                  amount: (r: any) => formatToman(r.amount ?? r.quantity * (r.unit_price || 0))
+                }}
+                actions={(r: any) => (
+                  <button className="rounded-lg p-1.5 text-danger hover:bg-surface-2" onClick={() => del(r)} aria-label="حذف">
+                    <Trash2 className="size-4" />
+                  </button>
+                )}
+              />
             </>
           )
         }}
