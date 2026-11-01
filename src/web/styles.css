@@ -29,33 +29,41 @@
   font-display: swap;
 }
 
-/* design tokens (light) — WCAG AA verified (muted #4b5563 >= 6.7:1 on surface/bg; brand #0f766e >= 5.4:1 with white) */
+/* ROADMAP phase 16 — «کاشی اصفهان» palette: turquoise (فیروزه‌ای), lapis (لاجوردی), gold (طلایی), brick ochre (اُکر آجری)
+   on ivory (شیری). WCAG AA verified for every text token on bg / surface / surface-2 (tests/contrast.mjs):
+   text ≥ 13:1, muted ≥ 6.6:1, brand/lapis/gold/ochre/danger/warn/ok ≥ 4.5:1, brand-ink on brand ≥ 6.2:1. */
 :root {
-  --bg: #f6f7f9;
+  --bg: #faf6ee;
   --surface: #ffffff;
-  --surface-2: #f1f3f6;
-  --text: #111827;
-  --muted: #4b5563;
-  --line: #e5e7eb;
-  --brand: #0f766e;
-  --brand-soft: #ccfbf1;
+  --surface-2: #f2eadb;
+  --text: #1a2433;
+  --muted: #5b4f42;
+  --line: #e6dcc8;
+  --brand: #0b6b73;
+  --brand-soft: #d5efee;
   --brand-ink: #ffffff;
-  --danger: #dc2626;
-  --warn: #b45309;
+  --lapis: #1e3a8a;
+  --gold: #8a6212;
+  --ochre: #a3461f;
+  --danger: #b91c1c;
+  --warn: #92400e;
   --ok: #047857;
   color-scheme: light;
 }
-/* design tokens (dark) */
+/* «شب اصفهان» dark theme: night-blue tiles with turquoise and gold */
 .dark {
-  --bg: #0b0f14;
-  --surface: #121821;
-  --surface-2: #1a2230;
-  --text: #e5e7eb;
-  --muted: #9ca3af;
-  --line: #243041;
-  --brand: #2dd4bf;
-  --brand-soft: #134e4a;
-  --brand-ink: #042f2e;
+  --bg: #0a1324;
+  --surface: #101c31;
+  --surface-2: #172742;
+  --text: #efe8d8;
+  --muted: #a7b2c3;
+  --line: #24365a;
+  --brand: #3cc6c4;
+  --brand-soft: #0f3b44;
+  --brand-ink: #032326;
+  --lapis: #93b4f5;
+  --gold: #e3b65a;
+  --ochre: #ee9a6e;
   --danger: #f87171;
   --warn: #fbbf24;
   --ok: #34d399;
@@ -73,6 +81,9 @@
   --color-brand: var(--brand);
   --color-brand-soft: var(--brand-soft);
   --color-brand-ink: var(--brand-ink);
+  --color-lapis: var(--lapis);
+  --color-gold: var(--gold);
+  --color-ochre: var(--ochre);
   --color-danger: var(--danger);
   --color-warn: var(--warn);
   --color-ok: var(--ok);
