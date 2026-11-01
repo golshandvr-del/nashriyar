@@ -2,6 +2,7 @@
 // both show and write exactly the same columns, labels and filters.
 import type { TableColumn } from './table'
 import { SYSTEM_ROLE_LABEL } from './roles'
+import { ASSOC_KIND, FREQUENCY, PUB_STATUS } from './labels'
 
 export const DEGREE_LABEL: Record<string, string> = { associate: 'کاردانی', bachelor: 'کارشناسی', master: 'کارشناسی ارشد', phd: 'دکتری' }
 export const GENDER_LABEL: Record<string, string> = { male: 'مرد', female: 'زن' }
@@ -31,4 +32,22 @@ export const PEOPLE_COLUMNS: TableColumn[] = [
   { key: 'publication_count', label: 'تعداد نشریه', type: 'number', filter: 'number', groupable: true },
   { key: 'issue_count', label: 'شماره‌ها', type: 'number', filter: 'number', total: 'sum' },
   { key: 'section_count', label: 'بخش‌ها', type: 'number', filter: 'number', total: 'sum' }
+]
+
+/** /admin/publications */
+export const PUB_COLUMNS: TableColumn[] = [
+  { key: 'title', label: 'نشریه' },
+  { key: 'status', label: 'وضعیت', labels: PUB_STATUS, filter: 'select', groupable: true },
+  { key: 'faculty_name', label: 'دانشکده', filter: 'select', groupable: true },
+  { key: 'association_name', label: 'صاحب امتیاز', filter: 'select', groupable: true },
+  { key: 'association_kind', label: 'نوع تشکل', labels: ASSOC_KIND, filter: 'select', groupable: true, hidden: true },
+  { key: 'frequency', label: 'دورهٔ انتشار', labels: FREQUENCY, filter: 'select', groupable: true },
+  { key: 'published_count', label: 'منتشرشده', type: 'number', filter: 'number', total: 'sum' },
+  { key: 'in_progress_count', label: 'در جریان', type: 'number', filter: 'number', total: 'sum' },
+  { key: 'last_published_at', label: 'آخرین انتشار', type: 'date', filter: 'date' },
+  { key: 'license_number', label: 'شمارهٔ مجوز' },
+  { key: 'license_expires_at', label: 'انقضای مجوز', type: 'date', filter: 'date' },
+  { key: 'member_count', label: 'اعضا', type: 'number', filter: 'number', total: 'sum', hidden: true },
+  { key: 'follower_count', label: 'دنبال‌کننده', type: 'number', filter: 'number', total: 'sum', hidden: true },
+  { key: 'last_activity_at', label: 'آخرین فعالیت', type: 'datetime', filter: 'date' }
 ]
