@@ -18,6 +18,14 @@ import { membershipRoutes } from './routes/membership'
 import { deskRoutes } from './routes/desk'
 
 const SLOW_MS = 1000
+/**
+ * API versioning (ROADMAP phase 17, docs/API_VERSIONING.md): the current contract is v1. Every route is served both at
+ * /api/<x> (unversioned alias = latest) and /api/v1/<x>; responses carry X-API-Version. Changes inside v1 are additive
+ * only; a breaking change ships as /api/v2 while v1 keeps working for at least one academic year.
+ */
+export const API_VERSION = '1'
+/** Strip the optional version segment so path-based checks (maintenance, logs) treat /api/v1/x like /api/x. */
+export const apiPath = (p: string) => p.replace(/^\/api\/v\d+(?=\/)/, '/api')
 const LOG_ALL = typeof process !== 'undefined' && (process as any).env?.LOG_REQUESTS === '1'
 
 /** One JSON object per line (ROADMAP phase 17 structured logging) — easy to grep, ship or parse. No personal data. */
@@ -60,6 +68,7 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     c.set('requestId', /^[A-Za-z0-9._:-]{8,64}$/.test(incoming) ? incoming : crypto.randomUUID())
     await next()
     c.header('X-Request-Id', c.get('requestId'))
+    if (c.req.path.startsWith('/api/')) c.header('X-API-Version', API_VERSION)
   })
 
   app.onError((err, c) => {
@@ -138,7 +147,7 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     return maint.v
   }
   app.use('/api/*', async (c, next) => {
-    const path = new URL(c.req.url).pathname
+    const path = apiPath(new URL(c.req.url).pathname)
     if (path.startsWith('/api/system/settings') && c.req.method === 'POST') maint = null
     if (c.req.method === 'GET' || c.req.method === 'HEAD' || path.startsWith('/api/auth/') || path.startsWith('/api/system/')) return next()
     if (c.get('user')?.system_role === 'developer') return next()
@@ -146,10 +155,12 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     if (m.on) throw new HttpError(503, m.message || 'سامانه در حال تعمیرات است؛ کمی بعد دوباره تلاش کنید', 'maintenance')
     await next()
   })
-  app.get('/api/maintenance', async (c) => {
+  const maintenanceHandler = async (c: any) => {
     const m = await maintenance(c)
     return c.json({ on: m.on, message: m.on ? m.message : '' })
-  })
+  }
+  app.get('/api/maintenance', maintenanceHandler)
+  app.get('/api/v1/maintenance', maintenanceHandler)
 
   // Liveness + readiness (/api/health and /healthz, ROADMAP phase 11): probes DB, disk warning and response-time summary.
   const healthHandler = async (c: any) => {
@@ -174,18 +185,26 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
   }
   app.get('/healthz', healthHandler)
   app.get('/api/health', healthHandler)
-  app.route('/api/auth', authRoutes)
-  app.route('/api/public', publicRoutes)
-  app.route('/api/me', meRoutes)
-  app.route('/api/reader', readerRoutes)
-  app.route('/api/team', teamRoutes)
-  app.route('/api/admin', adminRoutes)
-  app.route('/api/analytics', analyticsRoutes)
-  app.route('/api/media', mediaRoutes)
-  app.route('/api/system', systemRoutes)
-  app.route('/api/festivals', festivalRoutes)
-  app.route('/api/membership', membershipRoutes)
- app.route('/api/desk', deskRoutes)
+  app.get('/api/v1/health', healthHandler)
+  const modules = {
+    auth: authRoutes,
+    public: publicRoutes,
+    me: meRoutes,
+    reader: readerRoutes,
+    team: teamRoutes,
+    admin: adminRoutes,
+    analytics: analyticsRoutes,
+    media: mediaRoutes,
+    system: systemRoutes,
+    festivals: festivalRoutes,
+    membership: membershipRoutes,
+    desk: deskRoutes
+  }
+  // every module at the unversioned alias and at the explicit v1 prefix (same handlers, same contract)
+  for (const [name, routes] of Object.entries(modules)) {
+    app.route(`/api/${name}`, routes)
+    app.route(`/api/v${API_VERSION}/${name}`, routes)
+  }
 
   app.all('/api/*', (c) => c.json({ error: 'مسیر یافت نشد', code: 'not_found', request_id: c.get('requestId') }, 404))
   return app
