@@ -111,17 +111,25 @@ export interface DataTableProps {
   toolbar?: ReactNode
   /** shown under the toolbar when the list was too long to load completely */
   truncated?: boolean
+  /** URL parameter prefix when several DataTables share one page (e.g. `req_` → `req_dt_q`); exports still send plain `dt_*` */
+  urlPrefix?: string
 }
 
 export function DataTable(p: DataTableProps) {
   const [sp, setSp] = useSearchParams()
-  const st = useMemo(() => parseTableState(sp, p.columns), [sp, p.columns])
+  const pre = p.urlPrefix || ''
+  const st = useMemo(() => {
+    if (!pre) return parseTableState(sp, p.columns)
+    const own: Record<string, string> = {}
+    sp.forEach((v, k) => k.startsWith(pre + 'dt_') && (own[k.slice(pre.length)] = v))
+    return parseTableState(own, p.columns)
+  }, [sp, p.columns, pre])
   const setState = (next: TableState) =>
     setSp(
       (prev) => {
         const out = new URLSearchParams()
-        prev.forEach((v, k) => !k.startsWith('dt_') && out.set(k, v))
-        for (const [k, v] of Object.entries(tableStateToParams(next))) out.set(k, v)
+        prev.forEach((v, k) => !k.startsWith(pre + 'dt_') && out.set(k, v))
+        for (const [k, v] of Object.entries(tableStateToParams(next))) out.set(pre + k, v)
         return out
       },
       { replace: true }
