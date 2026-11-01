@@ -2,6 +2,7 @@ import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowDown, ArrowLeft, Compass, Download, Printer, RefreshCw, TriangleAlert } from 'lucide-react'
+import { Illustration } from '../components/Illustration'
 
 /**
  * Friendly "something went wrong" page (ROADMAP phase 9). Catches render errors and failed lazy-chunk loads
@@ -29,8 +30,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode; inline?: boo
     if (!this.state.error) return this.props.children
     return (
       <div className="mx-auto max-w-md px-4 py-20 text-center">
-        <TriangleAlert className="mx-auto size-12 text-amber-500" />
-        <h1 className="mt-3 text-2xl font-extrabold">مشکلی پیش آمد</h1>
+        <Illustration name="minaret" className="mx-auto h-24 w-48 text-gold" />
+        <h1 className="mt-3 flex items-center justify-center gap-2 text-2xl font-extrabold">
+          <TriangleAlert className="size-6 text-warn" aria-hidden="true" /> مشکلی پیش آمد
+        </h1>
         <p className="mt-2 text-sm text-muted">خطای غیرمنتظره‌ای رخ داد. صفحه را دوباره بارگذاری کنید؛ اگر مشکل ادامه داشت با مسئول سامانه تماس بگیرید.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           {this.props.inline && (
@@ -53,9 +56,11 @@ export class ErrorBoundary extends Component<{ children: ReactNode; inline?: boo
 export function NotFound() {
   return (
     <div className="mx-auto max-w-md py-16 text-center">
-      <Compass className="mx-auto size-12 text-muted" />
-      <h1 className="mt-3 text-2xl font-extrabold">صفحه پیدا نشد</h1>
-      <p className="mt-2 text-sm text-muted">نشانی وارد‌شده وجود ندارد یا جابه‌جا شده است.</p>
+      <Illustration name="bridge" className="mx-auto h-24 w-48 text-gold" />
+      <h1 className="mt-3 flex items-center justify-center gap-2 text-2xl font-extrabold">
+        <Compass className="size-6 text-muted" aria-hidden="true" /> صفحه پیدا نشد
+      </h1>
+      <p className="mt-2 text-sm text-muted">نشانی وارد‌شده وجود ندارد یا جابه‌جا شده است؛ مثل سی‌وسه‌پل، راه دیگری به مقصد هست.</p>
       <Link to="/" className="btn-primary mt-6 inline-flex">
         بازگشت به خانه
       </Link>
