@@ -3,6 +3,7 @@ import type { AppEnv, Deps } from './context'
 import { csrfGuard, loadSession } from './auth'
 import { ensureMigrated } from './migrate'
 import { HttpError, getSetting } from './lib/util'
+import { validationError, z } from './lib/validate'
 import { getMonitorStats, recordError, recordRequest } from './lib/monitor'
 import { bumpCache, writeDomains } from './lib/rollup'
 import { authRoutes } from './routes/auth'
@@ -72,15 +73,17 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     if (c.req.path.startsWith('/api/')) c.header('X-API-Version', API_VERSION)
   })
 
-  app.onError((err, c) => {
+  app.onError((raw, c) => {
     const request_id = c.get('requestId')
     const path = new URL(c.req.url).pathname
+    // a schema `.parse()` that escaped a route → the same 400 shape as parseBody/str/int (ROADMAP phase 17)
+    const err = raw instanceof z.ZodError ? validationError(raw) : raw
     if (err instanceof HttpError) {
       if (err.status >= 500) {
         recordError(c.req.method, path, err.status, err)
         logLine('error', { request_id, method: c.req.method, path: scrubLogPath(path), status: err.status, msg: err.message })
       }
-      return c.json({ error: err.message, code: err.code, request_id }, err.status as any)
+      return c.json({ error: err.message, code: err.code, ...(err.details || {}), request_id }, err.status as any)
     }
     recordError(c.req.method, path, 500, err)
     logLine('error', { request_id, method: c.req.method, path: scrubLogPath(path), status: 500, msg: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack?.split('\n').slice(0, 4).join(' | ') : undefined })
