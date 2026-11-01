@@ -9,6 +9,9 @@ import { requireUser } from '../auth'
 import { newId } from '../lib/crypto'
 import { activity, audit, bad, body, cursorPage, HttpError, notFound, notify, nowIso, oneOf, str } from '../lib/util'
 import { normalizeFa } from '../../shared/fa'
+import { type PageOverride } from '../lib/util'
+import { streamExport } from '../lib/export'
+import { REQUEST_COLUMNS } from '../../shared/columns'
 
 export const membershipRoutes = new Hono<AppEnv>()
 
@@ -115,19 +118,25 @@ membershipRoutes.delete('/requests/:id', async (c) => {
 })
 
 // ───── deciders ─────
-membershipRoutes.get('/queue', async (c) => {
+/** Access check of the queue: deciders of the publication, or admins for the all-publications view. */
+async function queueAccess(c: Context<AppEnv>) {
   const u = requireUser(c)
+  const pubId = c.req.query('publication_id')
+  if (pubId) await canDecide(c, pubId)
+  else if (!isAdminRole(u.system_role)) throw new HttpError(403, 'نشریه را مشخص کنید')
+}
+
+/** The queue query (screen and export share it; `page` lets the export walk every keyset page). */
+async function listQueue(c: Context<AppEnv>, page?: PageOverride) {
   const db = c.get('db')
   const pubId = c.req.query('publication_id')
   const status = c.req.query('status') || 'pending'
-  if (pubId) await canDecide(c, pubId)
-  else if (!isAdminRole(u.system_role)) throw new HttpError(403, 'نشریه را مشخص کنید')
   const where = ['1=1']
   const params: unknown[] = []
   if (pubId) (where.push('r.publication_id = ?'), params.push(pubId))
   if (status !== 'all') (where.push('r.status = ?'), params.push(oneOf(status, ['pending', 'approved', 'rejected', 'cancelled'] as const, 'وضعیت')))
   // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 300)
-  const pg = cursorPage(c, { col: 'r.created_at', idCol: 'r.id', def: 300, max: 300 })
+  const pg = cursorPage(c, { col: 'r.created_at', idCol: 'r.id', def: 300, max: 300, page })
   const rows = await db.all<any>(
     `SELECT r.id, r.status, r.role_name, r.message, r.decision_note, r.created_at, r.decided_at, r.publication_id, p.title AS publication_title,
             us.id AS user_id, us.display_name, us.username, us.student_number, us.degree, us.entry_year, us.profile_completed_at, f.name AS faculty_name, m.name AS major_name,
@@ -137,8 +146,19 @@ membershipRoutes.get('/queue', async (c) => {
       WHERE ${where.join(' AND ')}${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
     [...params, ...pg.params]
   )
-  const { rows: requests, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
+  return pg.finish(rows, (r) => [r.created_at, r.id])
+}
+
+membershipRoutes.get('/queue', async (c) => {
+  await queueAccess(c)
+  const { rows: requests, next_cursor } = await listQueue(c)
   return c.json({ requests, next_cursor })
+})
+
+/** Streaming XLSX/CSV of the membership requests with the on-screen table state (ROADMAP phase 18). */
+membershipRoutes.get('/queue/export', async (c) => {
+  await queueAccess(c)
+  return streamExport(c, { name: 'membership-requests', title: 'درخواست‌های عضویت', columns: REQUEST_COLUMNS, fetchPage: (cursor) => listQueue(c, { cursor, limit: 300 }) })
 })
 
 membershipRoutes.post('/requests/:id/decide', async (c) => {
