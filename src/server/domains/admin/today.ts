@@ -3,7 +3,7 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../../context'
 import { getSetting } from '../../lib/util'
-import { admin, monitor, scope } from './service'
+import { monitor, scope } from './service'
 
 export const todayRoutes = new Hono<AppEnv>()
 
