@@ -126,3 +126,53 @@ export function dateRange(c: Context, defDays = 365) {
   // inclusive end-of-day bound
   return { from, to, fromTs: from + 'T00:00:00.000Z', toTs: to + 'T23:59:59.999Z' }
 }
+
+/**
+ * Keyset (cursor) pagination — ROADMAP phase 17. Stable under inserts and O(log n) on any page, unlike OFFSET.
+ * Ordering is (col, idCol) in `dir`; the opaque cursor is the last row's [col, id] encoded as base64url JSON.
+ * Usage:
+ *   const pg = cursorPage(c, { col: 'a.created_at', idCol: 'a.id' })
+ *   const rows = await db.all(`SELECT ... WHERE x = ?${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`, [x, ...pg.params])
+ *   return c.json({ items: ..., ...pg.finish(rows, (r) => [r.created_at, r.id]) })   // → { items, next_cursor }
+ * Without ?cursor the first page is returned, so existing clients keep working. ?limit is clamped to [1, max].
+ */
+export function cursorPage(c: Context, opts: { col: string; idCol: string; dir?: 'ASC' | 'DESC'; def?: number; max?: number }) {
+  const dir = opts.dir || 'DESC'
+  const max = opts.max ?? 200
+  const n = Number(c.req.query('limit'))
+  const limit = Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), max) : (opts.def ?? Math.min(100, max))
+  const raw = c.req.query('cursor') || ''
+  let after: [unknown, unknown] | null = null
+  if (raw) {
+    try {
+      const v = JSON.parse(decodeURIComponent(atob(raw.replace(/-/g, '+').replace(/_/g, '/'))))
+      if (Array.isArray(v) && v.length === 2 && v.every((x) => typeof x === 'string' || typeof x === 'number' || x === null)) after = [v[0], v[1]]
+    } catch {
+      /* fall through */
+    }
+    if (!after) throw bad('نشانگر صفحه (cursor) نامعتبر است', 'bad_cursor')
+  }
+  const op = dir === 'DESC' ? '<' : '>'
+  // NULL sort keys are compared through COALESCE so rows without a value still paginate deterministically
+  const k = `COALESCE(${opts.col}, '')`
+  const cond = after ? `(${k} ${op} ? OR (${k} = ? AND ${opts.idCol} ${op} ?))` : ''
+  const params = after ? [after[0] ?? '', after[0] ?? '', after[1]] : []
+  return {
+    limit,
+    /** LIMIT value to use: one extra row tells whether a next page exists */
+    fetch: limit + 1,
+    /** condition to splice after an existing WHERE (` AND (...)`) */
+    and: cond ? ` AND ${cond}` : '',
+    /** condition to use as the whole WHERE (`WHERE (...)`) when the query has no other filter */
+    where: cond ? `WHERE ${cond}` : '',
+    params,
+    order: `${k} ${dir}, ${opts.idCol} ${dir}`,
+    finish<T>(rows: T[], key: (r: T) => [unknown, unknown]): { next_cursor: string | null; rows: T[] } {
+      const more = rows.length > limit
+      const page = more ? rows.slice(0, limit) : rows
+      const last = page[page.length - 1]
+      const next_cursor = more && last ? btoa(encodeURIComponent(JSON.stringify(key(last)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') : null
+      return { next_cursor, rows: page }
+    }
+  }
+}
