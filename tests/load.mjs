@@ -64,6 +64,24 @@ async function reader(id, issueId, end) {
   }
 }
 
+// Officer dashboards (ROADMAP phase 17): ANALYSTS concurrent officers browsing analytics reports (served from the
+// targeted cache after the first read, exactly like production). Set ANALYSTS=0 to skip. OFFICER=user:pass.
+const ANALYSTS = Number(process.env.ANALYSTS ?? 5)
+const [OFF_USER, OFF_PASS] = (process.env.OFFICER || 'officer:officer1234').split(':')
+const ANALYTICS_PATHS = ['summary', 'trends', 'explore', 'ranking', 'sales', 'production', 'forecast', 'gaps', 'visuals', 'directors']
+async function analyst(cookie, end) {
+  while (Date.now() < end) {
+    const p = ANALYTICS_PATHS[Math.floor(Math.random() * ANALYTICS_PATHS.length)]
+    await hit(`analytics.${p}`, `/api/analytics/${p}`, { cookie })
+    await sleep(jitter(THINK_MS * 3))
+  }
+}
+async function officerCookie() {
+  const res = await fetch(BASE + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: BASE }, body: JSON.stringify({ username: OFF_USER, password: OFF_PASS }) })
+  const set = res.headers.getSetCookie?.() || [res.headers.get('set-cookie') || '']
+  return res.ok ? set.map((c) => c.split(';')[0]).join('; ') : null
+}
+
 const pct = (arr, q) => {
   if (!arr.length) return 0
   const a = [...arr].sort((x, y) => x - y)
@@ -84,9 +102,14 @@ for (const it of issueId ? [] : home?.free || []) {
 }
 if (!issueId) console.log('warning: no free issue found — reader scenario skipped')
 console.log(`load: ${VUS} visitors + ${issueId ? READERS : 0} readers for ${DURATION / 1000}s against ${BASE}`)
+const cookie = ANALYSTS > 0 ? await officerCookie() : null
+if (ANALYSTS > 0 && !cookie) console.log('warning: officer login failed — analytics scenario skipped')
+// warm the analytics cache once (a real install has warm caches; cold computation is measured separately)
+if (cookie) for (const p of ANALYTICS_PATHS) await fetch(`${BASE}/api/analytics/${p}`, { headers: { cookie } })
 const end = Date.now() + DURATION
 const t0 = Date.now()
 await Promise.all([
+  ...(cookie ? Array.from({ length: ANALYSTS }, () => analyst(cookie, end)) : []),
   ...Array.from({ length: VUS }, () => visitor(end)),
   ...(issueId ? Array.from({ length: READERS }, (_, i) => reader(i, issueId, end)) : [])
 ])
