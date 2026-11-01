@@ -789,14 +789,17 @@ adminRoutes.get('/people/:key', async (c) => {
 adminRoutes.get('/posts', async (c) => {
   admin(c)
   const status = c.req.query('status') || ''
+  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 200)
+  const pg = cursorPage(c, { col: 'po.created_at', idCol: 'po.id', def: 200, max: 200 })
   const rows = await c.get('db').all<any>(
-    `SELECT po.id, po.caption, po.images_json, po.status, po.is_story, po.published_at, p.title AS publication_title, i.title AS source_issue_title, i.number AS source_issue_number,
+    `SELECT po.id, po.caption, po.images_json, po.status, po.is_story, po.published_at, po.created_at, p.title AS publication_title, i.title AS source_issue_title, i.number AS source_issue_number,
        (SELECT COUNT(*) FROM reports r WHERE r.entity_type = 'post' AND r.entity_id = po.id AND r.status = 'open') AS open_reports
      FROM posts po JOIN publications p ON p.id = po.publication_id JOIN issues i ON i.id = po.source_issue_id
-     ${status ? 'WHERE po.status = ?' : ''} ORDER BY po.created_at DESC LIMIT 200`,
-    status ? [status] : []
+     WHERE ${status ? 'po.status = ?' : '1 = 1'}${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    [...(status ? [status] : []), ...pg.params]
   )
-  return c.json({ posts: rows.map((r) => ({ ...r, images: parseJson(r.images_json, []), images_json: undefined })) })
+  const { rows: page, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
+  return c.json({ posts: page.map((r) => ({ ...r, images: parseJson(r.images_json, []), images_json: undefined })), next_cursor })
 })
 
 adminRoutes.post('/posts/:id/visibility', async (c) => {
