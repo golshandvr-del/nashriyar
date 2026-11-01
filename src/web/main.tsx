@@ -33,6 +33,7 @@ const MySections = lazy(() => import('./public/MySections'))
 const Desk = lazy(() => import('./public/Desk'))
 const Festivals = lazy(() => import('./public/Festivals'))
 const Judging = lazy(() => import('./public/Judging'))
+const PrintArchive = lazy(() => import('./public/PrintArchive'))
 
 // Team panel: separate chunks, only downloaded by team members.
 const TeamLayout = lazy(() => import('./team/Layout'))
@@ -167,6 +168,7 @@ function App() {
           <Route path="faculty/:id" element={<Category kind="faculty" />} />
           <Route path="association/:id" element={<Category kind="association" />} />
           <Route path="search" element={<Search />} />
+          <Route path="archive" element={<PrintArchive />} />
           <Route path="p/:slug" element={<Publication />} />
           <Route path="issue/:id" element={<Issue />} />
           <Route path="library" element={<Library />} />
