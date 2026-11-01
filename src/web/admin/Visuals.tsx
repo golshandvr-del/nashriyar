@@ -70,17 +70,22 @@ function TeamMix({ d }: { d: any }) {
     series: [{ type: 'pie', radius: ['38%', '66%'], center: ['50%', '44%'], label: { fontFamily: 'inherit', formatter: (p: any) => `${toFaDigits(Math.round(p.percent))}٪` }, data: (t[dim] || []).map((r: any) => ({ name: mixName(dim, r.key), value: r.n })) }]
   })
   const bar = (dim: string, horizontal = false) => {
-    const rows = (t[dim] || []).slice(0, 14)
+    // «نامشخص» would dwarf the real bars, so it is left out here and reported in the heading instead
+    const rows = (t[dim] || []).filter((r: any) => r.key !== 'unknown').slice(0, 14)
     const names = rows.map((r: any) => mixName(dim, r.key))
-    const cat = { type: 'category', data: horizontal ? [...names].reverse() : names, axisLabel: { fontFamily: 'inherit', interval: 0, width: 110, overflow: 'truncate' } }
+    const cat = { type: 'category', data: horizontal ? [...names].reverse() : names, axisLabel: { fontFamily: 'inherit', interval: 0, width: 110, overflow: 'truncate', rotate: horizontal ? 0 : 45 } }
     const val = { type: 'value', minInterval: 1, axisLabel: { formatter: (v: number) => toFaDigits(v) } }
     return {
       tooltip: { trigger: 'axis', formatter: (p: any) => `${p[0].name}: ${toFaDigits(p[0].value)} نفر` },
-      grid: { left: horizontal ? 120 : 40, right: 16, top: 16, bottom: 30, containLabel: false },
+      grid: { left: horizontal ? 120 : 40, right: 16, top: 16, bottom: horizontal ? 30 : 48, containLabel: false },
       xAxis: horizontal ? val : cat,
       yAxis: horizontal ? cat : val,
       series: [{ type: 'bar', barMaxWidth: 26, itemStyle: { color: PALETTE[dim === 'faculty' ? 1 : 0], borderRadius: 4 }, data: horizontal ? rows.map((r: any) => r.n).reverse() : rows.map((r: any) => r.n) }]
     }
+  }
+  const unknownOf = (dim: string) => {
+    const n = (t[dim] || []).find((r: any) => r.key === 'unknown')?.n
+    return n ? <span className="mr-1 text-xs font-normal text-muted">({toFaDigits(n)} نفر نامشخص)</span> : null
   }
   return (
     <Card title="ترکیب اعضای تیم‌ها">
@@ -90,8 +95,8 @@ function TeamMix({ d }: { d: any }) {
       <div id="team-mix" className="grid gap-4 lg:grid-cols-2">
         <div><h3 className="mb-1 text-sm font-bold">جنسیت</h3><Chart option={pie('gender')} height={240} csvName="team-gender" /></div>
         <div><h3 className="mb-1 text-sm font-bold">مقطع تحصیلی</h3><Chart option={pie('degree')} height={240} csvName="team-degree" /></div>
-        <div><h3 className="mb-1 text-sm font-bold">دانشکده</h3><Chart option={bar('faculty', true)} height={280} csvName="team-faculty" /></div>
-        <div><h3 className="mb-1 text-sm font-bold">سال ورود</h3><Chart option={bar('entry_year')} height={280} csvName="team-entry-year" /></div>
+        <div><h3 className="mb-1 text-sm font-bold">دانشکده{unknownOf('faculty')}</h3><Chart option={bar('faculty', true)} height={280} csvName="team-faculty" /></div>
+        <div><h3 className="mb-1 text-sm font-bold">سال ورود{unknownOf('entry_year')}</h3><Chart option={bar('entry_year')} height={280} csvName="team-entry-year" /></div>
       </div>
     </Card>
   )
