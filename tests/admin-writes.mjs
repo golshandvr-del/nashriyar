@@ -263,7 +263,8 @@ await call(sa, 'POST', '/api/admin/settings', { site_name: s0.settings.site_name
 
   // access matrix: main accounts ⇒ panel, linked members ⇒ member desk (officer-configurable), others ⇒ public site
   const meNu = await call(nu, 'GET', '/api/auth/me')
-  ok(meNu.home === '/desk' && meNu.desk === true, 'approved member lands on the member desk')
+  // consent was just withdrawn (gender erased ⇒ profile incomplete), so the member is sent to complete the profile first
+  ok(meNu.home === '/settings?complete=1' && meNu.desk === true, 'approved member with an incomplete profile completes it before the desk')
   ok(tmMe.home === '/team', 'managing director keeps the publication panel')
   const desk = await call(nu, 'GET', '/api/desk')
   ok(desk.enabled && desk.memberships.some((m) => m.publication_id === pubId) && Array.isArray(desk.sections) && Array.isArray(desk.deadlines) && Array.isArray(desk.certificates), 'member desk shows memberships, sections, deadlines, certificates')
