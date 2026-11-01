@@ -12,7 +12,7 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-test-'))
 // SQL_LOG: the server records every distinct statement; tests/query-plan.mjs (last suite) EXPLAINs them (phase 17)
 const SQL_LOG = path.join(DATA_DIR, 'sql.log')
 const env = { ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR, BASE, SQL_LOG }
-const SUITES = ['tests/contrast.mjs', 'tests/smoke.mjs', 'tests/admin-writes.mjs', 'tests/security.mjs', 'tests/quality-e2e.mjs', 'tests/export-e2e.mjs', 'tests/print-e2e.mjs', 'tests/browser-e2e.mjs', 'tests/query-plan.mjs']
+const SUITES = ['tests/contrast.mjs', 'tests/smoke.mjs', 'tests/admin-writes.mjs', 'tests/security.mjs', 'tests/quality-e2e.mjs', 'tests/export-e2e.mjs', 'tests/print-e2e.mjs', 'tests/browser-e2e.mjs', 'tests/future-e2e.mjs', 'tests/query-plan.mjs']
 
 if (!fs.existsSync('server-dist/node.mjs') || !fs.existsSync('dist/index.html')) {
   console.error('Build first: npm run build')
