@@ -201,6 +201,29 @@ export function jalaliPresets(now = new Date()) {
 }
 
 /**
+ * Academic year dimension (ROADMAP phase 17). An academic year `jy` runs 1 Mehr jy → 31 Shahrivar jy+1 and is named
+ * «سال تحصیلی jy–jy+1». `academicYearOf` maps an ISO date to its year; `academicYearRange` gives the ISO bounds.
+ */
+export function academicYearOf(iso: string): number {
+  const d = new Date(iso.length === 10 ? iso + 'T12:00:00Z' : iso)
+  const j = toJalali(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate())
+  return j.jm >= 7 ? j.jy : j.jy - 1
+}
+
+export function academicYearRange(jy: number): { year: number; from: string; to: string; label: string } {
+  return { year: jy, from: jalaliToIso(jy, 7, 1), to: jalaliToIso(jy + 1, 6, 31), label: `سال تحصیلی ${toFaDigits(jy)}–${toFaDigits(jy + 1)}` }
+}
+
+/** Academic years from the one containing `sinceIso` up to the current one, newest first. */
+export function academicYears(sinceIso: string, now = new Date()): { year: number; from: string; to: string; label: string; current: boolean }[] {
+  const cur = academicYearOf(now.toISOString())
+  const first = Math.min(cur, academicYearOf(sinceIso))
+  const out = []
+  for (let y = cur; y >= first && out.length < 60; y--) out.push({ ...academicYearRange(y), current: y === cur })
+  return out
+}
+
+/**
  * Current academic term bounds (ISO dates). Fall: 1 Mehr → end of Dey; spring: 1 Bahman → end of Tir;
  * summer: 1 Mordad → end of Shahrivar. Used by the analytics forecast ("by the end of the term").
  */
