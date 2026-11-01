@@ -6,6 +6,7 @@ import { signedMediaUrl } from '../lib/media-sign'
 import { body, getSetting, inList, notFound, nowIso, parseJson, today } from '../lib/util'
 import { normalizeFa } from '../../shared/fa'
 import { getFeatures, requireFeature } from '../lib/features'
+import { ARTICLE_VISIBLE } from '../lib/articles'
 
 export const publicRoutes = new Hono<AppEnv>()
 
@@ -40,6 +41,12 @@ publicRoutes.get('/sitemap.xml', async (c) => {
     `SELECT i.id, i.published_at, i.updated_at FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED} ORDER BY i.published_at DESC LIMIT 5000`
   )
   for (const i of issues) urls.push({ loc: `/issue/${i.id}`, lastmod: day(i.updated_at || i.published_at), priority: '0.7' })
+  // ROADMAP phase 19: permanent article landing pages (citation_* meta) — bounded to keep the sitemap under 50k URLs
+  const arts = await db.all<{ pid: string; updated_at: string | null; created_at: string }>(
+    `SELECT a.pid, a.updated_at, a.created_at FROM article_index a JOIN issues i ON i.id = a.issue_id JOIN publications p ON p.id = i.publication_id
+     WHERE ${ARTICLE_VISIBLE} ORDER BY a.created_at DESC LIMIT 20000`
+  )
+  for (const a of arts) urls.push({ loc: `/a/${a.pid}`, lastmod: day(a.updated_at || a.created_at), priority: '0.6' })
   const cats = await db.all<{ slug: string }>('SELECT slug FROM categories WHERE is_active = 1')
   for (const k of cats) urls.push({ loc: `/c/${encodeURIComponent(k.slug)}`, priority: '0.5' })
   const xml =
