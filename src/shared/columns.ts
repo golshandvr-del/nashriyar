@@ -2,7 +2,7 @@
 // both show and write exactly the same columns, labels and filters.
 import type { TableColumn } from './table'
 import { SYSTEM_ROLE_LABEL } from './roles'
-import { ASSOC_KIND, CHANNEL, CODE_STATE, FREQUENCY, ISSUE_STATUS_LABEL, PUB_STATUS } from './labels'
+import { ASSOC_KIND, AUDIT_ACTION_FA, AUDIT_GROUPS, CHANNEL, CODE_STATE, FREQUENCY, ISSUE_STATUS_LABEL, PUB_STATUS } from './labels'
 
 export const DEGREE_LABEL: Record<string, string> = { associate: 'کاردانی', bachelor: 'کارشناسی', master: 'کارشناسی ارشد', phd: 'دکتری' }
 export const GENDER_LABEL: Record<string, string> = { male: 'مرد', female: 'زن' }
@@ -110,4 +110,16 @@ export const SALE_COLUMNS: TableColumn[] = [
   { key: 'unit_price', label: 'قیمت واحد', type: 'money', filter: 'number' },
   { key: 'amount', label: 'مبلغ', type: 'money', filter: 'number', total: 'sum' },
   { key: 'channel', label: 'محل فروش', filter: 'select', groupable: true }
+]
+
+/** /admin/audit — immutable admin events; `action_group` is the dotted action's prefix (computed by the server) */
+export const AUDIT_COLUMNS: TableColumn[] = [
+  { key: 'created_at', label: 'زمان', type: 'datetime', filter: 'date' },
+  { key: 'actor_name', label: 'کاربر', filter: 'select', groupable: true },
+  { key: 'action_group', label: 'گروه', labels: AUDIT_GROUPS, filter: 'select', groupable: true, total: 'count' },
+  { key: 'action', label: 'اقدام', labels: AUDIT_ACTION_FA, filter: 'select', groupable: true },
+  { key: 'entity_type', label: 'نوع موجودیت', filter: 'select', groupable: true },
+  { key: 'entity_id', label: 'شناسه', hidden: true },
+  { key: 'before_json', label: 'قبل', hidden: true },
+  { key: 'after_json', label: 'بعد', hidden: true }
 ]
