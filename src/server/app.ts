@@ -4,6 +4,7 @@ import { csrfGuard, loadSession } from './auth'
 import { ensureMigrated } from './migrate'
 import { HttpError, getSetting } from './lib/util'
 import { getMonitorStats, recordError, recordRequest } from './lib/monitor'
+import { bumpCache, writeDomains } from './lib/rollup'
 import { authRoutes } from './routes/auth'
 import { publicRoutes } from './routes/public'
 import { meRoutes } from './routes/me'
@@ -129,6 +130,11 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     const ms = Date.now() - t0
     const status = c.res.status || 200
     const path = new URL(c.req.url).pathname
+    // ROADMAP phase 17: targeted analytics-cache invalidation — a successful write bumps only the data domains it touches
+    if (status < 400 && c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+      const domains = writeDomains(c.req.method, path)
+      if (domains.length) await bumpCache(deps.db, domains).catch(() => {})
+    }
     recordRequest(c.req.method, path, status, ms)
     // structured access log: slow requests and client/server errors always; every request when LOG_REQUESTS=1
     if (status >= 400 || ms >= SLOW_MS || LOG_ALL) logLine(status >= 500 ? 'error' : status >= 400 || ms >= SLOW_MS ? 'warn' : 'info', { request_id: c.get('requestId'), method: c.req.method, path: scrubLogPath(path), status, ms, user: c.get('user')?.id || null })
