@@ -220,7 +220,7 @@ export class SheetWriter {
     const q = `'${xmlEsc(sn)}'`
     const last = Math.max(this.r, this.headerRow + 1)
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView rightToLeft="1"/></bookViews><sheets><sheet name="${xmlEsc(sn)}" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">${q}!$A$${this.headerRow}:$${this.lastCol}$${last}</definedName><definedName name="_xlnm.Print_Titles" localSheetId="0">${q}!$${this.headerRow}:$${this.headerRow}</definedName></definedNames></workbook>`
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets><sheet name="${xmlEsc(sn)}" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">${q}!$A$${this.headerRow}:$${this.lastCol}$${last}</definedName><definedName name="_xlnm.Print_Titles" localSheetId="0">${q}!$${this.headerRow}:$${this.headerRow}</definedName></definedNames></workbook>`
   }
 }
 
