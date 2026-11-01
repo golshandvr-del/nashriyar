@@ -14,6 +14,7 @@ import m0011 from '../../migrations/0011_query_plan_indexes.sql'
 import m0012 from '../../migrations/0012_query_plan_indexes_2.sql'
 import m0013 from '../../migrations/0013_sessions_purge_indexes.sql'
 import m0014 from '../../migrations/0014_academic_year_archive.sql'
+import m0015 from '../../migrations/0015_open_api_keys.sql'
 
 export const MIGRATIONS: { name: string; sql: string }[] = [
   { name: '0001_init', sql: m0001 },
@@ -29,7 +30,8 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
   { name: '0011_query_plan_indexes', sql: m0011 },
   { name: '0012_query_plan_indexes_2', sql: m0012 },
   { name: '0013_sessions_purge_indexes', sql: m0013 },
-  { name: '0014_academic_year_archive', sql: m0014 }
+  { name: '0014_academic_year_archive', sql: m0014 },
+  { name: '0015_open_api_keys', sql: m0015 }
 ]
 
 /** Split a SQL script into single statements (strips `--` comments). */
