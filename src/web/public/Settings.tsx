@@ -5,10 +5,10 @@ import { api } from '../lib/api'
 import { useAuth, ROLE_LABEL, PUB_ROLE_LABEL, isMonitor } from '../lib/auth'
 import { applyTheme, getTheme, getLargeText, setLargeText, getMotifs, setMotifs } from '../lib/theme'
 import type { Theme } from '../lib/theme'
-import { cx, faDate, relativeFa, formatNumber } from '../lib/format'
+import { cx, faDate, relativeFa } from '../lib/format'
 import ProfileForm from './ProfileForm'
 import MembershipCard from './MembershipCard'
-import { Async, Badge, Button, Card, Field, Input, PasswordInput, Select, useAction, useAsync, useToast } from '../components/ui'
+import { Async, Badge, Button, Card, Field, Input, PasswordInput, useAction, useAsync, useToast } from '../components/ui'
 
 const COMMENT_STATUS: Record<string, { label: string; tone: 'muted' | 'ok' | 'warn' | 'danger' }> = {
   pending: { label: 'در انتظار بررسی', tone: 'warn' },
