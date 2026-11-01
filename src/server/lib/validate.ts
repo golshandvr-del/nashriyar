@@ -76,7 +76,7 @@ export const v = {
       if (o.min != null) n = n.min(o.min, { error: faMsg.min(label, o.min) })
       if (o.max != null) n = n.max(o.max, { error: faMsg.max(label, o.max) })
       const inner = o.optional ? n.nullable() : n
-      return z.preprocess((x) => (x === '' || x == null ? null : typeof x === 'number' ? x : Number(trimmed(x))), inner)
+      return z.preprocess((x) => (x === '' || x == null ? null : typeof x === 'string' ? Number(x.trim()) : Number(x)), inner)
     })
   },
   /** One of a fixed set of values; empty input falls back to `def` when given. */
