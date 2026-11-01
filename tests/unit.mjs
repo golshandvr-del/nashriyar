@@ -147,4 +147,20 @@ t('buildXlsx: valid zip container, RTL sheet, escaped text, control chars droppe
   // the zip headers are binary (they legitimately contain 0x01 bytes); the cell text proves the control char was dropped
   assert.ok(text.includes('badchar'))
 })
+// ROADMAP phase 17 (docs/API_VERSIONING.md): zero-downtime migrations are additive and every file is registered
+t('migrations are additive, numbered and all registered', () => {
+  const files = fs.readdirSync('migrations').filter((f) => f.endsWith('.sql')).sort()
+  const reg = fs.readFileSync('src/server/migrate.ts', 'utf8')
+  files.forEach((f, i) => {
+    assert.match(f, /^\d{4}_[a-z0-9_]+\.sql$/, `name ${f}`)
+    assert.equal(Number(f.slice(0, 4)), i + 1, `contiguous numbering at ${f}`)
+    assert.ok(reg.includes(`name: '${f.replace(/\.sql$/, '')}'`), `${f} registered in MIGRATIONS`)
+    const sql = fs.readFileSync(path.join('migrations', f), 'utf8').split('\n').map((l) => l.replace(/--.*$/, '')).join('\n')
+    for (const bad of [/\bDROP\s+(TABLE|COLUMN)\b/i, /\bRENAME\b/i, /\bALTER\s+TABLE\s+\w+\s+(DROP|ALTER)\b/i]) assert.ok(!bad.test(sql), `${f}: destructive statement ${bad}`)
+    // a NOT NULL column added later must carry a DEFAULT, or existing rows would break the migration
+    for (const m of sql.matchAll(/ALTER\s+TABLE\s+\w+\s+ADD\s+COLUMN\s+([^;]+)/gi)) {
+      if (/NOT\s+NULL/i.test(m[1])) assert.match(m[1], /DEFAULT/i, `${f}: NOT NULL without DEFAULT: ${m[1].trim()}`)
+    }
+  })
+})
 console.log(`unit: ${n} passed`)
