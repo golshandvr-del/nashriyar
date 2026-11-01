@@ -299,5 +299,46 @@ const dev = await developer()
   ok(spa.status === 200 && /text\/html/.test(spa.ct), 'archive: /archive SPA route')
 }
 
+// ───────── 4. reflowable text mode + EPUB (/api/reader/:id/text, /api/reader/:id/epub) ─────────
+{
+  const home = (await anon('/api/public/home')).json
+  const cards = [...(home?.latest || []), ...(home?.free || [])]
+  const details = []
+  for (const cd of cards.slice(0, 24)) {
+    const d = (await anon(`/api/public/issues/${cd.id}`)).json?.issue
+    if (d && d.page_count > 0) details.push(d)
+  }
+  const free = details.find((d) => d.pricing === 'free')
+  const paid = details.find((d) => d.pricing === 'paid' && (d.free_preview_pages || 0) > 0 && d.free_preview_pages < d.page_count)
+  ok(!!free, 'text: found a free issue with pages')
+  const ft = await anon(`/api/reader/${free?.id}/text`)
+  ok(ft.status === 200 && ft.json.full === true && ft.json.pages.length === free?.page_count && ft.json.has_text && ft.json.epub === true, `text: free issue -> all pages with text (${ft.json?.pages?.length})`)
+  ok(/no-store/.test(ft.headers.get('cache-control') || ''), 'text: not cached')
+  if (paid) {
+    const pt = await anon(`/api/reader/${paid.id}/text`)
+    ok(pt.status === 200 && pt.json.full === false && pt.json.pages.length === paid.free_preview_pages && pt.json.pages.every((p) => p.n <= paid.free_preview_pages) && pt.json.epub === false, `text: paid issue -> only the ${paid.free_preview_pages} preview pages`)
+    ok((await anon(`/api/reader/${paid.id}/epub`)).status === 403, 'epub: paid issue refused')
+    ok((await student(`/api/reader/${paid.id}/epub`)).status === 403, 'epub: paid issue refused even when logged in')
+  } else ok(false, 'text: found a paid issue with a free preview')
+  // EPUB container
+  const ep = await anon(`/api/reader/${free?.id}/epub`)
+  const b = ep.buf
+  const s = new TextDecoder().decode(b)
+  ok(ep.status === 200 && ep.ct === 'application/epub+zip' && /attachment/.test(ep.headers.get('content-disposition') || ''), `epub: download -> ${ep.status} ${ep.ct}`)
+  ok(b[0] === 0x50 && b[1] === 0x4b && b[8] === 0 && b[9] === 0 && new TextDecoder().decode(b.slice(30, 38)) === 'mimetype' && new TextDecoder().decode(b.slice(38, 58)) === 'application/epub+zip', 'epub: mimetype is the first, stored entry')
+  ok(s.includes('META-INF/container.xml') && s.includes('OEBPS/content.opf') && s.includes('page-progression-direction="rtl"') && s.includes('epub:type="toc"') && s.includes('dcterms:modified'), 'epub: OPF (rtl spine, modified) + nav')
+  ok((s.match(/OEBPS\/p\d{4}\.xhtml/g) || []).length >= (free?.page_count || 1), 'epub: one XHTML document per page')
+  // structural validation with unzip when available
+  const fs = await import('node:fs')
+  const tmp = `/tmp/fe2e-${Date.now()}.epub`
+  fs.writeFileSync(tmp, b)
+  const uz = spawnSync('unzip', ['-tq', tmp], { encoding: 'utf8' })
+  if (!uz.error) ok(uz.status === 0, `epub: unzip -t passes ${(uz.stdout || uz.stderr || '').slice(0, 120)}`)
+  const opf = spawnSync('unzip', ['-p', tmp, 'OEBPS/content.opf'], { encoding: 'utf8' })
+  if (!opf.error) ok(/<dc:identifier id="uid">urn:nashriyar:/.test(opf.stdout) && /<dc:language>fa<\/dc:language>/.test(opf.stdout), 'epub: OPF identifier and language')
+  fs.rmSync(tmp, { force: true })
+  ok((await anon('/api/reader/nope/text')).status === 404, 'text: unknown issue -> 404')
+}
+
 console.log(failures ? `future-e2e: ${failures} failed, ${passed} passed` : `future-e2e: ${passed} checks passed`)
 process.exit(failures ? 1 : 0)
