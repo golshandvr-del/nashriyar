@@ -191,6 +191,25 @@ await expect(an, '/api/analytics/ranking', 200, 'analyst')
   ok(big.status === 200 && big.data.items.length <= 300, 'limit is clamped to the endpoint maximum')
 }
 
+// ───── ROADMAP phase 17: API versioning — /api/v1/* is the same contract as /api/* ─────
+{
+  for (const p of ['/api/health', '/api/public/home', '/api/maintenance']) {
+    const a = await fetch(BASE + p)
+    const b = await fetch(BASE + p.replace('/api/', '/api/v1/'))
+    ok(a.status === 200 && b.status === 200, `v1 alias ${p} -> ${a.status}/${b.status}`)
+    ok(b.headers.get('x-api-version') === '1' && a.headers.get('x-api-version') === '1', `X-API-Version: 1 on ${p}`)
+  }
+  const pa = await (await fetch(BASE + '/api/public/home')).json()
+  const pb = await (await fetch(BASE + '/api/v1/public/home')).json()
+  ok(JSON.stringify(Object.keys(pa).sort()) === JSON.stringify(Object.keys(pb).sort()), 'v1 alias returns the same response shape')
+  const u1 = await fetch(BASE + '/api/v1/admin/users')
+  ok(u1.status === 401, `v1 alias keeps auth (${u1.status})`)
+  const v1auth = await of('/api/v1/admin/users?limit=2')
+  ok(v1auth.status === 200 && Array.isArray(v1auth.data.users), 'v1 alias works for a signed-in officer')
+  const n1 = await fetch(BASE + '/api/v1/__nope__')
+  ok(n1.status === 404, `unknown v1 path -> 404 (${n1.status})`)
+}
+
 // ───── ROADMAP phase 17: request id on every response and in every error body ─────
 {
   const h = await fetch(BASE + '/api/health')
