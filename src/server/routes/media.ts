@@ -265,7 +265,7 @@ async function isStaff(c: Context<AppEnv>, publicationId: string): Promise<boole
  * Page images: never here (reader only).
  */
 mediaRoutes.get('/k/*', async (c) => {
-  const key = decodeURIComponent(c.req.path.replace(/^.*?\/api\/media\/k\//, ''))
+  const key = decodeURIComponent(c.req.path.replace(/^.*?\/api(?:\/v\d+)?\/media\/k\//, ''))
   if (!key || key.includes('..') || key.includes('/pages/')) throw notFound('فایل یافت نشد')
   const db = c.get('db')
   const m = await db.first<any>(
