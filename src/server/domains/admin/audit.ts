@@ -2,7 +2,7 @@
 // Mounted by routes/admin.ts (ROADMAP phase 17 split; parent middleware applies).
 import { Hono } from 'hono'
 import type { AppEnv } from '../../context'
-import { audit, cursorPage } from '../../lib/util'
+import { cursorPage } from '../../lib/util'
 import { admin } from './service'
 
 export const auditRoutes = new Hono<AppEnv>()
