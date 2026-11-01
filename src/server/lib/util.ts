@@ -136,7 +136,7 @@ export function dateRange(c: Context, defDays = 365) {
  *   return c.json({ items: ..., ...pg.finish(rows, (r) => [r.created_at, r.id]) })   // → { items, next_cursor }
  * Without ?cursor the first page is returned, so existing clients keep working. ?limit is clamped to [1, max].
  */
-export function cursorPage(c: Context, opts: { col: string; idCol: string; dir?: 'ASC' | 'DESC'; def?: number; max?: number }) {
+export function cursorPage(c: Context, opts: { col: string; idCol: string; dir?: 'ASC' | 'DESC'; def?: number; max?: number; nullable?: boolean }) {
   const dir = opts.dir || 'DESC'
   const max = opts.max ?? 200
   const n = Number(c.req.query('limit'))
@@ -153,8 +153,9 @@ export function cursorPage(c: Context, opts: { col: string; idCol: string; dir?:
     if (!after) throw bad('نشانگر صفحه (cursor) نامعتبر است', 'bad_cursor')
   }
   const op = dir === 'DESC' ? '<' : '>'
-  // NULL sort keys are compared through COALESCE so rows without a value still paginate deterministically
-  const k = `COALESCE(${opts.col}, '')`
+  // NOT NULL sort columns are used bare so an index can serve ORDER BY; nullable ones go through COALESCE so rows
+  // without a value still paginate deterministically
+  const k = opts.nullable ? `COALESCE(${opts.col}, '')` : opts.col
   const cond = after ? `(${k} ${op} ? OR (${k} = ? AND ${opts.idCol} ${op} ?))` : ''
   const params = after ? [after[0] ?? '', after[0] ?? '', after[1]] : []
   return {
