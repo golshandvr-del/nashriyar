@@ -66,7 +66,7 @@ export default function Register() {
 
   return (
     <div className={cx('mx-auto mt-6', path === 'team' ? 'max-w-lg' : 'max-w-sm')}>
-      <Card>
+      <Card className="tile-corners">
         <h1 className="mb-4 flex items-center gap-2 text-xl font-extrabold">
           <UserPlus className="size-6 text-brand" /> ثبت‌نام
         </h1>
