@@ -22,7 +22,7 @@ export default function Home() {
       {(d) => (
         <div>
           {!user && (
-            <section id="hero-section" className="motif-girih card mb-6 overflow-hidden bg-gradient-to-l from-brand to-teal-500 p-6 text-white" style={{ ['--motif-color' as any]: '#ffffff', ['--motif-opacity' as any]: 0.14 }}>
+            <section id="hero-section" className="motif-girih frame-arch card mb-6 overflow-hidden bg-gradient-to-l from-brand to-teal-500 p-6 text-white" style={{ ['--motif-color' as any]: '#ffffff', ['--motif-opacity' as any]: 0.14, ['--frame-color' as any]: '#ffffff', ['--frame-opacity' as any]: 0.5 }}>
               <h1 className="text-2xl font-extrabold">پیشخوان نشریات دانشجویی</h1>
               <p className="mt-2 max-w-xl text-sm opacity-90">همهٔ نشریه‌های دانشگاه در یک جا؛ شماره‌های رایگان را بدون ورود بخوانید و برای شماره‌های پولی کد خرید وارد کنید.</p>
               <div className="mt-4 flex gap-2">
