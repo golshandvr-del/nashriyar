@@ -564,7 +564,7 @@
 - [ ] نسخه‌های EPUB/متنی بازچینی‌پذیر برای خوانایی بهتر در موبایل
 - [ ] نسخهٔ صوتی خودکار (TTS) مطالب به‌عنوان افزونهٔ AI
 - [ ] **چنددانشگاهی** شدن سامانه (هر دانشگاه فضای جدا با دامنهٔ اختصاصی)
-- [ ] دیجیتال‌سازی و آرشیو شماره‌های چاپی قدیمی
+- [x] دیجیتال‌سازی و آرشیو شماره‌های چاپی قدیمی — ✅ migration 0017 (issues.archival / original_date / original_label)؛ domains/admin/print-archive.ts (ثبت با تاریخ چاپ اصلی + فهرست، انتشار با همان تاریخ + PID، بدون اعلان و بیرون از قفسه‌های خانه)؛ اسکن از مسیر عادی صفحه‌ها با لایهٔ متنی (pdftotext/pdf.js) در جست‌وجوی تمام‌متن؛ /admin/print-archive و صفحهٔ عمومی /archive (فیلتر نشریه/سال/متن)؛ docs/OPERATIONS.md §۱۳؛ future-e2e بخش ۳
 - [x] API عمومی فقط‌خواندنی برای سامانه‌های دیگر دانشگاه — ✅ src/server/routes/open.ts زیر /api/open و /api/v1/open: کلید X-API-Key (فقط هش SHA-256 در api_keys، migration 0015)، سقف نرخ هر کلید (429 + Retry-After)، CORS، keyset، openapi.json؛ مدیریت کلید در /system/api-keys (sudo + گزارش فنی)؛ docs/OPEN_API.md؛ tests/future-e2e.mjs بخش ۱ (۳۵ بررسی)
 - [x] نمایه‌سازی مقالات علمی نشریات با شناسه‌های پایدار — ✅ migration 0016 (article_index)؛ lib/articles.ts (PID تغییرناپذیر NSH-سال-کد، ساخت هنگام تأیید انتشار + نگهداری + seed)؛ صفحهٔ سمت سرور /a/:pid با متای citation_*؛ /api/articles/:pid (+ cite.bib / cite.ris)؛ OAI-PMH 2.0 در /api/articles/oai؛ تب «نمایهٔ مقالات» در اتاق شماره (چکیده، کلیدواژه، زبان، DOI)؛ sitemap + robots؛ docs/OPEN_API.md؛ future-e2e بخش ۲
 
