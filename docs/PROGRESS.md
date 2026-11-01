@@ -165,3 +165,4 @@
 10. **چنددانشگاهی:** پایگاه‌دادهٔ جدا برای هر دانشگاه، انتخاب با Host (`TENANTS`)، CLI با `--tenant`.
 آزمون همه: `tests/future-e2e.mjs` در npm test.
 - **فاز ۱۹ / گام ۱ ✅ (API عمومی):** open.ts + migration 0015 + /system/api-keys (ApiKeys.tsx) + docs/OPEN_API.md + tests/future-e2e.mjs (۳۵ بررسی، در npm test پیش از query-plan). اجرای دستی: `DATA_DIR=/tmp/nd node server-dist/node.mjs --seed` سپس pm2 با `DATA_DIR=/tmp/nd` روی 3000 و `DATA_DIR=/tmp/nd BASE=http://localhost:3000 node tests/future-e2e.mjs` (DATA_DIR لازم است چون آزمون با CLI توسعه‌دهنده می‌سازد). گام بعد: ۲ (نمایه‌سازی مقالات).
+- **فاز ۱۹ / گام ۲ ✅ (نمایهٔ مقالات):** migration 0016 + lib/articles.ts + routes/articles.ts (+ `/a/:pid` در app.ts و cloudflare.ts) + تب ArticlesTab در IssueRoom + sitemap/robots + docs/OPEN_API.md (بخش دوم) + future-e2e بخش ۲ (کل فایل ۶۹ بررسی سبز). گام بعد: ۳ (آرشیو شماره‌های چاپی قدیمی).
