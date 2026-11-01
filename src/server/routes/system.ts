@@ -10,7 +10,7 @@ import { Hono } from 'hono'
 import type { Context, MiddlewareHandler } from 'hono'
 import type { AppEnv, SessionUser, SystemRole } from '../context'
 import { checkRateLimit, clearFailures, clientIp, recordFailure } from '../auth'
-import { hashPassword, newId, tempPassword, verifyPassword } from '../lib/crypto'
+import { hashPassword, newId, randomId, sha256, tempPassword, verifyPassword } from '../lib/crypto'
 import { verifyTotp } from '../lib/totp'
 import { HttpError, bad, body, cursorPage, getSetting, notFound, nowIso, oneOf, setSetting, str } from '../lib/util'
 import { toEnDigits } from '../../shared/fa'
@@ -418,4 +418,47 @@ systemRoutes.get('/audit', async (c) => {
   )
   const { rows: items, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
   return c.json({ items, next_cursor })
+})
+
+// ───────── read-only public API keys (ROADMAP phase 19, /api/open/*) ─────────
+// The plain key (nsk_…) is shown exactly once at creation; only its SHA-256 is stored. Revocation is immediate.
+systemRoutes.get('/api-keys', async (c) => {
+  const rows = await c
+    .get('db')
+    .all(
+      `SELECT k.id, k.name, k.prefix, k.scopes, k.rate_per_min, k.created_at, k.last_used_at, k.use_count, k.revoked_at, u.username AS created_by
+       FROM api_keys k LEFT JOIN users u ON u.id = k.created_by ORDER BY k.revoked_at IS NOT NULL, k.created_at DESC`
+    )
+  return c.json({ keys: rows })
+})
+
+systemRoutes.post('/api-keys', async (c) => {
+  await requireSudo(c)
+  const b = await body<{ name?: string; rate_per_min?: number }>(c)
+  const name = str(b.name, 'نام سامانهٔ مصرف‌کننده', { min: 2, max: 80 })
+  const rate = Math.max(1, Math.min(6000, Math.floor(Number(b.rate_per_min) || 120)))
+  const plain = 'nsk_' + randomId(32)
+  const id = newId()
+  await c.get('db').run('INSERT INTO api_keys (id, name, prefix, key_hash, scopes, rate_per_min, created_by, created_at) VALUES (?,?,?,?,?,?,?,?)', [
+    id,
+    name,
+    plain.slice(0, 8),
+    await sha256(plain),
+    'read',
+    rate,
+    dev(c).id,
+    nowIso()
+  ])
+  await sysAudit(c, 'system.api_key_create', { id, name, prefix: plain.slice(0, 8), rate_per_min: rate })
+  return c.json({ ok: true, id, key: plain })
+})
+
+systemRoutes.post('/api-keys/:id/revoke', async (c) => {
+  await requireSudo(c)
+  const db = c.get('db')
+  const k = await db.first<{ id: string; name: string; prefix: string; revoked_at: string | null }>('SELECT id, name, prefix, revoked_at FROM api_keys WHERE id = ?', [c.req.param('id')])
+  if (!k) throw notFound('کلید یافت نشد')
+  if (!k.revoked_at) await db.run('UPDATE api_keys SET revoked_at = ? WHERE id = ?', [nowIso(), k.id])
+  await sysAudit(c, 'system.api_key_revoke', { id: k.id, name: k.name, prefix: k.prefix })
+  return c.json({ ok: true })
 })
