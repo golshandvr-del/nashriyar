@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds, academicYearOf, academicYearRange, academicYears } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'\nexport { writeDomains } from './src/server/lib/rollup'\nexport { str, int, oneOf } from './src/server/lib/util'\nexport { v, parseInput, faMsg } from './src/server/lib/validate'\nexport { buildTableXlsx, streamTableXlsx, buildCsv, columnWidths, jalaliCell, csvField } from './src/shared/sheet'\nexport { ZipStream, crc32 } from './src/shared/zip'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds, academicYearOf, academicYearRange, academicYears } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'\nexport { writeDomains } from './src/server/lib/rollup'\nexport { str, int, oneOf } from './src/server/lib/util'\nexport { v, parseInput, faMsg } from './src/server/lib/validate'\nexport { buildTableXlsx, streamTableXlsx, buildCsv, columnWidths, jalaliCell, csvField } from './src/shared/sheet'\nexport { ZipStream, crc32 } from './src/shared/zip'\nexport { parseTableState, tableStateToParams, applyTable, groupRows, exportColumns, exportRow, describeState, toSheetColumns } from './src/shared/table'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -285,5 +285,50 @@ t('sheet: streamed xlsx equals the in-memory sheet; CSV has BOM and neutralises 
   assert.equal(m.csvField('-abc'), `"'-abc"`)
   assert.equal(m.jalaliCell('2026-03-21'), '۱۴۰۵/۰۱/۰۱')
 }
+
+// ROADMAP phase 18: one table model for screen, URL and export
+const TCOLS = [
+  { key: 'name', label: 'نام' },
+  { key: 'gender', label: 'جنسیت', labels: { male: 'مرد', female: 'زن' }, filter: 'select', groupable: true },
+  { key: 'pubs', label: 'نشریات', list: true, filter: 'select' },
+  { key: 'year', label: 'سال ورود', type: 'number', filter: 'number' },
+  { key: 'joined', label: 'تاریخ عضویت', type: 'date', filter: 'date' },
+  { key: 'note', label: 'یادداشت', hidden: true }
+]
+const TROWS = [
+  { name: 'علی رضایی', gender: 'male', pubs: 'نشریه الف، نشریه ب', year: 1401, joined: '2025-10-01', note: 'x' },
+  { name: 'زهرا كريمي', gender: 'female', pubs: 'نشریه ب', year: 1400, joined: '2024-02-10' },
+  { name: 'مریم احمدی', gender: 'female', pubs: 'نشریه ج', year: 1402, joined: null },
+  { name: 'رضا ۱۲۳', gender: null, pubs: '', year: null, joined: '2026-01-05' }
+]
+t('table: URL state round-trips; filters, Persian search, sort and grouping match the screen', () => {
+  const st = m.parseTableState(new URLSearchParams('dt_q=كريمي&dt_sort=year.desc&dt_group=gender&dt_cols=name,year,bogus&dt_f_gender=female,male&dt_f_year=1400~&dt_f_joined=~2025-12-31&dt_f_bogus=1'), TCOLS)
+  assert.deepEqual(st.cols, ['name', 'year'], 'unknown columns dropped')
+  assert.deepEqual(st.filters, { gender: ['female', 'male'], year: { from: '1400' }, joined: { to: '2025-12-31' } })
+  assert.deepEqual(m.parseTableState(m.tableStateToParams(st), TCOLS), st, 'params ⇄ state')
+  // search is Persian-normalised (ك/ي ⇒ ک/ی) and digit-insensitive; it only looks at the visible columns
+  const all = { q: '', sort: null, group: null, cols: null, filters: {} }
+  assert.deepEqual(m.applyTable(TROWS, TCOLS, { ...all, q: 'کریمی' }).map((r) => r.name), ['زهرا كريمي'])
+  assert.deepEqual(m.applyTable(TROWS, TCOLS, { ...all, q: '123' }).map((r) => r.name), ['رضا ۱۲۳'])
+  assert.equal(m.applyTable(TROWS, TCOLS, { ...all, q: 'x' }).length, 0, 'hidden column not searched')
+  assert.deepEqual(m.applyTable(TROWS, TCOLS, { ...all, q: 'زن' }).map((r) => r.name), ['زهرا كريمي', 'مریم احمدی'], 'labels searched')
+  // list column: any contained value; number/date ranges inclusive, empty cells excluded
+  assert.deepEqual(m.applyTable(TROWS, TCOLS, { ...all, filters: { pubs: ['نشریه ب'] } }).map((r) => r.name), ['علی رضایی', 'زهرا كريمي'])
+  assert.deepEqual(m.applyTable(TROWS, TCOLS, { ...all, filters: { year: { from: '۱۴۰۱' } } }).map((r) => r.year), [1401, 1402])
+  assert.deepEqual(m.applyTable(TROWS, TCOLS, { ...all, filters: { joined: { from: '2025-01-01', to: '2026-01-05' } } }).map((r) => r.name), ['علی رضایی', 'رضا ۱۲۳'])
+  // sort: empties last in both directions; stable
+  assert.deepEqual(m.applyTable(TROWS, TCOLS, { ...all, sort: { key: 'year', dir: 'desc' } }).map((r) => r.year), [1402, 1401, 1400, null])
+  assert.deepEqual(m.applyTable(TROWS, TCOLS, { ...all, sort: { key: 'year', dir: 'asc' } }).map((r) => r.year), [1400, 1401, 1402, null])
+  // group by label (ascending, «—» last), sort inside each group
+  const gs = { ...all, group: 'gender', sort: { key: 'year', dir: 'asc' } }
+  const rows = m.applyTable(TROWS, TCOLS, gs)
+  assert.deepEqual(m.groupRows(rows, TCOLS, gs).map((g) => [g.label, g.rows.map((r) => r.year)]), [['زن', [1400, 1402]], ['مرد', [1401]], ['—', [null]]])
+  // export: group column first, labels applied, lists joined; description lists every active choice
+  const ec = m.exportColumns(TCOLS, { ...gs, cols: ['name', 'pubs'] })
+  assert.deepEqual(ec.map((c) => c.key), ['gender', 'name', 'pubs'])
+  assert.deepEqual(m.exportRow(ec, TROWS[0]), { gender: 'مرد', name: 'علی رضایی', pubs: 'نشریه الف، نشریه ب' })
+  assert.equal(m.toSheetColumns(ec)[0].type, 'text')
+  assert.equal(m.describeState(TCOLS, st), 'جنسیت: زن، مرد · سال ورود: 1400 تا … · تاریخ عضویت: … تا 2025-12-31 · جست‌وجو: «كريمي» · گروه‌بندی: جنسیت · مرتب‌سازی: سال ورود (نزولی)')
+})
 
 console.log(`unit: ${n} passed`)
