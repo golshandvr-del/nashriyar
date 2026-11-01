@@ -423,18 +423,21 @@ adminRoutes.get('/users', async (c) => {
   // gender is a consented sensitive field: filtering by it is officer-only and only matches people who consented
   if (f('gender')) (where.push('u.gender = ? AND u.profile_consent_at IS NOT NULL'), params.push(oneOf(f('gender'), ['male', 'female'] as const, 'جنسیت')))
   const db = c.get('db')
-  const rows = await db.all(
+  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 300)
+  const pg = cursorPage(c, { col: 'u.created_at', idCol: 'u.id', def: 300, max: 300 })
+  const rows = await db.all<any>(
     `SELECT u.id, u.username, u.display_name, u.student_number, u.system_role, u.status, u.scope_faculty_id, u.last_login_at, u.created_at, u.must_change_password, u.totp_enabled, f.name AS faculty_name,
        u.degree, u.entry_year,
        (SELECT GROUP_CONCAT(p.title, '، ') FROM publication_roles r JOIN publications p ON p.id = r.publication_id WHERE r.user_id = u.id AND r.ended_at IS NULL) AS publications,
        (SELECT GROUP_CONCAT(r.role) FROM publication_roles r WHERE r.user_id = u.id AND r.ended_at IS NULL) AS pub_roles,
        (SELECT GROUP_CONCAT(p.title || COALESCE(' · ' || tm.default_role, ''), '، ') FROM team_members tm JOIN publications p ON p.id = tm.publication_id WHERE tm.user_id = u.id AND tm.is_active = 1) AS memberships
-     FROM users u LEFT JOIN faculties f ON f.id = u.faculty_id WHERE ${where.join(' AND ')} ORDER BY u.created_at DESC LIMIT 300`,
-    params
+     FROM users u LEFT JOIN faculties f ON f.id = u.faculty_id WHERE ${where.join(' AND ')}${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
+    [...params, ...pg.params]
   )
+  const { rows: users, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
   // filter options: production roles in the officer-defined display order
   const production_roles = await db.all('SELECT id, name FROM production_roles ORDER BY sort_order, name')
-  return c.json({ users: rows, production_roles })
+  return c.json({ users, production_roles, next_cursor })
 })
 
 adminRoutes.post('/users', async (c) => {
