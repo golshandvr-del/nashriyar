@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Pencil, Plus, Search } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
 import { api } from '../lib/api'
 import { ISSUE_STATUS, TOC_STATUS, faDate, formatNumber, normalizeFa } from '../lib/format'
 import { Async, Avatar, Badge, Button, Empty, Field, Input, Modal, PageHeader, Select, useAction, useAsync } from '../components/ui'
 import { useTeam } from './Layout'
 import MembershipRequests from './MembershipRequests'
+import { DataTable } from '../components/DataTable'
+import { MEMBER_COLUMNS } from '../../shared/columns'
 
 interface Member {
   id: string
@@ -26,8 +28,6 @@ interface Member {
 export default function TeamMembers() {
   const { pubId } = useTeam()
   const st = useAsync(() => Promise.all([api.get(`/api/team/${pubId}/members`), api.get('/api/public/categories')]), [pubId])
-  const [q, setQ] = useState('')
-  const [showInactive, setShowInactive] = useState(false)
   const [edit, setEdit] = useState<Partial<Member> | null>(null)
   const [detail, setDetail] = useState<string | null>(null)
 
@@ -44,68 +44,33 @@ export default function TeamMembers() {
       />
       <Async state={st}>
         {([d, cats]: any) => {
-          const nq = normalizeFa(q.trim())
-          const rows: Member[] = d.members.filter(
-            (m: Member) => (showInactive || m.is_active) && (!nq || normalizeFa([m.full_name, m.student_number, m.default_role].join(' ')).includes(nq))
-          )
           return (
             <>
               <MembershipRequests pubId={pubId} roles={d.roles || []} onApproved={st.reload} />
-              <div className="mb-4 flex flex-wrap items-center gap-3">
-                <div className="relative min-w-56 flex-1">
-                  <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted" />
-                  <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="جست‌وجوی نام، شماره دانشجویی یا نقش" className="pr-9" />
-                </div>
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-                  نمایش غیرفعال‌ها
-                </label>
-              </div>
-              {!rows.length ? (
-                <Empty title="عضوی یافت نشد" hint="اعضای تیم را اضافه کنید تا بتوانید بخش‌های هر شماره را به آن‌ها بسپارید." />
-              ) : (
-                <div className="card overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-surface-2 text-xs text-muted">
-                      <tr>
-                        <th className="p-3 text-right">نام</th>
-                        <th className="p-3 text-right">نقش پیش‌فرض</th>
-                        <th className="hidden p-3 text-right md:table-cell">دانشکده</th>
-                        <th className="p-3 text-center">شماره‌ها</th>
-                        <th className="p-3 text-center">بخش‌ها</th>
-                        <th className="hidden p-3 text-right sm:table-cell">پیوستن</th>
-                        <th className="p-3" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((m) => (
-                        <tr key={m.id} className="border-t border-line hover:bg-surface-2/50">
-                          <td className="p-3">
-                            <button className="flex items-center gap-2 text-right" onClick={() => setDetail(m.id)}>
-                              <Avatar name={m.full_name} size={32} />
-                              <span>
-                                <span className="block font-bold">{m.full_name}</span>
-                                {m.student_number && <span className="text-[11px] text-muted">{m.student_number}</span>}
-                              </span>
-                              {!m.is_active && <Badge>غیرفعال</Badge>}
-                            </button>
-                          </td>
-                          <td className="p-3">{m.default_role || '—'}</td>
-                          <td className="hidden p-3 md:table-cell">{m.faculty_name || '—'}</td>
-                          <td className="p-3 text-center">{formatNumber(m.issue_count)}</td>
-                          <td className="p-3 text-center">{formatNumber(m.section_count)}</td>
-                          <td className="hidden p-3 text-xs text-muted sm:table-cell">{faDate(m.joined_at)}</td>
-                          <td className="p-3">
-                            <button className="rounded-lg p-1.5 hover:bg-surface-2" onClick={() => setEdit(m)} aria-label="ویرایش">
-                              <Pencil className="size-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <DataTable
+                id="team-members"
+                title="اعضای تیم"
+                columns={MEMBER_COLUMNS}
+                rows={d.members}
+                rowKey={(m) => String(m.id)}
+                exportUrl={`/api/team/${pubId}/members/export`}
+                empty={<Empty title="عضوی یافت نشد" hint="اعضای تیم را اضافه کنید تا بتوانید بخش‌های هر شماره را به آن‌ها بسپارید." />}
+                render={{
+                  full_name: (m: any) => (
+                    <button className="flex items-center gap-2 text-right" onClick={() => setDetail(m.id)}>
+                      <Avatar name={m.full_name} size={32} />
+                      <span className="block font-bold">{m.full_name}</span>
+                    </button>
+                  ),
+                  is_active: (m: any) => (m.is_active ? <Badge tone="ok">فعال</Badge> : <Badge>غیرفعال</Badge>),
+                  joined_at: (m: any) => <span className="text-xs text-muted">{faDate(m.joined_at)}</span>
+                }}
+                actions={(m: any) => (
+                  <button className="rounded-lg p-1.5 hover:bg-surface-2" onClick={() => setEdit(m)} aria-label="ویرایش">
+                    <Pencil className="size-4" />
+                  </button>
+                )}
+              />
               {edit && (
                 <MemberForm
                   pubId={pubId}
