@@ -147,6 +147,11 @@ export default function PublicLayout() {
       </main>
 
       {!hideChrome && (
+        <div className="motif-divider mx-auto hidden max-w-md px-4 pb-3 md:flex" role="separator" aria-hidden="true">
+          <span className="motif-shamseh" />
+        </div>
+      )}
+      {!hideChrome && (
         <footer className="mx-auto hidden max-w-6xl justify-center gap-4 px-4 pb-8 text-xs text-muted md:flex">
           <Link to="/guide" className="hover:text-brand">راهنما</Link>
           <Link to="/terms" className="hover:text-brand">قوانین استفاده</Link>
