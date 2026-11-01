@@ -6,23 +6,35 @@ import { newId } from '../../lib/crypto'
 import { activity, body, notFound, nowIso, str } from '../../lib/util'
 import { toEnDigits } from '../../../shared/fa'
 import { pub } from './service'
+import { streamExport } from '../../lib/export'
+import { MEMBER_COLUMNS } from '../../../shared/columns'
 
 export const membersRoutes = new Hono<AppEnv>()
 
 // ───────── Members ─────────
-membersRoutes.get('/:pubId/members', async (c) => {
-  const { pub: p } = await pub(c)
-  const db = c.get('db')
-  const members = await db.all(
+async function listMembers(db: AppEnv['Variables']['db'], pubId: string) {
+  return db.all<any>(
     `SELECT tm.*, f.name AS faculty_name, m.name AS major_name,
        (SELECT COUNT(DISTINCT im.issue_id) FROM issue_members im WHERE im.team_member_id = tm.id) AS issue_count,
        (SELECT COUNT(*) FROM toc_assignments ta WHERE ta.team_member_id = tm.id) AS section_count
      FROM team_members tm LEFT JOIN faculties f ON f.id = tm.faculty_id LEFT JOIN majors m ON m.id = tm.major_id
      WHERE tm.publication_id = ? ORDER BY tm.is_active DESC, tm.full_name`,
-    [p.id]
+    [pubId]
   )
+}
+
+membersRoutes.get('/:pubId/members', async (c) => {
+  const { pub: p } = await pub(c)
+  const db = c.get('db')
+  const members = await listMembers(db, p.id)
   const roles = await db.all('SELECT id, name FROM production_roles ORDER BY sort_order, name')
   return c.json({ members, roles })
+})
+
+/** Streaming XLSX/CSV of the team members with the on-screen table state (ROADMAP phase 18). */
+membersRoutes.get('/:pubId/members/export', async (c) => {
+  const { pub: p } = await pub(c)
+  return streamExport(c, { name: `members-${p.slug || 'pub'}`, title: `اعضای تیم ${p.title || ''}`.trim(), columns: MEMBER_COLUMNS, fetchPage: async () => ({ rows: await listMembers(c.get('db'), p.id), next_cursor: null }) })
 })
 
 function memberFields(b: any) {
