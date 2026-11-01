@@ -58,7 +58,9 @@ publicRoutes.get('/sitemap.xml', async (c) => {
 
 publicRoutes.get('/home', async (c) => {
   const db = c.get('db')
-  const latest = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED} ORDER BY i.published_at DESC LIMIT 18`)
+  // ROADMAP phase 19: digitised old printed issues live in /archive, never on the home shelves
+  const HOME_PUBLISHED = `${PUBLISHED} AND i.archival = 0`
+  const latest = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${HOME_PUBLISHED} ORDER BY i.published_at DESC LIMIT 18`)
   const shelvesRaw = await db.all<{ id: string; title: string; issue_ids_json: string; rule: string | null }>(
     'SELECT id, title, issue_ids_json, rule FROM featured_shelves WHERE is_active = 1 ORDER BY sort_order LIMIT 6'
   )
@@ -67,7 +69,7 @@ publicRoutes.get('/home', async (c) => {
     // rule-based shelf (migration 0003): filled automatically, newest first
     if (s.rule) {
       const [kind, arg] = s.rule.split(':')
-      const FROM = `SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED}`
+      const FROM = `SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${HOME_PUBLISHED}`
       let sql = ''
       let params: unknown[] = []
       if (kind === 'latest') sql = `${FROM} ORDER BY i.published_at DESC LIMIT 12`
@@ -85,7 +87,7 @@ publicRoutes.get('/home', async (c) => {
     }
     const ids = parseJson<string[]>(s.issue_ids_json, [])
     if (!ids.length) continue
-    const items = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED} AND i.id IN (${inList(ids)})`, ids)
+    const items = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${HOME_PUBLISHED} AND i.id IN (${inList(ids)})`, ids)
     if (items.length) shelves.push({ id: s.id, title: s.title, items })
   }
   const cats = await db.all<{ id: string; name: string; slug: string; icon: string; color: string }>(
@@ -95,13 +97,13 @@ publicRoutes.get('/home', async (c) => {
   for (const cat of cats) {
     const items = await db.all(
       `SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id
-       WHERE ${PUBLISHED} AND (i.id IN (SELECT issue_id FROM issue_categories WHERE category_id = ?) OR p.id IN (SELECT publication_id FROM publication_categories WHERE category_id = ?))
+       WHERE ${HOME_PUBLISHED} AND (i.id IN (SELECT issue_id FROM issue_categories WHERE category_id = ?) OR p.id IN (SELECT publication_id FROM publication_categories WHERE category_id = ?))
        ORDER BY i.published_at DESC LIMIT 12`,
       [cat.id, cat.id]
     )
     if (items.length) categoryShelves.push({ category: cat, items })
   }
-  const free = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${PUBLISHED} AND i.pricing = 'free' ORDER BY i.published_at DESC LIMIT 12`)
+  const free = await db.all(`SELECT ${ISSUE_CARD} FROM issues i JOIN publications p ON p.id = i.publication_id WHERE ${HOME_PUBLISHED} AND i.pricing = 'free' ORDER BY i.published_at DESC LIMIT 12`)
   const banners = await getSetting<any[]>(db, 'home_banners', [])
   return c.json({ latest, shelves, categoryShelves, free, categories: cats, banners })
 })
