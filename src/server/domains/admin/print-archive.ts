@@ -59,17 +59,18 @@ printArchiveRoutes.post('/print-archive', async (c) => {
   const label = str(b.original_label, 'برچسب تاریخ', { max: 60, optional: true }) || od.label
   const summary = str(b.summary, 'خلاصه', { max: 3000, optional: true }) || null
   const keywords = keywordsCsv(b.keywords)
+  // optional table of contents (title + free-text authors), so the archive is searchable by article and author
+  const toc = (Array.isArray(b.toc) ? b.toc : []).slice(0, 300)
+  const tocTitles = toc.map((t: any) => String(t?.title || '').trim().slice(0, 200)).filter(Boolean)
   const id = newId()
   const now = nowIso()
   const stmts: { sql: string; params: unknown[] }[] = [
     {
       sql: `INSERT INTO issues (id, publication_id, number, title, summary, keywords, status, pricing, free_preview_pages, archival, original_date, original_label, search_text, created_by, created_at, updated_at)
             VALUES (?,?,?,?,?,?, 'planning', 'free', 0, 1, ?,?,?,?,?,?)`,
-      params: [id, p.id, number, title, summary, keywords, od.iso, label, normalizeFa([title, summary, keywords, p.title, 'شماره ' + number, 'آرشیو چاپی', label].join(' ')), u.id, now, now]
+      params: [id, p.id, number, title, summary, keywords, od.iso, label, normalizeFa([title, summary, keywords, p.title, 'شماره ' + number, 'آرشیو چاپی', label, ...tocTitles].join(' ')), u.id, now, now]
     }
   ]
-  // optional table of contents (title + free-text authors), so the archive is searchable by article and author
-  const toc = (Array.isArray(b.toc) ? b.toc : []).slice(0, 300)
   toc.forEach((t: any, idx: number) => {
     const tTitle = String(t?.title || '').trim().slice(0, 200)
     if (!tTitle) return
