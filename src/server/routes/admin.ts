@@ -11,29 +11,9 @@ import {
 import { normalizeFa, toEnDigits } from '../../shared/fa'
 import { ensureReminders } from '../lib/reminders'
 import { DEFAULT_THRESHOLDS, DEFAULT_WEIGHTS, getThresholds, getWeights, sanitizeThresholds, sanitizeWeights } from '../insights'
+import { PUB_ROLES, PUB_ROLE_FA, admin, monitor, scope, scopedPub } from '../domains/admin/service'
 
 export const adminRoutes = new Hono<AppEnv>()
-
-const PUB_ROLES = ['managing_director', 'editor_in_chief', 'license_holder'] as const
-const PUB_ROLE_FA: Record<string, string> = { managing_director: 'مدیرمسئول', editor_in_chief: 'سردبیر', license_holder: 'صاحب امتیاز' }
-
-const admin = (c: Context<AppEnv>) => requireRole(c, ADMIN_ROLES)
-const monitor = (c: Context<AppEnv>) => requireRole(c, MONITOR_ROLES)
-
-/** Faculty supervisors only see their own faculty. Returns SQL fragment + params for publications alias `p`. */
-function scope(c: Context<AppEnv>): { sql: string; params: unknown[] } {
-  const u = c.get('user')!
-  if (u.system_role === 'faculty_supervisor') return { sql: ' AND p.faculty_id = ?', params: [u.scope_faculty_id] }
-  return { sql: '', params: [] }
-}
-
-async function scopedPub(c: Context<AppEnv>, id: string) {
-  monitor(c)
-  const s = scope(c)
-  const p = await c.get('db').first<any>(`SELECT p.* FROM publications p WHERE p.id = ? AND p.deleted_at IS NULL${s.sql}`, [id, ...s.params])
-  if (!p) throw notFound('نشریه یافت نشد')
-  return p
-}
 
 // ───────── «Today» action queue (ROADMAP phase 14) ─────────
 // One prioritised list of everything the officer must act on, each item carrying the one-click actions the UI offers.
