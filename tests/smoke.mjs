@@ -18,7 +18,7 @@ function client() {
     if (sc && sc.includes('nsh_sid=')) cookie = sc.split(';')[0]
     const ct = res.headers.get('content-type') || ''
     const data = ct.includes('json') ? await res.json().catch(() => null) : await res.arrayBuffer()
-    return { status: res.status, data, ct }
+    return { status: res.status, data, ct, headers: res.headers }
   }
 }
 
