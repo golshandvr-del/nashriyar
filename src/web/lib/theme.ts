@@ -56,3 +56,19 @@ export function setLargeText(on: boolean) {
   } catch {}
   document.documentElement.classList.toggle('text-lg-mode', on)
 }
+
+// ROADMAP phase 16: decorative Isfahan motifs (girih / eslimi / shamseh) can be switched off (html.no-motifs)
+const MOTIFS = 'nsh_motifs'
+export function getMotifs(): boolean {
+  try {
+    return localStorage.getItem(MOTIFS) !== '0'
+  } catch {
+    return true
+  }
+}
+export function setMotifs(on: boolean) {
+  try {
+    localStorage.setItem(MOTIFS, on ? '1' : '0')
+  } catch {}
+  document.documentElement.classList.toggle('no-motifs', !on)
+}
