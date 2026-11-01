@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
 import type { AppEnv } from '../context'
-import { requirePubAccess, requireUser, userPubRoles } from '../auth'
+import { requireUser, userPubRoles } from '../auth'
 import { generatePurchaseCode, newId, normalizePurchaseCode, sha256 } from '../lib/crypto'
 import {
   activity, addHours, audit, bad, body, cursorPage, dateRange, getSetting, HttpError, inList, int, keywordsCsv, notFound, notify, nowIso, oneOf, parseJson, str
@@ -12,53 +12,19 @@ import { ensureReminders } from '../lib/reminders'
 import { aiCommentLabels, draftCaption, getProvider, ruleCommentLabel, suggestCategories, suggestKeywords } from '../ai'
 import { flagComment } from '../lib/moderation'
 import { traceCode } from './reader'
+import { DEFAULT_STAGES, STAGE_STATUS, TOC_STATUS, assertEditable, issueOf, pub, refreshIssueSearch } from '../domains/team/service'
+// re-exported: other modules historically imported the default production stages from this file
+export { DEFAULT_STAGES }
 
 export const teamRoutes = new Hono<AppEnv>()
 
 // Every /api/team/:pubId/* request is checked: the user must hold one of the three main roles of THIS publication.
 // Follower data is NEVER returned from this router (docs/ROLES.md rule 2).
 
-export const DEFAULT_STAGES = [
-  { key: 'writing', title: 'نویسندگی' },
-  { key: 'editing', title: 'ویراستاری' },
-  { key: 'graphics', title: 'گرافیک و تصویرسازی' },
-  { key: 'layout', title: 'صفحه‌آرایی' },
-  { key: 'review', title: 'بازبینی نهایی' },
-  { key: 'publish', title: 'انتشار' }
-]
-const STAGE_STATUS = ['pending', 'in_progress', 'done', 'skipped'] as const
-const TOC_STATUS = ['todo', 'writing', 'written', 'editing', 'edited', 'done'] as const
-const EDITABLE_ISSUE = ['planning', 'in_production', 'changes_requested']
-
 teamRoutes.get('/my', async (c) => {
   const u = requireUser(c)
   return c.json({ publications: await userPubRoles(c, u.id) })
 })
-
-async function pub(c: Context<AppEnv>, write = false) {
-  const id = c.req.param('pubId')!
-  const access = await requirePubAccess(c, id, { write })
-  const p = await c.get('db').first<any>('SELECT * FROM publications WHERE id = ? AND deleted_at IS NULL', [id])
-  if (!p) throw notFound('نشریه یافت نشد')
-  return { ...access, pub: p }
-}
-
-async function issueOf(c: Context<AppEnv>, pubId: string, issueId: string) {
-  const i = await c.get('db').first<any>('SELECT * FROM issues WHERE id = ? AND publication_id = ? AND deleted_at IS NULL', [issueId, pubId])
-  if (!i) throw notFound('شماره یافت نشد')
-  return i
-}
-
-function assertEditable(i: any) {
-  if (!EDITABLE_ISSUE.includes(i.status)) throw bad('این شماره در انتظار تأیید یا منتشرشده است و قابل ویرایش ساختاری نیست')
-}
-
-async function refreshIssueSearch(c: Context<AppEnv>, issueId: string) {
-  const db = c.get('db')
-  const i = await db.first<any>('SELECT i.title, i.summary, i.keywords, i.number, p.title AS pt FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.id = ?', [issueId])
-  if (!i) return
-  await db.run('UPDATE issues SET search_text = ?, updated_at = ? WHERE id = ?', [normalizeFa([i.title, i.summary, i.keywords, i.pt, 'شماره ' + i.number].join(' ')), nowIso(), issueId])
-}
 
 // ───────── Dashboard ─────────
 teamRoutes.get('/:pubId/dashboard', async (c) => {
