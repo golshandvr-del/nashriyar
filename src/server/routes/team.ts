@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../context'
 import { requireUser, userPubRoles } from '../auth'
-import { activity, cursorPage, dateRange, getSetting, inList, parseJson } from '../lib/util'
+import { cursorPage, dateRange, getSetting, inList, parseJson } from '../lib/util'
 import { DEFAULT_STAGES, pub } from '../domains/team/service'
 import { dashboardRoutes } from '../domains/team/dashboard'
 import { membersRoutes } from '../domains/team/members'
