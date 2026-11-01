@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { AppEnv } from '../context'
 import { sha256 } from '../lib/crypto'
 import { normalizeSecret } from './auth'
-import { audit, bad, body, cursorPage, getSetting, nowIso, setSetting } from '../lib/util'
+import { audit, bad, body, getSetting, nowIso, setSetting } from '../lib/util'
 import { toEnDigits } from '../../shared/fa'
 import { DEFAULT_THRESHOLDS, DEFAULT_WEIGHTS, getThresholds, getWeights, sanitizeThresholds, sanitizeWeights } from '../insights'
 import { admin } from '../domains/admin/service'
@@ -15,6 +15,7 @@ import { approvalsRoutes } from '../domains/admin/approvals'
 import { moderationRoutes } from '../domains/admin/moderation'
 import { storefrontRoutes } from '../domains/admin/storefront'
 import { communicationRoutes } from '../domains/admin/communication'
+import { auditRoutes } from '../domains/admin/audit'
 
 export const adminRoutes = new Hono<AppEnv>()
 
@@ -45,22 +46,8 @@ adminRoutes.route('/', storefrontRoutes)
 // domain module (ROADMAP phase 17): ../domains/admin/communication
 adminRoutes.route('/', communicationRoutes)
 
-// ───────── Audit log ─────────
-adminRoutes.get('/audit', async (c) => {
-  admin(c)
-  const action = c.req.query('action')
-  // ROADMAP phase 17: keyset pagination (?cursor, ?limit ≤ 300)
-  const pg = cursorPage(c, { col: 'a.created_at', idCol: 'a.id', def: 300, max: 300 })
-  const params: unknown[] = []
-  let w = 'WHERE 1 = 1'
-  if (action) (w = 'WHERE a.action LIKE ?'), params.push(action + '%')
-  const rows = await c.get('db').all<any>(
-    `SELECT a.*, u.display_name AS actor_name, u.username AS actor_username FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_user_id ${w}${pg.and} ORDER BY ${pg.order} LIMIT ${pg.fetch}`,
-    [...params, ...pg.params]
-  )
-  const { rows: items, next_cursor } = pg.finish(rows, (r) => [r.created_at, r.id])
-  return c.json({ items, next_cursor })
-})
+// domain module (ROADMAP phase 17): ../domains/admin/audit
+adminRoutes.route('/', auditRoutes)
 
 // ───────── Registration allowlist (SECURITY.md §2, migration 0004) ─────────
 adminRoutes.get('/registration-allowlist', async (c) => {
