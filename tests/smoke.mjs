@@ -141,6 +141,32 @@ await expect(sup, '/api/analytics/summary', 200, 'supervisor')
 const an = await login('analyst', 'analyst1234')
 await expect(an, '/api/analytics/ranking', 200, 'analyst')
 
+// ───── ROADMAP phase 17: academic-year dimension + read-only yearly archive ─────
+{
+  const ys = await expect(of, '/api/analytics/academic-years', 200, 'academic years')
+  ok(Array.isArray(ys?.years) && ys.years.filter((y) => y.current).length === 1, 'academic-years: exactly one current year')
+  const cur = ys.years.find((y) => y.current)
+  const prev = ys.years.find((y) => !y.current)
+  // ?acad= cuts every report to Mehr → Shahrivar (capped at today for the running year)
+  const sAcad = await expect(of, `/api/analytics/summary?acad=${cur.year}`, 200, 'summary ?acad')
+  ok(sAcad?.from === cur.from, `summary ?acad from=${sAcad?.from} expected ${cur.from}`)
+  await expect(of, `/api/analytics/ranking?acad=${prev.year}`, 200, 'ranking ?acad')
+  // the running year cannot be archived; a finished year freezes once and is then served unchanged
+  await expect(of, `/api/analytics/archive/${cur.year}`, 409, 'archive of the running year')
+  await expect(of, '/api/analytics/archive/abc', 400, 'archive bad year')
+  const a1 = await expect(of, `/api/analytics/archive/${prev.year}`, 200, 'archive finished year')
+  const a2 = await expect(of, `/api/analytics/archive/${prev.year}`, 200, 'archive finished year (again)')
+  ok(a1?.read_only === true && a1?.archived_at && a1.archived_at === a2?.archived_at, 'archive: frozen once (same archived_at)')
+  ok(JSON.stringify(a1?.totals) === JSON.stringify(a2?.totals), 'archive: totals unchanged on re-read')
+  const ys2 = await expect(of, '/api/analytics/academic-years', 200, 'academic years after archive')
+  ok(ys2.years.find((y) => y.year === prev.year)?.archived === true, 'academic-years: finished year flagged archived')
+  // faculty supervisor sees only own-faculty rows
+  const as = await expect(sup, `/api/analytics/archive/${prev.year}`, 200, 'supervisor archive')
+  ok((as?.byFaculty || []).length <= 1, 'archive: supervisor sees a single faculty')
+  ok((as?.totals?.pages ?? 0) <= (a1?.totals?.pages ?? 0), 'archive: supervisor totals within org totals')
+  await expect(st, '/api/analytics/academic-years', 403, 'student academic years')
+}
+
 // ───── ROADMAP phase 17: keyset (cursor) pagination on list endpoints ─────
 {
   // walk every page with a small limit: no duplicates, page sizes respected, union equals the single big page
