@@ -49,23 +49,39 @@ function appVersion(): string {
   }
 }
 
-async function main() {
-  if (args.has('--seed')) {
-    for (const f of [DB_FILE, DB_FILE + '-wal', DB_FILE + '-shm']) fs.rmSync(f, { force: true })
-    fs.rmSync(path.join(DATA_DIR, 'files'), { recursive: true, force: true })
-  }
+interface Site {
+  slug: string | null
+  dataDir: string
+  dbFile: string
+  sqlite: DatabaseSync
+  db: ReturnType<typeof nodeSqliteDb>
+  deps: Deps
+}
 
-  const sqlite = new DatabaseSync(DB_FILE)
+/**
+ * Opens one site (one university): its SQLite database, file store, backups and console operations, all under
+ * `dataDir`. Single-tenant installs have exactly one site at DATA_DIR; multi-university installs (ROADMAP phase 19,
+ * src/server/tenancy.ts) have one per university at DATA_DIR/tenants/<slug>.
+ */
+async function openSite(dataDir: string, slug: string | null, opts: { reset?: boolean } = {}): Promise<Site> {
+  fs.mkdirSync(dataDir, { recursive: true })
+  const dbFile = path.join(dataDir, 'nashriyar.db')
+  if (opts.reset) {
+    for (const f of [dbFile, dbFile + '-wal', dbFile + '-shm']) fs.rmSync(f, { force: true })
+    fs.rmSync(path.join(dataDir, 'files'), { recursive: true, force: true })
+  }
+  const sqlite = new DatabaseSync(dbFile)
   sqlite.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = OFF; PRAGMA busy_timeout = 5000;')
   // SQL_LOG=<file>: append every distinct statement once (query-plan audit, tests/query-plan.mjs). Off by default.
   const sqlLog = process.env.SQL_LOG
   const db = nodeSqliteDb(sqlite, sqlLog ? (sql) => fs.appendFileSync(sqlLog, sql.replace(/\s+/g, ' ').trim() + '\n') : undefined)
-  const storage = diskStorage(path.join(DATA_DIR, 'files'), fs, path)
+  const storage = diskStorage(path.join(dataDir, 'files'), fs, path)
   await ensureMigrated(db)
   const deps: Deps = {
     db,
     storage,
-    secret: await resolveSecret(db, process.env.APP_SECRET),
+    // each university signs with its own secret (a shared APP_SECRET is derived per tenant)
+    secret: await resolveSecret(db, slug ? tenantSecret(process.env.APP_SECRET, slug) : process.env.APP_SECRET),
     ai: { baseUrl: process.env.AI_BASE_URL, apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL },
     // Server-side PDF conversion (ROADMAP phase 11) when poppler-utils is installed; PDF_RENDERER=browser disables it.
     pdf: process.env.PDF_RENDERER === 'browser' ? undefined : (await popplerRenderer()) ?? undefined,
@@ -73,7 +89,7 @@ async function main() {
     video: process.env.VIDEO_TRANSCODE === 'off' ? undefined : (await ffmpegTranscoder()) ?? undefined,
     disk: () => {
       try {
-        const st = fs.statfsSync(DATA_DIR)
+        const st = fs.statfsSync(dataDir)
         const total = Number(st.blocks) * Number(st.bsize)
         const free = Number(st.bavail) * Number(st.bsize)
         const used = Math.max(0, total - free)
@@ -88,7 +104,7 @@ async function main() {
     // so a request can never read an arbitrary path.
     ops: {
       listBackups: () => {
-        const dir = path.join(DATA_DIR, 'backups')
+        const dir = path.join(dataDir, 'backups')
         return (fs.existsSync(dir) ? fs.readdirSync(dir) : [])
           .filter((f) => BACKUP_RE.test(f))
           .map((f) => {
@@ -97,19 +113,19 @@ async function main() {
           })
           .sort((a, b) => b.mtime.localeCompare(a.mtime))
       },
-      backupDb: () => backupDb(sqlite, DATA_DIR),
-      backupFiles: () => backupFiles(DATA_DIR),
-      restoreTest: () => restoreTest(sqlite, DATA_DIR),
+      backupDb: () => backupDb(sqlite, dataDir),
+      backupFiles: () => backupFiles(dataDir),
+      restoreTest: () => restoreTest(sqlite, dataDir),
       readBackup: (name: string) => {
         if (!BACKUP_RE.test(name) || name.includes('/') || name.includes('..')) return null
-        const full = path.join(DATA_DIR, 'backups', name)
+        const full = path.join(dataDir, 'backups', name)
         return fs.existsSync(full) ? new Uint8Array(fs.readFileSync(full)) : null
       },
       vacuum: () => sqlite.exec('VACUUM'),
       analyze: () => sqlite.exec('ANALYZE'),
       dbFileBytes: () => {
         try {
-          return fs.statSync(DB_FILE).size
+          return fs.statSync(dbFile).size
         } catch {
           return null
         }
@@ -121,7 +137,60 @@ async function main() {
       .map((s) => s.trim())
       .filter(Boolean)
   }
+  return { slug, dataDir, dbFile, sqlite, db, deps }
+}
 
+/** Multi-university configuration (TENANTS_FILE or DATA_DIR/tenants.json); null = classic single-tenant install. */
+function loadTenants(): TenantConfig | null {
+  const file = process.env.TENANTS_FILE ? path.resolve(process.env.TENANTS_FILE) : path.join(DATA_DIR, 'tenants.json')
+  if (!fs.existsSync(file)) {
+    if (process.env.TENANTS_FILE) throw new Error(`TENANTS_FILE not found: ${file}`)
+    return null
+  }
+  return parseTenantConfig(JSON.parse(fs.readFileSync(file, 'utf8')))
+}
+
+const tenantDir = (slug: string) => path.join(DATA_DIR, 'tenants', slug)
+
+/** Value after a CLI flag (`--tenant ut`), or null. */
+function argAfter(flag: string): string | null {
+  const argv = process.argv.slice(2)
+  const i = argv.indexOf(flag)
+  const v = i >= 0 ? argv[i + 1] : undefined
+  return v && !v.startsWith('--') ? v : null
+}
+
+const CLI_ONE_SITE = ['--seed', '--create-admin', '--create-developer', '--restore-test']
+const CLI_EVERY_SITE = ['--migrate', '--maintenance', '--backup', '--backup-files']
+
+async function main() {
+  const tenants = loadTenants()
+  if (args.has('--list-tenants')) {
+    if (!tenants) console.log('[nashriyar] single-tenant install (no tenants.json)')
+    else for (const t of tenants.tenants) console.log(`${t.slug}\t${t.hosts.join(',')}\t${t.name}${tenants.default === t.slug ? '\t(default)' : ''}`)
+    return
+  }
+  const cli = [...CLI_ONE_SITE, ...CLI_EVERY_SITE].some((f) => args.has(f))
+  if (tenants && cli) {
+    // multi-university CLI: --tenant <slug> picks one university; maintenance-type jobs default to all of them
+    const want = argAfter('--tenant')
+    if (want && !tenants.tenants.some((t) => t.slug === want)) throw new Error(`unknown tenant "${want}" (see --list-tenants)`)
+    if (!want && CLI_ONE_SITE.some((f) => args.has(f))) throw new Error('multi-university install: add --tenant <slug> (see --list-tenants)')
+    for (const t of tenants.tenants.filter((x) => !want || x.slug === want)) {
+      console.log(`[nashriyar] tenant ${t.slug}`)
+      await runCli(await openSite(tenantDir(t.slug), t.slug, { reset: args.has('--seed') }))
+    }
+    return
+  }
+  if (tenants) return serveTenants(tenants)
+  const site = await openSite(DATA_DIR, null, { reset: args.has('--seed') })
+  if (cli) return runCli(site)
+  return serveSites(() => site, [site])
+}
+
+async function runCli(site: Site) {
+  const { db, deps, sqlite } = site
+  const dataDirOf = site.dataDir
   if (args.has('--create-admin')) {
     // First-install bootstrap from the command line (never from the UI). Prints a one-time password;
     // the account must change it on first login. Re-running for an existing super admin resets the password.
