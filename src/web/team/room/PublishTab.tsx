@@ -23,7 +23,8 @@ export default function PublishTab({ d, reload, pubId }: RoomProps) {
     print_run: i.print_run ?? '',
     free_preview_pages: i.free_preview_pages ?? 3,
     code_ttl_hours: i.code_ttl_hours ?? 24,
-    planned_publish_at: (i.planned_publish_at || '').slice(0, 10)
+    planned_publish_at: (i.planned_publish_at || '').slice(0, 10),
+    app_only: !!i.app_only
   })
   const [note, setNote] = useState('')
   const [certs, setCerts] = useState<any[] | null>(null)
@@ -74,6 +75,13 @@ export default function PublishTab({ d, reload, pubId }: RoomProps) {
               <Field label="اعتبار کد خرید (ساعت)" hint="حداکثر ۲۴ ساعت">
                 <Input type="number" min={1} max={24} dir="ltr" value={f.code_ttl_hours} onChange={(e) => setF({ ...f, code_ttl_hours: e.target.value as any })} />
               </Field>
+              <label className="flex items-start gap-2 text-sm sm:col-span-2">
+                <input type="checkbox" className="mt-1 accent-[var(--brand)]" checked={f.app_only} onChange={(e) => setF({ ...f, app_only: e.target.checked })} />
+                <span>
+                  <span className="font-bold">خواندن کامل فقط در اپ اندروید</span>
+                  <span className="block text-xs text-muted">در اپ، اسکرین‌شات و ضبط صفحه واقعاً مسدود است. در وب فقط صفحات پیش‌نمایش نمایش داده می‌شود و خریدار به اپ هدایت می‌شود.</span>
+                </span>
+              </label>
             </>
           )}
           <Field label="تاریخ انتشار پیشنهادی">
@@ -94,7 +102,8 @@ export default function PublishTab({ d, reload, pubId }: RoomProps) {
                     print_run: n(f.print_run),
                     free_preview_pages: n(f.free_preview_pages) ?? 3,
                     code_ttl_hours: n(f.code_ttl_hours) ?? 24,
-                    planned_publish_at: f.planned_publish_at || null
+                    planned_publish_at: f.planned_publish_at || null,
+                    app_only: f.pricing === 'paid' && f.app_only
                   }),
                 'تنظیمات انتشار ذخیره شد'
               )
