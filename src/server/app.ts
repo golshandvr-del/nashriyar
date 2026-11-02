@@ -147,7 +147,7 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     }
     recordRequest(c.req.method, path, status, ms)
     // ROADMAP phase 19: deliver queued email / Bale / Eitaa notifications after the response (waitUntil on Workers)
-    if (takeOutboundPending()) {
+    if (takeOutboundPending(deps.db)) {
       const job = flushOutbound(deps.db, new URL(c.req.url).origin).catch(() => null)
       try {
         c.executionCtx.waitUntil(job)

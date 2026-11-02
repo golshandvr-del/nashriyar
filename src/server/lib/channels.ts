@@ -101,11 +101,12 @@ export async function sendVia(cfg: ChannelConfig, ch: Channel, address: string, 
 }
 
 // ───────── queue ─────────
-let pending = false
-/** True once since the last call when notify() queued something (the app schedules a flush after the response). */
-export function takeOutboundPending(): boolean {
-  const p = pending
-  pending = false
+// per database (multi-university: one process may serve several databases)
+const pending = new WeakSet<Db>()
+/** True once since the last call when notify() queued something in `db` (the app schedules a flush after the response). */
+export function takeOutboundPending(db: Db): boolean {
+  const p = pending.has(db)
+  pending.delete(db)
   return p
 }
 
@@ -135,21 +136,21 @@ export async function enqueueOutbound(db: Db, msg: { userId: string; type: strin
       ])
       n++
     }
-    if (n) pending = true
+    if (n) pending.add(db)
     return n
   } catch {
     return 0 // before migration 0018 or any DB hiccup: in-app delivery is unaffected
   }
 }
 
-let flushing = false
+const flushing = new WeakSet<Db>()
 export interface FlushReport { sent: number; failed: number; retry: number }
 
 /** Delivers due queue rows (bounded batch). Safe to call concurrently (single flight per isolate/process). */
 export async function flushOutbound(db: Db, origin?: string | null, limit = 25): Promise<FlushReport> {
   const rep: FlushReport = { sent: 0, failed: 0, retry: 0 }
-  if (flushing) return rep
-  flushing = true
+  if (flushing.has(db)) return rep
+  flushing.add(db)
   try {
     const now = new Date().toISOString()
     const rows = await db.all<{ id: string; channel: Channel; address: string; title: string; link: string | null; attempts: number }>(
@@ -183,7 +184,7 @@ export async function flushOutbound(db: Db, origin?: string | null, limit = 25):
   } catch {
     return rep
   } finally {
-    flushing = false
+    flushing.delete(db)
   }
 }
 
