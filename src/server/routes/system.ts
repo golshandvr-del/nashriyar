@@ -24,9 +24,9 @@ export const systemRoutes = new Hono<AppEnv>()
 const SESSION_MAX_MS = 2 * 3600_000
 const SUDO_MS = 10 * 60_000
 /** Technical settings owned by the developer console (removed from the publication officer's settings). */
-export const SYSTEM_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit', 'ai_timeout_sec', 'ai_tts_model', 'ai_tts_voice', 'max_sessions', 'guest_can_read_free', 'site_url', 'notify_email_url', 'notify_email_key', 'notify_email_from', 'notify_bale_token', 'notify_bale_api', 'notify_bale_bot', 'notify_eitaa_token', 'notify_eitaa_api', 'sms_provider', 'sms_api_url', 'sms_api_key', 'sms_sender', 'sms_template', 'sso_issuer', 'sso_client_id', 'sso_client_secret', 'sso_label', 'sso_scopes', 'sso_student_claim', 'sso_auto_create', 'video_max_seconds'] as const
+export const SYSTEM_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit', 'ai_timeout_sec', 'ai_tts_model', 'ai_tts_voice', 'max_sessions', 'guest_can_read_free', 'site_url', 'notify_email_url', 'notify_email_key', 'notify_email_from', 'notify_bale_token', 'notify_bale_api', 'notify_bale_bot', 'notify_eitaa_token', 'notify_eitaa_api', 'sms_provider', 'sms_api_url', 'sms_api_key', 'sms_sender', 'sms_template', 'sso_issuer', 'sso_client_id', 'sso_client_secret', 'sso_label', 'sso_scopes', 'sso_student_claim', 'sso_auto_create', 'video_max_seconds', 'app_client_key', 'app_download_url'] as const
 /** Secrets: never returned in full (only the last four characters), a masked value posted back is ignored. */
-const SECRET_SETTINGS = new Set<string>(['ai_api_key', 'notify_email_key', 'notify_bale_token', 'notify_eitaa_token', 'sms_api_key', 'sso_client_secret'])
+const SECRET_SETTINGS = new Set<string>(['ai_api_key', 'notify_email_key', 'notify_bale_token', 'notify_eitaa_token', 'sms_api_key', 'sso_client_secret', 'app_client_key'])
 const SYSTEM_DEFAULTS: Record<string, unknown> = {
   ai_enabled: false,
   ai_base_url: '',
@@ -63,7 +63,11 @@ const SYSTEM_DEFAULTS: Record<string, unknown> = {
   sso_student_claim: 'student_number',
   sso_auto_create: false,
   // ROADMAP phase 19 short videos in explore: upper bound on a video post's duration (seconds, 5–180)
-  video_max_seconds: 60
+  video_max_seconds: 60,
+  // ROADMAP phase 19 Android app: optional shared key baked into the APK (daily HMAC token in the User-Agent) and the
+  // public download link shown to readers of "app only" issues
+  app_client_key: '',
+  app_download_url: ''
 }
 const STAFF_ROLES: SystemRole[] = ['super_admin', 'pub_officer']
 
@@ -210,6 +214,7 @@ systemRoutes.post('/settings', async (c) => {
     if (k === 'ai_enabled' || k === 'guest_can_read_free' || k === 'sso_auto_create') v = v === true
     if (k === 'sms_provider') v = v === 'http' || v === 'kavenegar' ? v : 'off'
     if (k === 'sso_issuer' && typeof v === 'string') v = v.trim().replace(/\/+$/, '')
+    if (k === 'app_download_url' && typeof v === 'string') v = /^https?:\/\//i.test(v.trim()) || v.trim().startsWith('/') ? v.trim() : ''
     if (typeof v === 'string') v = v.slice(0, 500)
     await setSetting(db, k, v)
     changed[k] = SECRET_SETTINGS.has(k) ? '(changed)' : v
