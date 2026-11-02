@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { BellRing, ExternalLink, Send, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { cx, faDate, toFaDigits } from '../lib/format'
-import { Async, Badge, Button, Card, Field, Input, useAction, useAsync } from '../components/ui'
+import { Async, Badge, Button, Card, Input, useAction, useAsync } from '../components/ui'
 
 interface Ch {
   channel: 'email' | 'bale' | 'eitaa'
