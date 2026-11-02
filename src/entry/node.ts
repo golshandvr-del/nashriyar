@@ -23,6 +23,7 @@ import { diskStorage } from '../server/adapters/storage'
 import { ensureMigrated } from '../server/migrate'
 import { popplerRenderer } from '../server/adapters/pdf-poppler'
 import { ffmpegTranscoder } from '../server/adapters/video-ffmpeg'
+import { resumePendingVideos } from '../server/lib/video-jobs'
 import { runMaintenance } from '../server/lib/maintenance'
 import { backupDb, backupFiles, restoreTest } from './backup'
 import { resolveSecret } from '../server/secret'
@@ -238,6 +239,10 @@ async function main() {
   serve({ fetch: root.fetch, port: PORT, hostname: HOST }, (info) => {
     console.log(`[nashriyar] listening on http://${HOST}:${info.port} (data: ${DATA_DIR})`)
   })
+  // explore videos left half-processed by a restart are transcoded again (ROADMAP phase 19)
+  resumePendingVideos(deps)
+    .then((n) => n && console.log(`[nashriyar] resumed ${n} pending video transcode(s)`))
+    .catch(() => {})
 
   // In-process scheduler (ROADMAP phase 11 — replaces the lazy, request-driven jobs on self-hosted installs).
   // Maintenance every 15 minutes (idempotent, cheap); DB backup once a day at BACKUP_HOUR (server local time, default 3).
