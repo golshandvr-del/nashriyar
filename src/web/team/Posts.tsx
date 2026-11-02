@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Eye, EyeOff, ImagePlus, Layers, MessageCircle, Plus, Star, Trash2, X } from 'lucide-react'
+import { Eye, EyeOff, Film, ImagePlus, Layers, MessageCircle, Play, Plus, Star, Trash2, X } from 'lucide-react'
 import { api, mediaUrl, upload } from '../lib/api'
 import { asFile, prepareImage } from '../lib/image'
 import type { Aspect } from '../lib/image'
 import { cx, faDate, formatNumber, relativeFa } from '../lib/format'
 import { Async, Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Tabs, Textarea, useAction, useAsync, useToast } from '../components/ui'
 import { useTeam } from './Layout'
+import { useFeature } from '../lib/features'
+import { videoDuration } from '../components/cards'
 
 const POST_STATUS: Record<string, { label: string; tone: 'muted' | 'ok' | 'warn' | 'danger' }> = {
   draft: { label: 'پیش‌نویس', tone: 'muted' },
@@ -136,6 +138,10 @@ function PostComposer({ pubId, story, onClose, onDone }: { pubId: string; story:
   const [drafting, setDrafting] = useState(false) // caption draft helper (ROADMAP phase 10)
   const [uploading, setUploading] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // short video post (ROADMAP phase 19): one MP4/WebM; its thumbnail is the first image (auto-grabbed frame)
+  const videoOn = useFeature('explore_video') && !story
+  const [video, setVideo] = useState<{ key: string; duration: number } | null>(null)
+  const videoRef = useRef<HTMLInputElement>(null)
   const { busy, run } = useAction()
 
   useEffect(() => {
@@ -162,9 +168,31 @@ function PostComposer({ pubId, story, onClose, onDone }: { pubId: string; story:
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  const addVideo = async (files: FileList | null) => {
+    const f = files?.[0]
+    if (videoRef.current) videoRef.current.value = ''
+    if (!f) return
+    try {
+      setUploading('بارگذاری ویدیو…')
+      const r = await upload(`/api/media/upload`, { file: f, pub: pubId, role: 'post_video' }, (x) => setUploading(`بارگذاری ویدیو ${formatNumber(Math.round(x * 100))}٪`))
+      setVideo({ key: r.key, duration: Number(r.duration) || 0 })
+      // thumbnail: a frame grabbed in the browser (replaces any images picked before)
+      setUploading('ساخت تصویر بندانگشتی…')
+      const frame = await grabVideoFrame(f).catch(() => null)
+      if (frame) {
+        const blob = await prepareImage(frame, { aspect })
+        const t = await upload(`/api/media/upload`, { file: asFile(blob, 'post'), pub: pubId, role: 'post' })
+        setKeys([t.key])
+      } else setKeys([])
+    } catch (e: any) {
+      toast(e?.message || 'بارگذاری ویدیو ناموفق بود', 'error')
+    }
+    setUploading(null)
+  }
+
   const submit = (draft: boolean) =>
     run(async () => {
-      await api.post(`/api/team/${pubId}/posts`, { images: keys, caption, source_issue_id: issueId, source_toc_item_id: tocId, is_story: story, draft, alt: keys.map((k) => alts[k] || ''),
+      await api.post(`/api/team/${pubId}/posts`, { images: keys, caption, ...(video ? { video: video.key } : {}), source_issue_id: issueId, source_toc_item_id: tocId, is_story: story, draft, alt: keys.map((k) => alts[k] || ''),
         ...(!story && publishAt ? { publish_at: new Date(publishAt).toISOString() } : {}) })
       onDone()
     }, draft ? 'پیش‌نویس ذخیره شد' : story ? 'استوری منتشر شد' : publishAt && new Date(publishAt) > new Date() ? 'پست زمان‌بندی شد' : 'پست منتشر شد')
@@ -232,7 +260,28 @@ function PostComposer({ pubId, story, onClose, onDone }: { pubId: string; story:
               </div>
             </details>
           )}
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple={!story} hidden onChange={(e) => addFiles(e.target.files)} />
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple={!story && !video} hidden onChange={(e) => addFiles(e.target.files)} />
+          {videoOn && (
+            <div className="rounded-xl border border-line p-2 text-sm">
+              {video ? (
+                <div className="flex items-center gap-2">
+                  <Play className="size-4 text-brand" />
+                  <span className="font-bold">ویدیوی کوتاه</span>
+                  {video.duration > 0 && <span className="text-xs text-muted">{videoDuration(video.duration)}</span>}
+                  <span className="text-[11px] text-muted">تصویر اول = بندانگشتی</span>
+                  <button className="ms-auto rounded-full p-1 text-muted hover:bg-surface-2" onClick={() => setVideo(null)} aria-label="حذف ویدیو">
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => videoRef.current?.click()} disabled={!!uploading} className="flex w-full items-center justify-center gap-2 py-1 text-xs text-muted hover:text-brand">
+                  <Film className="size-4" />
+                  افزودن ویدیوی کوتاه (MP4 یا WebM)
+                </button>
+              )}
+              <input ref={videoRef} type="file" accept="video/mp4,video/webm,video/quicktime" hidden onChange={(e) => addVideo(e.target.files)} />
+            </div>
+          )}
           <p className="text-[11px] leading-5 text-muted">تصاویر در مرورگر فشرده می‌شوند و اطلاعات مکان/دوربین (EXIF) حذف می‌شود. حداکثر ۱۰ تصویر (کاروسل).</p>
         </div>
         <div className="space-y-3">
@@ -458,4 +507,32 @@ function HighlightEditor({ pubId, h, posts, initial, onClose, onDone }: { pubId:
       </div>
     </Modal>
   )
+}
+
+/** Grabs one frame (at ~1 s, or the middle of very short clips) from a local video file as a JPEG blob. */
+function grabVideoFrame(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const v = document.createElement('video')
+    v.muted = true
+    v.playsInline = true
+    v.preload = 'auto'
+    const done = (fn: () => void) => {
+      URL.revokeObjectURL(url)
+      fn()
+    }
+    const timer = setTimeout(() => done(() => reject(new Error('timeout'))), 15000)
+    v.onerror = () => done(() => (clearTimeout(timer), reject(new Error('video'))))
+    v.onloadedmetadata = () => {
+      v.currentTime = Math.min(1, (v.duration || 0) / 2)
+    }
+    v.onseeked = () => {
+      const c = document.createElement('canvas')
+      c.width = v.videoWidth
+      c.height = v.videoHeight
+      c.getContext('2d')?.drawImage(v, 0, 0)
+      c.toBlob((b) => done(() => (clearTimeout(timer), b ? resolve(b) : reject(new Error('frame')))), 'image/jpeg', 0.85)
+    }
+    v.src = url
+  })
 }
