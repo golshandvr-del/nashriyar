@@ -33,8 +33,8 @@ import javax.crypto.spec.SecretKeySpec;
  * - FLAG_SECURE on the whole window: the system refuses screenshots and screen recording, and the recents
  *   thumbnail is blank — the protection the web reader can only discourage.
  * - The web app runs in the platform WebView; the User-Agent carries {@code NashriyarApp/<version>} and, when the
- *   build has a key, {@code nsk/<daily token>} (server: src/server/lib/app-client.ts). "App only" paid issues are
- *   served in full only to such requests.
+ *   build has a key, {@code nsk/<daily token>} (server: src/server/lib/app-client.ts). The app is only an installable
+ *   copy of the site: nothing is app-only, the website has every feature on its own.
  * - Only the configured site opens in-app (HTTPS); every other link goes to the system browser.
  */
 public class MainActivity extends Activity {
