@@ -21,6 +21,10 @@ export interface PostVideo {
   h?: number | null
   hls?: string | null
   hls_state?: 'none' | 'pending' | 'ready' | 'failed'
+  /** the original upload once `src` points at the normalised MP4 (kept for re-processing / deletion) */
+  orig?: string | null
+  /** poster frame made by ffmpeg (used when the team did not upload a thumbnail) */
+  poster?: string | null
 }
 
 export const VIDEO_MAX_DEFAULT = 60
@@ -31,10 +35,12 @@ export async function videoMaxSeconds(db: Db): Promise<number> {
 }
 
 /** What clients see: source, poster comes from images[0]; HLS only when the transcode finished. */
-export function publicVideo(json: string | null | undefined): { src: string; hls: string | null; duration: number; w: number | null; h: number | null } | null {
+export function publicVideo(
+  json: string | null | undefined
+): { src: string; hls: string | null; poster: string | null; duration: number; w: number | null; h: number | null } | null {
   const v = parseJson<PostVideo | null>(json, null)
   if (!v || typeof v.src !== 'string') return null
-  return { src: v.src, hls: v.hls_state === 'ready' && v.hls ? v.hls : null, duration: Number(v.duration) || 0, w: v.w ?? null, h: v.h ?? null }
+  return { src: v.src, hls: v.hls_state === 'ready' && v.hls ? v.hls : null, poster: v.poster ?? null, duration: Number(v.duration) || 0, w: v.w ?? null, h: v.h ?? null }
 }
 
 // ───────── MP4 / MOV (ISO BMFF) ─────────

@@ -34,7 +34,7 @@ export async function processVideoPost(deps: Deps, postId: string): Promise<void
   const tx = deps.video
   if (!tx) return
   const row = await deps.db.first<{ video_json: string | null }>('SELECT video_json FROM posts WHERE id = ?', [postId])
-  const v = parseJson<(PostVideo & { orig?: string }) | null>(row?.video_json, null)
+  const v = parseJson<PostVideo | null>(row?.video_json, null)
   if (!v || v.hls_state !== 'pending') return
   const original = v.orig || v.src
   const dir = hlsDirFor(original)
@@ -68,7 +68,7 @@ export async function processVideoPost(deps: Deps, postId: string): Promise<void
       duration: res.duration ?? v.duration,
       w: res.width ?? v.w ?? null,
       h: res.height ?? v.h ?? null
-    } as PostVideo)
+    })
   } catch (e) {
     await setVideo(deps, postId, { ...v, hls_state: 'failed' })
     throw e
@@ -85,7 +85,7 @@ export async function resumePendingVideos(deps: Deps): Promise<number> {
 
 /** Storage keys owned by a video post (original + renditions), for deletion. */
 export function videoKeys(json: string | null | undefined): string[] {
-  const v = parseJson<(PostVideo & { orig?: string; poster?: string | null }) | null>(json, null)
+  const v = parseJson<PostVideo | null>(json, null)
   if (!v) return []
   return [v.orig, v.src, v.hls, v.poster].filter((k): k is string => typeof k === 'string' && k.length > 0)
 }
