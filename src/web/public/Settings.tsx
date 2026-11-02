@@ -9,6 +9,7 @@ import { cx, faDate, relativeFa } from '../lib/format'
 import ProfileForm from './ProfileForm'
 import MembershipCard from './MembershipCard'
 import NotifyChannelsCard from './NotifyChannels'
+import SignInMethodsCard from './SignInMethods'
 import { Async, Badge, Button, Card, Field, Input, PasswordInput, useAction, useAsync, useToast } from '../components/ui'
 
 const COMMENT_STATUS: Record<string, { label: string; tone: 'muted' | 'ok' | 'warn' | 'danger' }> = {
@@ -406,6 +407,7 @@ export default function Settings() {
       <MembershipCard />
       <ThemeCard />
       <NotifyChannelsCard />
+      <SignInMethodsCard />
       {!user.must_change_password && <PasswordCard />}
       <RecoveryCard />
       {user.system_role !== 'student' && <TotpCard />}
