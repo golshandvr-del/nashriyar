@@ -35,6 +35,27 @@ export interface PdfRenderer {
   render(pdf: Uint8Array, opts: { width: number; onPage: (p: RenderedPage) => Promise<void> }): Promise<{ page_count: number }>
 }
 
+/** One output file of a video transcode (storage key is chosen by the caller from `name`). */
+export interface TranscodedFile {
+  /** `video.mp4`, `poster.jpg`, `index.m3u8`, `seg-000.ts`, ... */
+  name: string
+  bytes: Uint8Array
+  mime: string
+}
+
+/**
+ * Optional server-side video processing for short explore videos (ROADMAP phase 19; self-hosted only, ffmpeg).
+ * On Cloudflare it is absent: the uploaded MP4/WebM is played directly and the browser makes the thumbnail.
+ */
+export interface VideoTranscoder {
+  name: string
+  /**
+   * Normalises the clip (H.264/AAC MP4, faststart, at most 720p), cuts it into HLS (`index.m3u8` + `seg-NNN.ts`, the
+   * playlist references segments by bare file name) and grabs a poster frame. `onFile` is called once per output.
+   */
+  transcode(input: Uint8Array, opts: { maxSeconds: number; onFile: (f: TranscodedFile) => Promise<void> }): Promise<{ duration: number | null; width: number | null; height: number | null }>
+}
+
 /** Disk usage report on self-hosted Node installs (ROADMAP phase 11 monitoring). */
 export interface DiskStatus {
   total_bytes: number
@@ -68,6 +89,8 @@ export interface Deps {
   ai?: { baseUrl?: string; apiKey?: string; model?: string }
   /** Optional server-side PDF converter (Node entry only, when poppler-utils is installed). */
   pdf?: PdfRenderer
+  /** Optional video normaliser / HLS segmenter (Node entry only, when ffmpeg is installed). ROADMAP phase 19. */
+  video?: VideoTranscoder
   /** Optional disk space probe (Node entry only, via fs.statfsSync). */
   disk?: () => DiskStatus | null
   /** Optional backup/maintenance operations for the /system console (Node entry only). */
