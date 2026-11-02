@@ -57,11 +57,13 @@ export function splitSql(sql: string): string[] {
     .filter(Boolean)
 }
 
-let migrated = false
+// ROADMAP phase 19 (multi-university): one process may serve several databases (one per university), so the
+// "already migrated" marker is kept per Db instance instead of one global flag.
+const migrated = new WeakSet<Db>()
 
-/** Idempotent: applies pending migrations once per process / isolate. */
+/** Idempotent: applies pending migrations once per database per process / isolate. */
 export async function ensureMigrated(db: Db): Promise<void> {
-  if (migrated) return
+  if (migrated.has(db)) return
   await db.run('CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)')
   const done = new Set((await db.all<{ name: string }>('SELECT name FROM _migrations')).map((r) => r.name))
   for (const m of MIGRATIONS) {
@@ -69,5 +71,5 @@ export async function ensureMigrated(db: Db): Promise<void> {
     for (const stmt of splitSql(m.sql)) await db.run(stmt)
     await db.run('INSERT OR IGNORE INTO _migrations (name, applied_at) VALUES (?, ?)', [m.name, new Date().toISOString()])
   }
-  migrated = true
+  migrated.add(db)
 }
