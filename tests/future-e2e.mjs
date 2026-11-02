@@ -850,5 +850,77 @@ const dev = await developer()
   }
 }
 
+// ───────── 9. Android app (FLAG_SECURE shell): "app only" paid issues, app User-Agent + daily HMAC token ─────────
+{
+  const team = await login('pub1-director', 'team1234')
+  const me = (await team('/api/auth/me')).json
+  const pubId = me?.publications?.[0]?.publication_id
+  const issues = (await team(`/api/team/${pubId}/issues?limit=200`)).json?.issues || []
+  const paid = issues.find((i) => i.status === 'published' && i.pricing === 'paid' && (i.free_preview_pages || 0) > 0 && i.free_preview_pages < i.page_count)
+  const freeIss = issues.find((i) => i.status === 'published' && i.pricing === 'free')
+  ok(!!paid, 'app: team has a published paid issue with a free preview')
+  const WEB = { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/124 Mobile' }
+  const APP = (extra = '') => ({ 'User-Agent': `Mozilla/5.0 (Linux; Android 14; wv) Chrome/124 Mobile NashriyarApp/1.0.0${extra}` })
+  const tokenFor = (key, d = 0) => createHmac('sha256', key).update('app|' + new Date(Date.now() + d * 86_400_000).toISOString().slice(0, 10)).digest('hex').slice(0, 16)
+  const publishing = (iss, extra) =>
+    team(`/api/team/${pubId}/issues/${iss.id}/publishing`, {
+      method: 'PUT',
+      json: { pricing: iss.pricing, price_digital: iss.price_digital, price_print: iss.price_print, print_run: iss.print_run, free_preview_pages: iss.free_preview_pages, code_ttl_hours: iss.code_ttl_hours, ...extra }
+    })
+  try {
+    // a student who owns the issue
+    const code = (await team(`/api/team/${pubId}/codes`, { json: { issue_id: paid?.id, count: 1, ttl_hours: 1 } })).json?.codes?.[0]
+    const reader = await login('39010152', 'student1234')
+    await reader('/api/me/codes/redeem', { json: { code } })
+    const before = await reader(`/api/reader/${paid?.id}/manifest`, { headers: WEB })
+    ok(before.status === 200 && before.json?.full === true && !before.json?.app_required, 'app: entitled reader has the full manifest on the web before app_only')
+
+    const set = await publishing(paid, { app_only: true })
+    ok(set.status === 200, `app: team enables app_only -> ${set.status} ${set.text.slice(0, 120)}`)
+    ok((await team(`/api/team/${pubId}/issues/${paid?.id}`)).json?.issue?.app_only === 1, 'app: issue detail carries app_only = 1')
+
+    const web = await reader(`/api/reader/${paid?.id}/manifest`, { headers: WEB })
+    ok(web.status === 200 && web.json?.full === false && web.json?.app_required === true && web.json?.allowed === paid?.free_preview_pages && web.json?.pages?.length === paid?.free_preview_pages, `app: on the web the owner gets only the preview + app_required (${web.json?.allowed})`)
+    const app = await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP() })
+    ok(app.status === 200 && app.json?.full === true && !app.json?.app_required && app.json?.pages?.length === paid?.page_count, 'app: inside the app (no key configured) the owner gets the full manifest')
+    // a page signed for the app cannot be fetched from the web
+    const last = app.json?.pages?.[app.json.pages.length - 1]?.url
+    ok(!!last && (await reader(last, { headers: WEB })).status === 403, 'app: a full-issue page URL from the app is refused on the web')
+    ok(!!last && (await reader(last, { headers: APP() })).status === 200, 'app: the same page URL works inside the app')
+    const txt = await reader(`/api/reader/${paid?.id}/text`, { headers: WEB })
+    ok(txt.status === 200 && txt.json?.full === false && txt.json?.pages?.length === paid?.free_preview_pages, 'app: text mode on the web is limited to the preview too')
+    const anonApp = await anon(`/api/reader/${paid?.id}/manifest`, { headers: APP() })
+    ok(anonApp.status === 200 && anonApp.json?.full === false && !anonApp.json?.app_required, 'app: the app alone does not unlock a paid issue (no entitlement -> preview, no app_required)')
+    const staff = await team(`/api/reader/${paid?.id}/manifest`, { headers: WEB })
+    ok(staff.json?.full === true, 'app: the publication team still reads in full on the web')
+
+    // optional client key: the app must send today's (or yesterday's) HMAC token
+    ok((await dev('/api/system/settings', { json: { app_client_key: 'testkey123', app_download_url: '/nashriyar.apk' } })).status === 200, 'app: developer sets app_client_key + app_download_url')
+    const masked = (await dev('/api/system/settings')).json?.settings
+    ok(masked?.app_client_key === '••••y123' && masked?.app_download_url === '/nashriyar.apk', `app: client key is masked in settings (${masked?.app_client_key})`)
+    ok((await officer('/api/system/settings')).status === 403, 'app: officer cannot read the developer settings')
+    ok((await anon('/api/public/settings')).json?.app_download_url === '/nashriyar.apk', 'app: public settings expose the download link')
+    ok(!(await anon('/api/public/settings')).text.includes('testkey123'), 'app: the client key never appears in public settings')
+    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP() })).json?.full === false, 'app: with a key configured, the UA marker alone is not enough')
+    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP(' nsk/0123456789abcdef') })).json?.full === false, 'app: a wrong token is refused')
+    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP(` nsk/${tokenFor('otherkey')}`) })).json?.full === false, 'app: a token made with another key is refused')
+    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP(` nsk/${tokenFor('testkey123')}`) })).json?.full === true, "app: today's token unlocks the full issue")
+    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP(` nsk/${tokenFor('testkey123', -1)}`) })).json?.full === true, "app: yesterday's token is still accepted (clock skew)")
+    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP(` nsk/${tokenFor('testkey123', -3)}`) })).json?.full === false, 'app: an old token is refused')
+    ok((await dev('/api/system/settings', { json: { app_download_url: 'javascript:alert(1)' } })).status === 200 && (await anon('/api/public/settings')).json?.app_download_url === '', 'app: a non-http download link is dropped')
+
+    // app_only is ignored for free issues
+    if (freeIss) {
+      ok((await publishing(freeIss, { app_only: true })).status === 200, 'app: publishing a free issue with app_only accepted')
+      ok(!(await team(`/api/team/${pubId}/issues/${freeIss.id}`)).json?.issue?.app_only, 'app: app_only stays off for a free issue')
+      ok((await anon(`/api/reader/${freeIss.id}/manifest`, { headers: WEB })).json?.full === true, 'app: free issue still fully readable on the web')
+    }
+  } finally {
+    if (paid) await publishing(paid, { app_only: false })
+    await dev('/api/system/settings', { json: { app_client_key: '', app_download_url: '' } })
+  }
+  ok((await team(`/api/team/${pubId}/issues/${paid?.id}`)).json?.issue?.app_only === 0, 'app: app_only switched back off')
+}
+
 console.log(failures ? `future-e2e: ${failures} failed, ${passed} passed` : `future-e2e: ${passed} checks passed`)
 process.exit(failures ? 1 : 0)
