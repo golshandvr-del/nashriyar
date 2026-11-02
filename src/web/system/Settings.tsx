@@ -119,6 +119,12 @@ function Form({ data, reload }: { data: Data; reload: () => void }) {
           <Field label="حداکثر مدت ویدیوی کوتاه اکسپلور (ثانیه)" hint="۵ تا ۱۸۰؛ فایل طولانی‌تر هنگام بارگذاری رد می‌شود. روی سرور دارای ffmpeg، ویدیو به MP4 استاندارد و HLS تبدیل می‌شود.">
             <Input dir="ltr" type="number" min={5} max={180} value={s.video_max_seconds ?? 60} onChange={(e) => set({ video_max_seconds: Number(e.target.value) || 60 })} />
           </Field>
+          <Field label="پیوند دریافت اپ اندروید" hint="به خریداران شماره‌های «فقط در اپ» نمایش داده می‌شود (مثلاً /nashriyar.apk یا صفحهٔ بازار/مایکت).">
+            <Input dir="ltr" value={s.app_download_url ?? ''} onChange={(e) => set({ app_download_url: e.target.value })} placeholder="https://…" />
+          </Field>
+          <Field label="کلید کلاینت اپ (اختیاری)" hint="اگر تعیین شود، فقط اپی که با همین کلید ساخته شده (ویژگی gradle nashriyarAppKey) به‌عنوان اپ شناخته می‌شود. خالی = تشخیص فقط با User-Agent.">
+            <Input dir="ltr" value={s.app_client_key ?? ''} onChange={(e) => set({ app_client_key: e.target.value })} autoComplete="off" />
+          </Field>
         </div>
       </Card>
 
