@@ -116,6 +116,9 @@ function Form({ data, reload }: { data: Data; reload: () => void }) {
           <Field label="حداکثر نشست هم‌زمان هر کاربر" hint="با ورود از دستگاه جدید، قدیمی‌ترین نشست‌های اضافه بسته می‌شوند (۱ تا ۲۰).">
             <Input dir="ltr" type="number" min={1} max={20} value={s.max_sessions ?? 5} onChange={(e) => set({ max_sessions: Number(e.target.value) || 5 })} />
           </Field>
+          <Field label="حداکثر مدت ویدیوی کوتاه اکسپلور (ثانیه)" hint="۵ تا ۱۸۰؛ فایل طولانی‌تر هنگام بارگذاری رد می‌شود. روی سرور دارای ffmpeg، ویدیو به MP4 استاندارد و HLS تبدیل می‌شود.">
+            <Input dir="ltr" type="number" min={5} max={180} value={s.video_max_seconds ?? 60} onChange={(e) => set({ video_max_seconds: Number(e.target.value) || 60 })} />
+          </Field>
         </div>
       </Card>
 
