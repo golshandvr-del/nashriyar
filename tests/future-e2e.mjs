@@ -294,7 +294,7 @@ const dev = await developer()
   ok(!(await arc(`publication=nope-${token}`)).json.issues.length, 'archive: publication filter')
   ok(!(await anon('/api/public/home')).text.includes(id), 'archive: does not flood the "latest" shelves')
   const arts = (await officer(`/api/team/${pa?.id}/issues/${id}/articles`)).json?.articles || []
-  ok(arts.length === 2 && arts.every((a) => /^NSH-1999-/.test(a.pid) || /^NSH-13\d\d-/.test(a.pid)), `archive: TOC items got persistent ids (${arts.map((a) => a.pid).join(',')})`)
+  ok(arts.length === 2 && arts.every((a) => a.pid.startsWith('NSH-1999-') || /^NSH-13\d\d-/.test(a.pid)), `archive: TOC items got persistent ids (${arts.map((a) => a.pid).join(',')})`)
   const spa = await anon('/archive')
   ok(spa.status === 200 && /text\/html/.test(spa.ct), 'archive: /archive SPA route')
 }
@@ -825,7 +825,7 @@ const dev = await developer()
         if (v?.hls) break
         await new Promise((r) => setTimeout(r, 500))
       }
-      ok(!!v?.hls && /\/hls-[^/]+\/index\.m3u8$/.test(v.hls) && /\/video\.mp4$/.test(v.src) && /\/poster\.jpg$/.test(v.poster || ''), `video: transcode finished (hls ${v?.hls})`)
+      ok(!!v?.hls && /\/hls-[^/]+\/index\.m3u8$/.test(v.hls) && String(v.src).endsWith('/video.mp4') && String(v.poster || '').endsWith('/poster.jpg'), `video: transcode finished (hls ${v?.hls})`)
       const pl = await anon(`/api/media/k/${v?.hls}`)
       ok(pl.status === 200 && /#EXTM3U/.test(pl.text) && /seg-000\.ts/.test(pl.text), 'video: HLS playlist served publicly')
       const dir = (v?.hls || '').replace(/index\.m3u8$/, '')
