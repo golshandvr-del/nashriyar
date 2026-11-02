@@ -9,7 +9,7 @@ import path from 'node:path'
 
 const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nashriyar-unit-')), 'pure.mjs')
 buildSync({
-  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds, academicYearOf, academicYearRange, academicYears } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'\nexport { writeDomains } from './src/server/lib/rollup'\nexport { str, int, oneOf } from './src/server/lib/util'\nexport { v, parseInput, faMsg } from './src/server/lib/validate'\nexport { buildTableXlsx, streamTableXlsx, buildCsv, columnWidths, jalaliCell, csvField } from './src/shared/sheet'\nexport { ZipStream, crc32 } from './src/shared/zip'\nexport { parseTableState, tableStateToParams, applyTable, groupRows, exportColumns, exportRow, describeState, toSheetColumns } from './src/shared/table'", resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: "export { healthVerdict } from './src/server/insights'\nexport { linearFit, termBounds, academicYearOf, academicYearRange, academicYears } from './src/shared/fa'\nexport { reminderMark, DEADLINE_MARKS, LICENSE_MARKS } from './src/server/lib/reminders'\nexport { redactText, scrubPersonal, scoreCategories, templateCaption } from './src/server/ai'\nexport { mapQuestion, sanitizeRoute } from './src/shared/askmap'\nexport { ruleHypotheses } from './src/server/lib/explain'\nexport { cursorPage } from './src/server/lib/util'\nexport { csvToRows, buildXlsx } from './src/web/lib/xlsx'\nexport { writeDomains } from './src/server/lib/rollup'\nexport { str, int, oneOf } from './src/server/lib/util'\nexport { v, parseInput, faMsg } from './src/server/lib/validate'\nexport { buildTableXlsx, streamTableXlsx, buildCsv, columnWidths, jalaliCell, csvField } from './src/shared/sheet'\nexport { ZipStream, crc32 } from './src/shared/zip'\nexport { parseTableState, tableStateToParams, applyTable, groupRows, exportColumns, exportRow, describeState, toSheetColumns } from './src/shared/table'\nexport { parseTenantConfig, resolveTenant, normalizeHost, tenantSecret } from './src/server/tenancy'", resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error', external: ['node:*']
 })
 const m = await import(out)
@@ -329,6 +329,29 @@ t('table: URL state round-trips; filters, Persian search, sort and grouping matc
   assert.deepEqual(m.exportRow(ec, TROWS[0]), { gender: 'مرد', name: 'علی رضایی', pubs: 'نشریه الف، نشریه ب' })
   assert.equal(m.toSheetColumns(ec)[0].type, 'text')
   assert.equal(m.describeState(TCOLS, st), 'جنسیت: زن، مرد · سال ورود: 1400 تا … · تاریخ عضویت: … تا 2025-12-31 · جست‌وجو: «كريمي» · گروه‌بندی: جنسیت · مرتب‌سازی: سال ورود (نزولی)')
+})
+
+t('tenancy: config validation, host resolution, per-tenant secret', () => {
+  const cfg = m.parseTenantConfig({ tenants: [{ slug: 'ut', name: 'دانشگاه تهران', hosts: ['Nashriyar.UT.ac.ir', 'ut.localhost'] }, { slug: 'sharif', hosts: ['nashriyar.sharif.edu'] }], default: 'ut' })
+  assert.deepEqual(cfg.tenants[0].hosts, ['nashriyar.ut.ac.ir', 'ut.localhost'])
+  assert.equal(cfg.tenants[1].name, 'sharif')
+  assert.equal(m.resolveTenant(cfg, 'NASHRIYAR.SHARIF.EDU:443').slug, 'sharif')
+  assert.equal(m.resolveTenant(cfg, 'ut.localhost:3000').slug, 'ut')
+  assert.equal(m.resolveTenant(cfg, '10.0.0.5').slug, 'ut') // default
+  assert.equal(m.resolveTenant({ tenants: cfg.tenants }, 'evil.example'), null) // no default -> 404
+  assert.equal(m.normalizeHost('[::1]:3000'), '[::1]')
+  assert.equal(m.normalizeHost('a.b.'), 'a.b')
+  assert.equal(m.parseTenantConfig([{ slug: 'x1', host: 'x.ir' }]).tenants[0].hosts[0], 'x.ir') // array shorthand + single host
+  assert.throws(() => m.parseTenantConfig({ tenants: [{ slug: 'Bad Slug', hosts: ['a.ir'] }] }), /invalid slug/)
+  assert.throws(() => m.parseTenantConfig({ tenants: [{ slug: 'aa', hosts: ['a.ir'] }, { slug: 'aa', hosts: ['b.ir'] }] }), /duplicate slug/)
+  assert.throws(() => m.parseTenantConfig({ tenants: [{ slug: 'aa', hosts: ['a.ir'] }, { slug: 'bb', hosts: ['A.ir'] }] }), /assigned twice/)
+  assert.throws(() => m.parseTenantConfig({ tenants: [{ slug: 'aa', hosts: [] }] }), /at least one host/)
+  assert.throws(() => m.parseTenantConfig({ tenants: [{ slug: 'aa', hosts: ['a b.ir'] }] }), /invalid host/)
+  assert.throws(() => m.parseTenantConfig({ tenants: [{ slug: 'aa', hosts: ['a.ir'] }], default: 'zz' }), /default/)
+  assert.throws(() => m.parseTenantConfig({}), /expected/)
+  assert.equal(m.tenantSecret(undefined, 'ut'), undefined)
+  assert.equal(m.tenantSecret('short', 'ut'), undefined)
+  assert.notEqual(m.tenantSecret('0123456789abcdef', 'ut'), m.tenantSecret('0123456789abcdef', 'sharif'))
 })
 
 console.log(`unit: ${n} passed`)
