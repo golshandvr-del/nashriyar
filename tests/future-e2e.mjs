@@ -539,5 +539,181 @@ const dev = await developer()
   }
 }
 
+// ───────── 7. SMS one-time-code sign-in + university SSO (OpenID Connect) with a mock SMS gateway and IdP ─────────
+{
+  const http = await import('node:http')
+  const nc = await import('node:crypto')
+  const sms = [] // { to, text }
+  const codes = new Map() // authorization code -> { claims, challenge, key }
+  const { privateKey, publicKey } = nc.generateKeyPairSync('rsa', { modulusLength: 2048 })
+  const rogue = nc.generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey
+  const jwk = { ...publicKey.export({ format: 'jwk' }), kid: 'k1', use: 'sig', alg: 'RS256' }
+  const b64u = (b) => Buffer.from(b).toString('base64url')
+  const signJwt = (claims, key = privateKey) => {
+    const h = b64u(JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: 'k1' }))
+    const p = b64u(JSON.stringify(claims))
+    return `${h}.${p}.${b64u(nc.sign('sha256', Buffer.from(`${h}.${p}`), key))}`
+  }
+  let tokenCalls = 0
+  const mock = http.createServer((req, res) => {
+    let raw = ''
+    req.on('data', (ch) => (raw += ch))
+    req.on('end', () => {
+      const u = req.url || ''
+      const json = (o, st = 200) => res.writeHead(st, { 'Content-Type': 'application/json' }).end(JSON.stringify(o))
+      if (u === '/sms' && req.method === 'POST' && req.headers.authorization === 'Bearer sk-test') {
+        const j = JSON.parse(raw || '{}')
+        sms.push({ to: j.to, text: j.text || '' })
+        return json({ ok: true })
+      }
+      if (u === '/oidc/.well-known/openid-configuration')
+        return json({ issuer: `${mb}/oidc`, authorization_endpoint: `${mb}/oidc/authorize`, token_endpoint: `${mb}/oidc/token`, jwks_uri: `${mb}/oidc/jwks` })
+      if (u === '/oidc/jwks') return json({ keys: [jwk] })
+      if (u === '/oidc/token' && req.method === 'POST') {
+        tokenCalls++
+        const f = new URLSearchParams(raw)
+        if (req.headers.authorization !== 'Basic ' + Buffer.from('nashriyar:cs-test').toString('base64')) return json({ error: 'invalid_client' }, 401)
+        const g = codes.get(f.get('code'))
+        codes.delete(f.get('code'))
+        if (!g || f.get('grant_type') !== 'authorization_code') return json({ error: 'invalid_grant' }, 400)
+        // PKCE: S256(code_verifier) must equal the challenge sent to /authorize
+        if (b64u(nc.createHash('sha256').update(f.get('code_verifier') || '').digest()) !== g.challenge) return json({ error: 'invalid_grant', pkce: false }, 400)
+        return json({ access_token: 'at', token_type: 'Bearer', id_token: signJwt(g.claims, g.key) })
+      }
+      res.writeHead(404).end('{}')
+    })
+  })
+  await new Promise((r) => mock.listen(0, '127.0.0.1', r))
+  const mb = `http://127.0.0.1:${mock.address().port}`
+  const wait = async (pred, ms = 3000) => {
+    const t0 = Date.now()
+    while (Date.now() - t0 < ms) {
+      if (pred()) return true
+      await new Promise((r) => setTimeout(r, 100))
+    }
+    return pred()
+  }
+  const code6 = (s) => /\b(\d{6})\b/.exec(s || '')?.[1]
+  // a fresh mobile number per run (the verified number is unique across accounts)
+  const phone = '0912' + String(Date.now() % 10_000_000).padStart(7, '0')
+  const faPhone = phone.replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d])
+  /** Starts SSO with `c`, lets the mock IdP issue a code for `claims`, returns the callback response. */
+  const ssoRound = async (c, claims, { startQs = '', key, nonceOverride } = {}) => {
+    const st = await c('/api/signin/sso/start' + startQs)
+    const loc = st.headers.get('location') || ''
+    if (!loc.startsWith(`${mb}/oidc/authorize`)) return { st, loc, cb: null }
+    const q = new URL(loc).searchParams
+    const code = 'c-' + nc.randomBytes(6).toString('hex')
+    const now = Math.floor(Date.now() / 1000)
+    codes.set(code, { challenge: q.get('code_challenge'), key, claims: { iss: `${mb}/oidc`, aud: 'nashriyar', iat: now, exp: now + 300, nonce: nonceOverride ?? q.get('nonce'), ...claims } })
+    const cb = await c(`/api/signin/sso/callback?state=${encodeURIComponent(q.get('state'))}&code=${code}`)
+    return { st, loc, q, cb, state: q.get('state') }
+  }
+  try {
+    // nothing configured: methods hidden, endpoints refuse
+    const m0 = (await anon('/api/signin/methods')).json
+    ok(m0?.otp === false && m0?.sso === null, 'signin: no alternative methods before configuration')
+    ok((await anon('/api/signin/otp/send', { json: { phone } })).status === 400, 'signin: otp send refused while SMS is off')
+    ok(((await anon('/api/signin/sso/start')).headers.get('location') || '').includes('sso_error=sso_off'), 'signin: sso start -> sso_off while not configured')
+
+    // ── SMS ──
+    const on = await dev('/api/system/settings', { json: { sms_provider: 'http', sms_api_url: `${mb}/sms`, sms_api_key: 'sk-test', sms_sender: '1000' } })
+    ok(on.status === 200, `signin: developer configures the SMS gateway -> ${on.status}`)
+    ok((await dev('/api/system/settings')).json?.settings?.sms_api_key === '••••test', 'signin: SMS key masked in the settings API')
+    ok((await anon('/api/signin/methods')).json?.otp === true, 'signin: otp listed once configured')
+    ok((await anon('/api/signin/otp/send', { json: { phone: '12345' } })).status === 400, 'signin: invalid phone rejected')
+    const unk = await anon('/api/signin/otp/send', { json: { phone } })
+    ok(unk.status === 200 && unk.json?.sent_to === phone.slice(0, 4) + '***' + phone.slice(-4), 'signin: unknown number gets the same 200 answer (masked)')
+    await new Promise((r) => setTimeout(r, 300))
+    ok(sms.length === 0, 'signin: no SMS sent to a number without an account')
+
+    // verify the number from account settings (Persian digits accepted)
+    ok((await anon('/api/signin/phone/send', { json: { phone } })).status === 401, 'signin: phone verification needs a session')
+    ok((await student('/api/signin/phone/send', { json: { phone: faPhone } })).status === 200, 'signin: student asks to verify a number')
+    ok(await wait(() => sms.some((x) => x.to === phone)), 'signin: verification SMS delivered to the normalised number')
+    const vcode = code6(sms.find((x) => x.to === phone)?.text)
+    ok((await student('/api/signin/phone/verify', { json: { phone, code: vcode === '000000' ? '111111' : '000000' } })).status === 400, 'signin: wrong verification code rejected')
+    ok((await student('/api/signin/phone/verify', { json: { phone, code: vcode } })).status === 200, 'signin: number verified')
+    const ph = (await student('/api/signin/phone')).json
+    ok(ph?.phone === phone.slice(0, 4) + '***' + phone.slice(-4) && !!ph?.verified_at && ph?.otp_available === true, 'signin: verified number shown masked')
+    ok((await officer('/api/signin/phone/send', { json: { phone } })).status === 409, 'signin: a verified number cannot be claimed by another account')
+
+    // sign in with an SMS code
+    const before = sms.length
+    const otpc = client()
+    ok((await otpc('/api/signin/otp/send', { json: { phone: '+98' + phone.slice(1) } })).status === 200, 'signin: otp send for the verified number (+98 form)')
+    ok(await wait(() => sms.length > before), 'signin: login SMS delivered')
+    const lcode = code6(sms[sms.length - 1]?.text)
+    ok(/کد ورود/.test(sms[sms.length - 1]?.text || ''), 'signin: login SMS text')
+    ok((await otpc('/api/signin/otp/send', { json: { phone } })).status === 429, 'signin: a second code within a minute is throttled')
+    ok((await otpc('/api/signin/otp/verify', { json: { phone, code: lcode === '999999' ? '888888' : '999999' } })).status === 400, 'signin: wrong login code rejected')
+    const ov = await otpc('/api/signin/otp/verify', { json: { phone, code: lcode.replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]) } })
+    ok(ov.status === 200 && typeof ov.json?.home === 'string', `signin: otp verify (Persian digits) signs in -> ${ov.status}`)
+    ok((await otpc('/api/auth/me')).json?.user?.username === '40012345', 'signin: session belongs to the student')
+    ok((await client()('/api/signin/otp/verify', { json: { phone, code: lcode } })).status === 400, 'signin: a used code cannot be replayed')
+
+    // ── SSO ──
+    const so = await dev('/api/system/settings', { json: { sso_issuer: `${mb}/oidc/`, sso_client_id: 'nashriyar', sso_client_secret: 'cs-test', sso_label: 'ورود با سامانهٔ گلستان', sso_student_claim: 'student_number', sso_auto_create: false } })
+    ok(so.status === 200, `signin: developer configures OIDC -> ${so.status}`)
+    const gs = (await dev('/api/system/settings')).json?.settings || {}
+    ok(gs.sso_client_secret === '••••test' && gs.sso_issuer === `${mb}/oidc`, 'signin: client secret masked, issuer normalised (no trailing slash)')
+    ok((await anon('/api/signin/methods')).json?.sso?.label === 'ورود با سامانهٔ گلستان', 'signin: SSO button label exposed')
+
+    const s1 = client()
+    const r1 = await ssoRound(s1, { sub: 'golestan-1', student_number: '۴۰۰۱۲۳۴۵', name: 'دانشجو' }, { startQs: '?next=/explore' })
+    ok(r1.q?.get('code_challenge_method') === 'S256' && !!r1.q?.get('code_challenge') && r1.q?.get('response_type') === 'code' && (r1.q?.get('scope') || '').includes('openid'), 'signin: authorize URL with PKCE S256, code flow, openid scope')
+    ok((r1.q?.get('redirect_uri') || '').endsWith('/api/signin/sso/callback'), 'signin: redirect_uri points at the callback')
+    ok(r1.cb?.status === 302 && r1.cb.headers.get('location') === '/explore', `signin: SSO callback signs in and returns to next (${r1.cb?.status} ${r1.cb?.headers.get('location')})`)
+    ok((await s1('/api/auth/me')).json?.user?.username === '40012345', 'signin: SSO matched the existing student by student number')
+    const replay = await s1(`/api/signin/sso/callback?state=${encodeURIComponent(r1.state)}&code=x`)
+    ok((replay.headers.get('location') || '').includes('sso_error=state_invalid'), 'signin: state is single-use')
+    const s1b = client()
+    const r1b = await ssoRound(s1b, { sub: 'golestan-1' })
+    ok(r1b.cb?.status === 302 && !(r1b.cb.headers.get('location') || '').includes('sso_error') && (await s1b('/api/auth/me')).json?.user?.username === '40012345', 'signin: a linked identity signs in without the student-number claim')
+
+    const bad = await ssoRound(client(), { sub: 'golestan-x', student_number: '40012345' }, { key: rogue })
+    ok((bad.cb?.headers.get('location') || '').includes('sso_error=token_invalid'), 'signin: id_token with a foreign signature refused')
+    const nn = await ssoRound(client(), { sub: 'golestan-x', student_number: '40012345' }, { nonceOverride: 'other' })
+    ok((nn.cb?.headers.get('location') || '').includes('sso_error=token_invalid'), 'signin: id_token with a wrong nonce refused')
+    const aud = await ssoRound(client(), { sub: 'golestan-x', student_number: '40012345', aud: 'someone-else' })
+    ok((aud.cb?.headers.get('location') || '').includes('sso_error=token_invalid'), 'signin: id_token for another client refused')
+    const exp = await ssoRound(client(), { sub: 'golestan-x', student_number: '40012345', exp: Math.floor(Date.now() / 1000) - 3600 })
+    ok((exp.cb?.headers.get('location') || '').includes('sso_error=token_invalid'), 'signin: expired id_token refused')
+    const den = await anon('/api/signin/sso/callback?error=access_denied&state=x')
+    ok((den.headers.get('location') || '').includes('sso_error=provider_denied'), 'signin: provider error -> provider_denied')
+
+    // unknown student number: refused unless auto-create is on
+    const newSn = '99' + String(Date.now() % 100_000_000).padStart(8, '0')
+    const na = await ssoRound(client(), { sub: 'golestan-new', student_number: newSn, name: 'ورودی تازه' })
+    ok((na.cb?.headers.get('location') || '').includes('sso_error=no_account'), 'signin: unknown student refused while auto-create is off')
+    ok((await dev('/api/system/settings', { json: { sso_auto_create: true } })).status === 200, 'signin: developer enables auto-create')
+    const s2 = client()
+    const ac = await ssoRound(s2, { sub: 'golestan-new', student_number: newSn, name: 'ورودی تازه', email: 'New@Uni.ac.ir' })
+    const me2 = (await s2('/api/auth/me')).json?.user
+    ok(ac.cb?.status === 302 && me2?.username === newSn && me2?.system_role === 'student', `signin: first SSO sign-in creates the student account (${me2?.username})`)
+    ok((await s2('/api/auth/login', { json: { username: newSn, password: '' } })).status !== 200, 'signin: auto-created account has no usable password')
+
+    // linking from account settings
+    ok(((await anon('/api/signin/sso/start?link=1')).headers.get('location') || '').includes('sso_error=login_required'), 'signin: linking needs a session')
+    const lk = await ssoRound(officer, { sub: 'golestan-officer' }, { startQs: '?link=1' })
+    ok(lk.cb?.headers.get('location') === '/settings?sso=linked', `signin: officer links a university identity (${lk.cb?.headers.get('location')})`)
+    const ids = (await officer('/api/signin/sso/identities')).json
+    ok(ids?.available === true && ids.identities?.length === 1 && ids.identities[0].issuer === `${mb}/oidc`, 'signin: linked identity listed')
+    const tk = await ssoRound(student, { sub: 'golestan-officer' }, { startQs: '?link=1' })
+    ok(tk.cb?.headers.get('location') === '/settings?sso=taken', 'signin: an identity linked to another account cannot be taken')
+    const s3 = client()
+    await ssoRound(s3, { sub: 'golestan-officer' })
+    ok((await s3('/api/auth/me')).json?.user?.username === 'officer', 'signin: officer signs in through the linked identity')
+    ok((await officer('/api/signin/sso/identities', { method: 'DELETE' })).status === 200, 'signin: unlink')
+    ok((await officer('/api/signin/sso/identities')).json?.identities?.length === 0, 'signin: no identities after unlink')
+    ok(tokenCalls >= 8, `signin: mock IdP token endpoint used (${tokenCalls})`)
+  } finally {
+    await dev('/api/system/settings', { json: { sms_provider: 'off', sms_api_url: '', sms_api_key: '', sms_sender: '', sso_issuer: '', sso_client_id: '', sso_client_secret: '', sso_label: '', sso_auto_create: false } })
+    await student('/api/signin/phone', { method: 'DELETE' })
+    await student('/api/signin/sso/identities', { method: 'DELETE' })
+    mock.close()
+  }
+}
+
 console.log(failures ? `future-e2e: ${failures} failed, ${passed} passed` : `future-e2e: ${passed} checks passed`)
 process.exit(failures ? 1 : 0)
