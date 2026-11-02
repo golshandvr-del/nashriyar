@@ -408,9 +408,11 @@ issuesRoutes.put('/:pubId/issues/:issueId/publishing', async (c) => {
   const priceDigital = pricing === 'paid' ? int(b.price_digital, 'قیمت نسخهٔ دیجیتال', { min: 1000, max: 100_000_000 }) : null
   const ttl = int(b.code_ttl_hours ?? i.code_ttl_hours ?? 24, 'مدت اعتبار کد', { min: 1, max: 24 }) // client decision #5: team sets, max 24h
   await c.get('db').run(
-    'UPDATE issues SET pricing = ?, price_digital = ?, price_print = ?, print_run = ?, free_preview_pages = ?, code_ttl_hours = ?, planned_publish_at = ?, updated_at = ? WHERE id = ?',
+    'UPDATE issues SET pricing = ?, price_digital = ?, price_print = ?, print_run = ?, free_preview_pages = ?, code_ttl_hours = ?, planned_publish_at = ?, app_only = ?, updated_at = ? WHERE id = ?',
     [pricing, priceDigital, int(b.price_print, 'قیمت نسخهٔ چاپی', { min: 0, max: 100_000_000, optional: true }), int(b.print_run, 'تیراژ', { min: 0, max: 1_000_000, optional: true }),
-      int(b.free_preview_pages ?? 3, 'صفحات پیش‌نمایش', { min: 0, max: 50 }), ttl, b.planned_publish_at || i.planned_publish_at || null, nowIso(), i.id]
+      int(b.free_preview_pages ?? 3, 'صفحات پیش‌نمایش', { min: 0, max: 50 }), ttl, b.planned_publish_at || i.planned_publish_at || null,
+      // ROADMAP phase 19: full reading of a paid issue only inside the Android app (ignored for free issues)
+      pricing === 'paid' && (b.app_only ?? !!i.app_only) === true ? 1 : 0, nowIso(), i.id]
   )
   await audit(c.get('db'), user.id, 'issue.publishing_update', 'issue', i.id, { pricing: i.pricing, price: i.price_digital }, { pricing, price: priceDigital, ttl })
   return c.json({ ok: true })
