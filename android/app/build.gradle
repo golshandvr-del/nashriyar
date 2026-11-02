@@ -1,0 +1,55 @@
+plugins {
+    id 'com.android.application'
+}
+
+def siteUrl = (project.findProperty('nashriyarUrl') ?: 'https://nashriyar.example.ac.ir').toString().replaceAll('/+$', '')
+def appKey = (project.findProperty('nashriyarAppKey') ?: '').toString()
+
+android {
+    namespace 'ir.nashriyar.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'ir.nashriyar.app'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+        buildConfigField 'String', 'SITE_URL', "\"${siteUrl}\""
+        buildConfigField 'String', 'APP_KEY', "\"${appKey}\""
+        resValue 'string', 'site_host', new URI(siteUrl).host
+    }
+
+    // Release signing: android/keystore.properties (storeFile, storePassword, keyAlias, keyPassword) — never committed.
+    def ksFile = rootProject.file('keystore.properties')
+    if (ksFile.exists()) {
+        def ks = new Properties()
+        ksFile.withInputStream { ks.load(it) }
+        signingConfigs {
+            release {
+                storeFile rootProject.file(ks['storeFile'])
+                storePassword ks['storePassword']
+                keyAlias ks['keyAlias']
+                keyPassword ks['keyPassword']
+            }
+        }
+        buildTypes.release.signingConfig signingConfigs.release
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
