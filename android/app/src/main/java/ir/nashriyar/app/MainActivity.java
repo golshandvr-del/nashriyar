@@ -2,8 +2,10 @@ package ir.nashriyar.app;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
@@ -17,6 +19,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.EditText;
 import android.widget.ProgressBar;
 
 import java.nio.charset.StandardCharsets;
@@ -36,6 +39,8 @@ import javax.crypto.spec.SecretKeySpec;
  *   build has a key, {@code nsk/<daily token>} (server: src/server/lib/app-client.ts). The app is only an installable
  *   copy of the site: nothing is app-only, the website has every feature on its own.
  * - Only the configured site opens in-app (HTTPS); every other link goes to the system browser.
+ * - The site address comes from the build (-PnashriyarUrl) and can be changed in the app (first run without an
+ *   address, or "change server address" on the offline screen) — useful while the site has no permanent domain.
  */
 public class MainActivity extends Activity {
     private static final int FILE_CHOOSER = 41;
@@ -43,6 +48,10 @@ public class MainActivity extends Activity {
     private WebView web;
     private ProgressBar progress;
     private ValueCallback<Uri[]> fileCallback;
+    private static final String PREFS = "nashriyar";
+    private static final String KEY_URL = "site_url";
+
+    private String siteUrl;
     private String siteHost;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -53,7 +62,7 @@ public class MainActivity extends Activity {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
         setContentView(R.layout.activity_main);
 
-        siteHost = Uri.parse(BuildConfig.SITE_URL).getHost();
+        setSite(savedSiteUrl());
         web = findViewById(R.id.web);
         progress = findViewById(R.id.progress);
 
@@ -77,7 +86,61 @@ public class MainActivity extends Activity {
         web.setDownloadListener((url, ua, cd, mime, len) -> openExternal(Uri.parse(url)));
 
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
+        else if (siteUrl == null) askSiteUrl(true);
         else web.loadUrl(startUrl(getIntent()));
+    }
+
+    /** The saved address (set in the app) or the one baked in at build time; null if neither is usable. */
+    private String savedSiteUrl() {
+        String u = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_URL, null);
+        if (u == null || u.isEmpty()) u = BuildConfig.SITE_URL;
+        return normalizeUrl(u);
+    }
+
+    /** Accepts "host" or "https://host/..." and returns "https://host[:port]" (HTTPS only); null when invalid. */
+    static String normalizeUrl(String raw) {
+        if (raw == null) return null;
+        String u = raw.trim();
+        if (u.isEmpty() || u.contains("example.ac.ir")) return null;
+        if (!u.contains("://")) u = "https://" + u;
+        Uri p = Uri.parse(u);
+        if (!"https".equalsIgnoreCase(p.getScheme()) || p.getHost() == null || p.getHost().isEmpty()) return null;
+        return "https://" + p.getHost() + (p.getPort() > 0 ? ":" + p.getPort() : "");
+    }
+
+    private void setSite(String url) {
+        siteUrl = url;
+        siteHost = url == null ? null : Uri.parse(url).getHost();
+    }
+
+    /** Dialog to enter/change the site address (saved on the device). */
+    private void askSiteUrl(boolean firstRun) {
+        final EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setHint("https://nashriyar.example.com");
+        input.setTextDirection(View.TEXT_DIRECTION_LTR);
+        if (siteUrl != null) input.setText(siteUrl);
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setTitle(R.string.server_title)
+                .setMessage(R.string.server_message)
+                .setView(input)
+                .setCancelable(!firstRun)
+                .setPositiveButton(R.string.server_save, null);
+        if (!firstRun) b.setNegativeButton(android.R.string.cancel, null);
+        final AlertDialog d = b.create();
+        d.setOnShowListener(di -> d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String url = normalizeUrl(input.getText().toString());
+            if (url == null) {
+                input.setError(getString(R.string.server_invalid));
+                return;
+            }
+            SharedPreferences.Editor e = getSharedPreferences(PREFS, MODE_PRIVATE).edit();
+            e.putString(KEY_URL, url).apply();
+            setSite(url);
+            d.dismiss();
+            web.loadUrl(url + "/");
+        }));
+        d.show();
     }
 
     /** Appends the app marker (and today's token) to the WebView's own User-Agent. */
@@ -110,7 +173,7 @@ public class MainActivity extends Activity {
     private String startUrl(Intent intent) {
         Uri data = intent != null ? intent.getData() : null;
         if (data != null && isSite(data)) return data.toString();
-        return BuildConfig.SITE_URL + "/";
+        return siteUrl + "/";
     }
 
     private boolean isSite(Uri u) {
@@ -178,6 +241,10 @@ public class MainActivity extends Activity {
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
             Uri u = req.getUrl();
             if (isSite(u)) return false;
+            if ("nashriyar-app".equals(u.getScheme())) {
+                askSiteUrl(false);
+                return true;
+            }
             openExternal(u);
             return true;
         }
