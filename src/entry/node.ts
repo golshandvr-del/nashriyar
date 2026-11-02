@@ -5,6 +5,7 @@
 //   node server-dist/node.mjs --migrate    apply migrations, then exit
 //   node server-dist/node.mjs --create-admin [username]   create (or reset, incl. 2FA) a super admin with a random one-time password
 //   PDF_RENDERER=browser                    disable server-side PDF conversion (default: pdftoppm when installed)
+//   VIDEO_TRANSCODE=off                     disable ffmpeg normalisation/HLS of explore videos (default: on when ffmpeg is installed)
 //   node server-dist/node.mjs --maintenance  run the periodic job once (rollup, reminders, purges), then exit
 //   CRON=off / BACKUP_HOUR=3                 in-process scheduler: maintenance every 15 min, daily backup at BACKUP_HOUR (-1 = off)
 //   node server-dist/node.mjs --backup     consistent DB snapshot to DATA_DIR/backups (+ BACKUP_OFFSITE_DIR), prune > BACKUP_KEEP_DAYS (30)
@@ -21,6 +22,7 @@ import { nodeSqliteDb } from '../server/adapters/db'
 import { diskStorage } from '../server/adapters/storage'
 import { ensureMigrated } from '../server/migrate'
 import { popplerRenderer } from '../server/adapters/pdf-poppler'
+import { ffmpegTranscoder } from '../server/adapters/video-ffmpeg'
 import { runMaintenance } from '../server/lib/maintenance'
 import { backupDb, backupFiles, restoreTest } from './backup'
 import { resolveSecret } from '../server/secret'
@@ -66,6 +68,8 @@ async function main() {
     ai: { baseUrl: process.env.AI_BASE_URL, apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL },
     // Server-side PDF conversion (ROADMAP phase 11) when poppler-utils is installed; PDF_RENDERER=browser disables it.
     pdf: process.env.PDF_RENDERER === 'browser' ? undefined : (await popplerRenderer()) ?? undefined,
+    // Short explore videos (ROADMAP phase 19): MP4 normalisation + HLS + poster when ffmpeg is installed.
+    video: process.env.VIDEO_TRANSCODE === 'off' ? undefined : (await ffmpegTranscoder()) ?? undefined,
     disk: () => {
       try {
         const st = fs.statfsSync(DATA_DIR)
