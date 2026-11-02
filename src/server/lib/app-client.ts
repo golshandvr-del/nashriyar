@@ -8,7 +8,7 @@ import { hmac, timingSafeEqual } from './crypto'
 import { getSetting } from './util'
 import type { Db } from '../adapters/db'
 
-const UA_RE = /\bNashriyarApp\/([0-9][0-9A-Za-z.\-]{0,15})/
+const UA_RE = /\bNashriyarApp\/([0-9][0-9A-Za-z.-]{0,15})/
 const TOKEN_RE = /\bnsk\/([0-9a-f]{16})\b/
 
 export async function appToken(key: string, day: string): Promise<string> {
