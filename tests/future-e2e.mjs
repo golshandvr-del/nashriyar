@@ -855,9 +855,12 @@ const dev = await developer()
   const team = await login('pub1-director', 'team1234')
   const me = (await team('/api/auth/me')).json
   const pubId = me?.publications?.[0]?.publication_id
-  const issues = (await team(`/api/team/${pubId}/issues?limit=200`)).json?.issues || []
-  const paid = issues.find((i) => i.status === 'published' && i.pricing === 'paid' && (i.free_preview_pages || 0) > 0 && i.free_preview_pages < i.page_count)
-  const freeIss = issues.find((i) => i.status === 'published' && i.pricing === 'free')
+  const listed = ((await team(`/api/team/${pubId}/issues?limit=200`)).json?.issues || []).filter((i) => i.status === 'published')
+  // the list has no pricing details; the issue detail carries free_preview_pages, prices and app_only
+  const issues = []
+  for (const i of listed) issues.push((await team(`/api/team/${pubId}/issues/${i.id}`)).json?.issue)
+  const paid = issues.find((i) => i?.pricing === 'paid' && (i.free_preview_pages || 0) > 0 && i.free_preview_pages < i.page_count)
+  const freeIss = issues.find((i) => i?.pricing === 'free')
   ok(!!paid, 'app: team has a published paid issue with a free preview')
   const WEB = { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/124 Mobile' }
   const APP = (extra = '') => ({ 'User-Agent': `Mozilla/5.0 (Linux; Android 14; wv) Chrome/124 Mobile NashriyarApp/1.0.0${extra}` })
