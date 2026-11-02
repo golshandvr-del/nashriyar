@@ -1,0 +1,17 @@
+// Nashriyar Android shell (ROADMAP phase 19). Build: see android/README.md
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = 'nashriyar'
+include ':app'
