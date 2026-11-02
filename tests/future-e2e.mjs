@@ -516,7 +516,16 @@ const dev = await developer()
     // Bale linking without a webhook: officer's code arrives through getUpdates during maintenance
     const oc = await officer('/api/channels/bale/connect', { json: {} })
     baleUpdates.push({ update_id: 50, message: { chat: { id: 888002 }, text: oc.json?.code } })
-    const mr = spawnSync(process.execPath, ['server-dist/node.mjs', '--maintenance'], { env: { ...process.env, CRON: 'off' }, encoding: 'utf8' })
+    // async spawn: the mock provider lives in this process, so the event loop must keep running while maintenance polls it
+    const { spawn } = await import('node:child_process')
+    const mr = await new Promise((resolve) => {
+      const p = spawn(process.execPath, ['server-dist/node.mjs', '--maintenance'], { env: { ...process.env, CRON: 'off' } })
+      let stdout = ''
+      let stderr = ''
+      p.stdout.on('data', (d) => (stdout += d))
+      p.stderr.on('data', (d) => (stderr += d))
+      p.on('close', () => resolve({ stdout, stderr }))
+    })
     ok(/"bale_linked":1/.test(mr.stdout || ''), `channels: maintenance polled Bale and linked the officer (${(mr.stdout || mr.stderr || '').slice(-160)})`)
     ok((await officer('/api/channels')).json?.channels?.find((c) => c.channel === 'bale')?.address === '888002', 'channels: officer bale linked via getUpdates')
 
