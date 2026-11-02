@@ -5,3 +5,6 @@
 ALTER TABLE posts ADD COLUMN video_json TEXT;
 -- probe result recorded at upload ({"duration": s, "w": px, "h": px}) so a post never re-reads a large file
 ALTER TABLE media_assets ADD COLUMN meta_json TEXT;
+-- lookups by storage key (video post creation, file serving) and the restart resume of pending video transcodes
+CREATE INDEX IF NOT EXISTS idx_media_key ON media_assets(storage_key);
+CREATE INDEX IF NOT EXISTS idx_posts_kind ON posts(kind);
