@@ -102,7 +102,7 @@ async function accessFor(c: any, issueId: string) {
 }
 
 readerRoutes.get('/:issueId/manifest', async (c) => {
-  const { issue, full, allowed, user } = await accessFor(c, c.req.param('issueId'))
+  const { issue, full, allowed, user, appRequired } = await accessFor(c, c.req.param('issueId'))
   const db = c.get('db')
   const exp = Math.floor(Date.now() / 1000) + URL_TTL_SEC
   const pages = []
@@ -126,6 +126,8 @@ readerRoutes.get('/:issueId/manifest', async (c) => {
     issue: { id: issue.id, title: issue.title, number: issue.number, page_count: issue.page_count, pricing: issue.pricing, publication_title: issue.publication_title, publication_slug: issue.publication_slug },
     full,
     allowed,
+    // ROADMAP phase 19: entitled, but this paid issue is readable in full only in the Android app
+    app_required: appRequired,
     pages,
     expires_at: exp,
     toc,
