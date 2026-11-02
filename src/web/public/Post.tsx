@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import { useFeature } from '../lib/features'
 import { faDate, relativeFa, toFaDigits, cx } from '../lib/format'
 import { Async, Avatar, Button, Textarea, useAction, useAsync, useToast } from '../components/ui'
+import type { PostVideoLite } from '../components/cards'
 
 interface PostData {
   post: {
@@ -23,6 +24,8 @@ interface PostData {
     source_issue_number: number
     source_toc_title: string | null
     source_page: number | null
+    kind?: string
+    video?: PostVideoLite | null
   }
   comments: { id: string; body: string; created_at: string; parent_id: string | null; is_team_reply: number; author: string; pending?: number }[]
   saved: boolean
@@ -93,7 +96,9 @@ export default function Post() {
               </div>
             </header>
 
-            {imgs.length > 0 && (
+            {p.video ? (
+              <PostVideoPlayer video={p.video} poster={mediaUrl(imgs[0] || p.video.poster)} label={p.alts?.[0] || p.caption?.slice(0, 80) || 'ویدیوی پست'} />
+            ) : imgs.length > 0 && (
               <div className="relative overflow-hidden rounded-2xl border border-line bg-surface-2">
                 <img src={mediaUrl(imgs[idx])} alt={p.alts?.[idx] || ''} decoding="async" className="aspect-square w-full object-cover" />
                 {imgs.length > 1 && (
@@ -212,5 +217,30 @@ export default function Post() {
         )
       }}
     </Async>
+  )
+}
+
+/**
+ * Short explore video (ROADMAP phase 19): HLS where the browser plays it natively (Safari / iOS / most Android),
+ * otherwise the normalised MP4 (byte-range seeking). No autoplay with sound; download hidden like other free media.
+ */
+function PostVideoPlayer({ video, poster, label }: { video: PostVideoLite; poster?: string; label: string }) {
+  const canHls = typeof document !== 'undefined' && !!document.createElement('video').canPlayType('application/vnd.apple.mpegurl')
+  const src = mediaUrl(canHls && video.hls ? video.hls : video.src)
+  const portrait = video.w && video.h ? video.h > video.w : false
+  return (
+    <div className="overflow-hidden rounded-2xl border border-line bg-black">
+      <video
+        src={src}
+        poster={poster}
+        controls
+        playsInline
+        preload="metadata"
+        controlsList="nodownload"
+        onContextMenu={(e) => e.preventDefault()}
+        aria-label={label}
+        className={cx('mx-auto block w-full bg-black', portrait ? 'aspect-[4/5] object-contain' : 'max-h-[80vh]')}
+      />
+    </div>
   )
 }
