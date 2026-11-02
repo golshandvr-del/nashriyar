@@ -5,6 +5,9 @@ import type { AppEnv } from '../../context'
 import { newId } from '../../lib/crypto'
 import { activity, addHours, bad, body, HttpError, notFound, notify, nowIso, oneOf, parseJson, str } from '../../lib/util'
 import { pub } from './service'
+import { requireFeature } from '../../lib/features'
+import { queueVideoJob } from '../../lib/video-jobs'
+import type { PostVideo } from '../../lib/video'
 
 export const exploreRoutes = new Hono<AppEnv>()
 
@@ -28,7 +31,19 @@ exploreRoutes.post('/:pubId/posts', async (c) => {
   const db = c.get('db')
   const b = await body<any>(c)
   const images: string[] = (Array.isArray(b.images) ? b.images : []).filter((k: any) => typeof k === 'string' && k.startsWith(`pub/${p.id}/`)).slice(0, 10)
-  if (!images.length) throw bad('اکسپلور فقط تصویری است؛ حداقل یک تصویر بارگذاری کنید')
+  // short video posts (ROADMAP phase 19): `video` = storage key of a post_video upload of this publication; images[0]
+  // is its thumbnail (the browser grabs a frame when the team does not pick one)
+  let video: PostVideo | null = null
+  if (b.video !== undefined && b.video !== null && b.video !== '') {
+    await requireFeature(db, 'explore_video')
+    const a = await db.first<any>("SELECT storage_key, meta_json FROM media_assets WHERE storage_key = ? AND publication_id = ? AND role = 'post_video'", [String(b.video), p.id])
+    if (!a) throw bad('ویدیوی پست یافت نشد؛ ابتدا فایل ویدیو را بارگذاری کنید', 'video_missing')
+    if (b.is_story) throw bad('استوری ویدیویی پشتیبانی نمی‌شود', 'video_story')
+    const meta = parseJson<{ duration?: number; w?: number | null; h?: number | null }>(a.meta_json, {})
+    video = { src: a.storage_key, duration: Number(meta.duration) || 0, w: meta.w ?? null, h: meta.h ?? null, hls: null, hls_state: c.get('deps').video ? 'pending' : 'none' }
+    if (images.length > 1) images.splice(1)
+  }
+  if (!images.length) throw bad(video ? 'تصویر بندانگشتی ویدیو الزامی است' : 'اکسپلور فقط تصویری است؛ حداقل یک تصویر بارگذاری کنید')
   const src = await db.first<any>("SELECT id FROM issues WHERE id = ? AND publication_id = ? AND status = 'published' AND deleted_at IS NULL", [b.source_issue_id, p.id])
   if (!src) throw bad('منبع پست الزامی است: یک شمارهٔ منتشرشده از همین نشریه انتخاب کنید')
   const toc = await db.first('SELECT id FROM issue_toc_items WHERE id = ? AND issue_id = ?', [b.source_toc_item_id, src.id])
@@ -46,17 +61,26 @@ exploreRoutes.post('/:pubId/posts', async (c) => {
     if (t > Date.now()) publishAt = new Date(t).toISOString()
   }
   await db.run(
-    'INSERT INTO posts (id, publication_id, kind, caption, images_json, source_issue_id, source_toc_item_id, is_story, expires_at, status, published_at, created_by, created_at, alt_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-    [id, p.id, images.length > 1 ? 'carousel' : 'image', str(b.caption, 'متن پست', { max: 2200, optional: true }), JSON.stringify(images), src.id, b.source_toc_item_id, isStory,
-      isStory ? addHours(24) : null, status, status === 'published' ? publishAt : null, user.id, now, altJson(b.alt, images.length)]
+    'INSERT INTO posts (id, publication_id, kind, caption, images_json, source_issue_id, source_toc_item_id, is_story, expires_at, status, published_at, created_by, created_at, alt_json, video_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    [id, p.id, video ? 'video' : images.length > 1 ? 'carousel' : 'image', str(b.caption, 'متن پست', { max: 2200, optional: true }), JSON.stringify(images), src.id, b.source_toc_item_id, isStory,
+      isStory ? addHours(24) : null, status, status === 'published' ? publishAt : null, user.id, now, altJson(b.alt, images.length), video ? JSON.stringify(video) : null]
   )
+  // ffmpeg (self-hosted): normalise + HLS after the response; Workers keep the job alive with waitUntil
+  if (video?.hls_state === 'pending') {
+    const job = queueVideoJob(c.get('deps'), id)
+    try {
+      c.executionCtx.waitUntil(job)
+    } catch {
+      /* Node: keeps running in the background */
+    }
+  }
   await activity(db, user.id, isStory ? 'story.published' : 'post.published', p.id, src.id, { id, scheduled: publishAt !== now ? publishAt : undefined })
   // in-app notification to followers for immediately-published posts (ROADMAP phase 6); identities never exposed to the team
   if (status === 'published' && publishAt === now && !isStory) {
     const followers = await db.all<{ user_id: string }>('SELECT user_id FROM follows WHERE publication_id = ? AND unfollowed_at IS NULL LIMIT 2000', [p.id])
     for (const f of followers) await notify(db, f.user_id, 'post.published', `پست تازه از ${p.title}`, `/post/${id}`)
   }
-  return c.json({ ok: true, id, published_at: status === 'published' ? publishAt : null })
+  return c.json({ ok: true, id, kind: video ? 'video' : images.length > 1 ? 'carousel' : 'image', published_at: status === 'published' ? publishAt : null, hls_state: video?.hls_state })
 })
 
 exploreRoutes.put('/:pubId/posts/:postId', async (c) => {
