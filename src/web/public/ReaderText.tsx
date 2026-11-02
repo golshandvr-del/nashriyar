@@ -119,7 +119,7 @@ export default function ReaderText({ issueId, startPage, night, onPage }: { issu
         <span className="flex-1" />
         {d.has_text && (d.tts_server || webSpeech) && (
           <button
-            className={cx('btn-ghost inline-flex items-center gap-1 rounded-lg px-3 py-1.5', playing && 'text-brand')}
+            className={cx('btn-ghost inline-flex items-center gap-1 rounded-lg px-3 py-1.5', playing !== null && 'text-brand')}
             onClick={() => (playing ? stop() : play(startPage))}
             aria-pressed={!!playing}
             title={d.tts_server ? 'نسخهٔ صوتی (هوش مصنوعی)' : 'خواندن با صدای مرورگر'}
