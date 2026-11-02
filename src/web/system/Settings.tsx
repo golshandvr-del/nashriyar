@@ -103,6 +103,12 @@ function Form({ data, reload }: { data: Data; reload: () => void }) {
             <Field label="مدل">
               <Input dir="ltr" value={s.ai_model || ''} placeholder="gpt-4o-mini" onChange={(e) => set({ ai_model: e.target.value })} />
             </Field>
+            <Field label="مدل تبدیل متن به گفتار (TTS)" hint="سرویس سازگار با /audio/speech؛ off = خاموش (صدای مرورگر جایگزین می‌شود).">
+              <Input dir="ltr" value={s.ai_tts_model || ''} placeholder="tts-1" onChange={(e) => set({ ai_tts_model: e.target.value })} />
+            </Field>
+            <Field label="صدای TTS">
+              <Input dir="ltr" value={s.ai_tts_voice || ''} placeholder="alloy" onChange={(e) => set({ ai_tts_voice: e.target.value })} />
+            </Field>
             <div className="sm:col-span-2">
               <Field label="کلید API" hint="کلید ذخیره‌شده فقط با چهار نویسهٔ آخر نمایش داده می‌شود؛ برای تغییر، کلید جدید را کامل وارد کنید.">
                 <PasswordInput autoComplete="off" value={s.ai_api_key || ''} placeholder="sk-…" onChange={(e) => set({ ai_api_key: e.target.value })} />
