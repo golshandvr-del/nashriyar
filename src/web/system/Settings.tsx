@@ -2,9 +2,9 @@
 // AI layer, feature flags, members-only reading, concurrent-session cap and maintenance mode.
 // Saving needs sudo mode; the SudoProvider asks for password + TOTP when required.
 import { useEffect, useState } from 'react'
-import { BellRing, Save, Sparkles, Wrench } from 'lucide-react'
+import { BellRing, Fingerprint, Save, Sparkles, Wrench } from 'lucide-react'
 import { api } from '../lib/api'
-import { Async, Button, Card, Field, Input, PageHeader, PasswordInput, Textarea, useAsync } from '../components/ui'
+import { Async, Button, Card, Field, Input, PageHeader, PasswordInput, Select, Textarea, useAsync } from '../components/ui'
 import { faDate, toFaDigits } from '../../shared/fa'
 import { useSudo } from './lib'
 
@@ -198,6 +198,58 @@ function Form({ data, reload }: { data: Data; reload: () => void }) {
             </Field>
           </div>
           <ChannelStatus />
+        </div>
+      </Card>
+
+      <Card title={<span className="flex items-center gap-2"><Fingerprint className="size-4 text-brand" /> ورود پیامکی و ورود با حساب دانشگاه (اختیاری)</span>}>
+        <div className="space-y-3">
+          <p className="text-sm text-muted">ورود با رمز عبور همیشه برقرار است. کاربران پس از تأیید شمارهٔ همراه یا اتصال حساب دانشگاه از تنظیمات حساب، می‌توانند از این روش‌ها استفاده کنند.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="سرویس پیامک" hint="http: درگاه عمومی POST JSON {to,text,sender}؛ kavenegar: API کاوه‌نگار">
+              <Select value={s.sms_provider || 'off'} onChange={(e) => set({ sms_provider: e.target.value })} options={[{ value: 'off', label: 'خاموش' }, { value: 'http', label: 'درگاه HTTP عمومی' }, { value: 'kavenegar', label: 'کاوه‌نگار' }]} />
+            </Field>
+            <Field label="پیامک — نشانی API" hint="برای kavenegar اختیاری (پیش‌فرض https://api.kavenegar.com)">
+              <Input dir="ltr" value={s.sms_api_url || ''} placeholder="https://sms.example.ir/send" onChange={(e) => set({ sms_api_url: e.target.value })} />
+            </Field>
+            <Field label="پیامک — کلید API">
+              <PasswordInput autoComplete="off" value={s.sms_api_key || ''} onChange={(e) => set({ sms_api_key: e.target.value })} />
+            </Field>
+            <Field label="پیامک — شمارهٔ فرستنده (اختیاری)">
+              <Input dir="ltr" value={s.sms_sender || ''} placeholder="10004346" onChange={(e) => set({ sms_sender: e.target.value })} />
+            </Field>
+            <Field label="کاوه‌نگار — نام قالب تأیید (اختیاری)" hint="با قالب، کد از مسیر verify/lookup فرستاده می‌شود">
+              <Input dir="ltr" value={s.sms_template || ''} placeholder="nashriyar-otp" onChange={(e) => set({ sms_template: e.target.value })} />
+            </Field>
+          </div>
+          <hr className="border-line" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Field label="SSO — نشانی صادرکننده (issuer)" hint="سرور OpenID Connect دانشگاه؛ باید /.well-known/openid-configuration داشته باشد. خالی = خاموش">
+                <Input dir="ltr" value={s.sso_issuer || ''} placeholder="https://sso.university.ac.ir/realms/students" onChange={(e) => set({ sso_issuer: e.target.value })} />
+              </Field>
+            </div>
+            <Field label="SSO — شناسهٔ کلاینت (client_id)">
+              <Input dir="ltr" value={s.sso_client_id || ''} onChange={(e) => set({ sso_client_id: e.target.value })} />
+            </Field>
+            <Field label="SSO — رمز کلاینت (اختیاری؛ کلاینت عمومی با PKCE)">
+              <PasswordInput autoComplete="off" value={s.sso_client_secret || ''} onChange={(e) => set({ sso_client_secret: e.target.value })} />
+            </Field>
+            <Field label="SSO — متن دکمه">
+              <Input value={s.sso_label || ''} placeholder="ورود با حساب دانشگاه" onChange={(e) => set({ sso_label: e.target.value })} />
+            </Field>
+            <Field label="SSO — scope">
+              <Input dir="ltr" value={s.sso_scopes || ''} placeholder="openid profile email" onChange={(e) => set({ sso_scopes: e.target.value })} />
+            </Field>
+            <Field label="SSO — claim شمارهٔ دانشجویی" hint="مثل student_number یا preferred_username">
+              <Input dir="ltr" value={s.sso_student_claim || ''} placeholder="student_number" onChange={(e) => set({ sso_student_claim: e.target.value })} />
+            </Field>
+            <div className="sm:col-span-2">
+              <Check checked={s.sso_auto_create === true} onChange={(v) => set({ sso_auto_create: v })} label="ساخت خودکار حساب دانشجو در اولین ورود SSO" hint="خاموش: فقط حساب‌های موجود (با همان شماره دانشجویی) یا حساب‌های متصل‌شده وارد می‌شوند." />
+            </div>
+          </div>
+          <p className="text-xs text-muted">
+            نشانی بازگشت (redirect URI) برای ثبت در سرور SSO: <code dir="ltr">{(s.site_url || location.origin).replace(/\/+$/, '') + '/api/signin/sso/callback'}</code>
+          </p>
         </div>
       </Card>
 
