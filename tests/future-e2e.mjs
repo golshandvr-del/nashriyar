@@ -878,24 +878,20 @@ const dev = await developer()
     const before = await reader(`/api/reader/${paid?.id}/manifest`, { headers: WEB })
     ok(before.status === 200 && before.json?.full === true && !before.json?.app_required, 'app: entitled reader has the full manifest on the web before app_only')
 
+    // the website is never limited by the app: even if a client still sends app_only, it is ignored
     const set = await publishing(paid, { app_only: true })
-    ok(set.status === 200, `app: team enables app_only -> ${set.status} ${set.text.slice(0, 120)}`)
-    ok((await team(`/api/team/${pubId}/issues/${paid?.id}`)).json?.issue?.app_only === 1, 'app: issue detail carries app_only = 1')
-
+    ok(set.status === 200, `app: publishing accepted -> ${set.status} ${set.text.slice(0, 120)}`)
+    ok(!(await team(`/api/team/${pubId}/issues/${paid?.id}`)).json?.issue?.app_only, 'app: app_only is retired (stays 0)')
     const web = await reader(`/api/reader/${paid?.id}/manifest`, { headers: WEB })
-    ok(web.status === 200 && web.json?.full === false && web.json?.app_required === true && web.json?.allowed === paid?.free_preview_pages && web.json?.pages?.length === paid?.free_preview_pages, `app: on the web the owner gets only the preview + app_required (${web.json?.allowed})`)
+    ok(web.status === 200 && web.json?.full === true && web.json?.app_required === undefined && web.json?.pages?.length === paid?.page_count, 'app: the owner reads the whole issue on the web')
     const app = await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP() })
-    ok(app.status === 200 && app.json?.full === true && !app.json?.app_required && app.json?.pages?.length === paid?.page_count, 'app: inside the app (no key configured) the owner gets the full manifest')
-    // a page signed for the app cannot be fetched from the web
-    const last = app.json?.pages?.[app.json.pages.length - 1]?.url
-    ok(!!last && (await reader(last, { headers: WEB })).status === 403, 'app: a full-issue page URL from the app is refused on the web')
-    ok(!!last && (await reader(last, { headers: APP() })).status === 200, 'app: the same page URL works inside the app')
+    ok(app.status === 200 && app.json?.full === true && app.json?.pages?.length === paid?.page_count, 'app: the owner reads the whole issue inside the app too')
     const txt = await reader(`/api/reader/${paid?.id}/text`, { headers: WEB })
-    ok(txt.status === 200 && txt.json?.full === false && txt.json?.pages?.length === paid?.free_preview_pages, 'app: text mode on the web is limited to the preview too')
+    ok(txt.status === 200 && txt.json?.full === true, 'app: text mode on the web is full too')
     const anonApp = await anon(`/api/reader/${paid?.id}/manifest`, { headers: APP() })
-    ok(anonApp.status === 200 && anonApp.json?.full === false && !anonApp.json?.app_required, 'app: the app alone does not unlock a paid issue (no entitlement -> preview, no app_required)')
+    ok(anonApp.status === 200 && anonApp.json?.full === false, 'app: the app alone does not unlock a paid issue (no entitlement -> preview)')
     const staff = await team(`/api/reader/${paid?.id}/manifest`, { headers: WEB })
-    ok(staff.json?.full === true, 'app: the publication team still reads in full on the web')
+    ok(staff.json?.full === true, 'app: the publication team reads in full on the web')
 
     // optional client key: the app must send today's (or yesterday's) HMAC token
     ok((await dev('/api/system/settings', { json: { app_client_key: 'testkey123', app_download_url: '/nashriyar.apk' } })).status === 200, 'app: developer sets app_client_key + app_download_url')
@@ -904,12 +900,8 @@ const dev = await developer()
     ok((await officer('/api/system/settings')).status === 403, 'app: officer cannot read the developer settings')
     ok((await anon('/api/public/settings')).json?.app_download_url === '/nashriyar.apk', 'app: public settings expose the download link')
     ok(!(await anon('/api/public/settings')).text.includes('testkey123'), 'app: the client key never appears in public settings')
-    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP() })).json?.full === false, 'app: with a key configured, the UA marker alone is not enough')
-    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP(' nsk/0123456789abcdef') })).json?.full === false, 'app: a wrong token is refused')
-    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP(` nsk/${tokenFor('otherkey')}`) })).json?.full === false, 'app: a token made with another key is refused')
-    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP(` nsk/${tokenFor('testkey123')}`) })).json?.full === true, "app: today's token unlocks the full issue")
-    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP(` nsk/${tokenFor('testkey123', -1)}`) })).json?.full === true, "app: yesterday's token is still accepted (clock skew)")
-    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP(` nsk/${tokenFor('testkey123', -3)}`) })).json?.full === false, 'app: an old token is refused')
+    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: WEB })).json?.full === true, 'app: with a key configured the web is still full')
+    ok((await reader(`/api/reader/${paid?.id}/manifest`, { headers: APP(` nsk/${tokenFor('testkey123')}`) })).json?.full === true, 'app: the app (with token) is full as well')
     ok((await dev('/api/system/settings', { json: { app_download_url: 'javascript:alert(1)' } })).status === 200 && (await anon('/api/public/settings')).json?.app_download_url === '', 'app: a non-http download link is dropped')
 
     // app_only is ignored for free issues
