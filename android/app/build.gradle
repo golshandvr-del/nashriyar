@@ -4,6 +4,9 @@ plugins {
 
 def siteUrl = (project.findProperty('nashriyarUrl') ?: 'https://nashriyar.example.ac.ir').toString().replaceAll('/+$', '')
 def appKey = (project.findProperty('nashriyarAppKey') ?: '').toString()
+// release workflow passes these from the git tag (e.g. v1.0.0 -> 1.0.0 / 10000)
+def verName = (project.findProperty('nashriyarVersionName') ?: '1.0.0').toString()
+def verCode = (project.findProperty('nashriyarVersionCode') ?: '1').toString().toInteger()
 
 android {
     namespace 'ir.nashriyar.app'
@@ -13,8 +16,8 @@ android {
         applicationId 'ir.nashriyar.app'
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName '1.0.0'
+        versionCode verCode
+        versionName verName
         buildConfigField 'String', 'SITE_URL', "\"${siteUrl}\""
         buildConfigField 'String', 'APP_KEY', "\"${appKey}\""
         resValue 'string', 'site_host', new URI(siteUrl).host
