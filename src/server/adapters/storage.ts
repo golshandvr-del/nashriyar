@@ -28,9 +28,12 @@ export function r2Storage(bucket: any): Storage {
       await bucket.put(key, data, { httpMetadata: { contentType } })
     },
     async get(key, range) {
-      const o = await bucket.get(key, range ? { range: { offset: range.offset, length: range.length } } : undefined)
+      // an open-ended request (`bytes=a-`) arrives as length = Infinity: R2 then reads from offset to the end
+      const r2Range = range ? (Number.isFinite(range.length) ? { offset: range.offset, length: range.length } : { offset: range.offset }) : undefined
+      const o = await bucket.get(key, r2Range ? { range: r2Range } : undefined)
       if (!o) return null
-      return { body: o.body, contentType: o.httpMetadata?.contentType || 'application/octet-stream', size: o.size, ...(range ? { range } : {}) }
+      const resolved = range ? { offset: range.offset, length: Math.max(0, Math.min(range.length, o.size - range.offset)) } : null
+      return { body: o.body, contentType: o.httpMetadata?.contentType || 'application/octet-stream', size: o.size, ...(resolved ? { range: resolved } : {}) }
     },
     async delete(key) {
       await bucket.delete(key)
