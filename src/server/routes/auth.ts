@@ -21,7 +21,7 @@ const homeFor = (role: string) =>
   role === 'student' ? '/' : role === 'team' ? '/team' : role === 'developer' ? '/system' : '/admin'
 
 /** ROADMAP phase 15 access matrix: a student account linked to an active team membership lands on «میز کار عضو». */
-async function homeForUser(db: any, id: string, role: string): Promise<{ home: string; desk: boolean }> {
+export async function homeForUser(db: any, id: string, role: string): Promise<{ home: string; desk: boolean }> {
   if (role !== 'student' && role !== 'team') return { home: homeFor(role), desk: false }
   const cfg = await getMemberDesk(db)
   const me = await db.first(`SELECT ${PROFILE_COLS} FROM users WHERE id = ?`, [id])
