@@ -2,7 +2,7 @@
 // AI layer, feature flags, members-only reading, concurrent-session cap and maintenance mode.
 // Saving needs sudo mode; the SudoProvider asks for password + TOTP when required.
 import { useEffect, useState } from 'react'
-import { Save, Sparkles, Wrench } from 'lucide-react'
+import { BellRing, Save, Sparkles, Wrench } from 'lucide-react'
 import { api } from '../lib/api'
 import { Async, Button, Card, Field, Input, PageHeader, PasswordInput, Textarea, useAsync } from '../components/ui'
 import { faDate, toFaDigits } from '../../shared/fa'
@@ -25,6 +25,33 @@ function Check({ checked, onChange, label, hint }: { checked: boolean; onChange:
         {hint && <span className="mt-0.5 block text-xs text-muted">{hint}</span>}
       </span>
     </label>
+  )
+}
+
+/** Live status of the outbound channels: configured, linked users, queue, and the Bale webhook path. */
+function ChannelStatus() {
+  const st = useAsync(() => api.get<any>('/api/channels/status'), [])
+  if (!st.data) return null
+  const d = st.data
+  const names: Record<string, string> = { email: 'ایمیل', bale: 'بله', eitaa: 'ایتا' }
+  return (
+    <div className="rounded-xl bg-surface-2 p-3 text-sm leading-7">
+      <div className="flex flex-wrap gap-x-6">
+        {Object.entries(d.channels as Record<string, { on: boolean; linked: number }>).map(([k, v]) => (
+          <span key={k}>
+            {names[k] || k}: <b>{v.on ? 'فعال' : 'خاموش'}</b> · {toFaDigits(v.linked)} کاربر متصل
+          </span>
+        ))}
+      </div>
+      <div>
+        صف ارسال: {toFaDigits(d.queue.pending)} در انتظار · {toFaDigits(d.queue.sent)} فرستاده · {toFaDigits(d.queue.failed)} ناموفق
+      </div>
+      {d.bale_webhook_path && (
+        <p className="text-xs text-muted">
+          وب‌هوک بله (اختیاری؛ بدون آن، کدهای اتصال در نگهداری دوره‌ای خوانده می‌شوند): <code dir="ltr">{(d.site_url || location.origin) + d.bale_webhook_path}</code>
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -133,6 +160,44 @@ function Form({ data, reload }: { data: Data; reload: () => void }) {
               {ai.breaker_open && <p className="mt-2 text-xs text-danger">به‌دلیل خطاهای پیاپی، فراخوانی تا {faDate(ai.breaker_open_until, true)} موقتاً متوقف است.</p>}
             </div>
           )}
+        </div>
+      </Card>
+
+      <Card title={<span className="flex items-center gap-2"><BellRing className="size-4 text-brand" /> اعلان در ایمیل، بله و ایتا (اختیاری)</span>}>
+        <div className="space-y-3">
+          <p className="text-sm text-muted">هر کانالی که پیکربندی شود، در تنظیمات حساب کاربران برای اتصال نمایش داده می‌شود. خالی گذاشتن کلید = خاموش.</p>
+          <Field label="نشانی عمومی سایت (برای پیوند پیام‌ها)" hint="مثل https://nashriyar.example.ac.ir — خالی = نشانی درخواست">
+            <Input dir="ltr" value={s.site_url || ''} placeholder="https://…" onChange={(e) => set({ site_url: e.target.value })} />
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="ایمیل — نشانی API ارسال" hint="سازگار با Resend: POST JSON {from,to,subject,text,html}">
+              <Input dir="ltr" value={s.notify_email_url || ''} placeholder="https://api.resend.com/emails" onChange={(e) => set({ notify_email_url: e.target.value })} />
+            </Field>
+            <Field label="ایمیل — فرستنده">
+              <Input dir="ltr" value={s.notify_email_from || ''} placeholder="Nashriyar <no-reply@…>" onChange={(e) => set({ notify_email_from: e.target.value })} />
+            </Field>
+            <div className="sm:col-span-2">
+              <Field label="ایمیل — کلید API">
+                <PasswordInput autoComplete="off" value={s.notify_email_key || ''} onChange={(e) => set({ notify_email_key: e.target.value })} />
+              </Field>
+            </div>
+            <Field label="بله — توکن ربات" hint="از @botfather در بله">
+              <PasswordInput autoComplete="off" value={s.notify_bale_token || ''} onChange={(e) => set({ notify_bale_token: e.target.value })} />
+            </Field>
+            <Field label="بله — نام کاربری ربات">
+              <Input dir="ltr" value={s.notify_bale_bot || ''} placeholder="nashriyar_bot" onChange={(e) => set({ notify_bale_bot: e.target.value })} />
+            </Field>
+            <Field label="بله — نشانی API (اختیاری)">
+              <Input dir="ltr" value={s.notify_bale_api || ''} placeholder="https://tapi.bale.ai" onChange={(e) => set({ notify_bale_api: e.target.value })} />
+            </Field>
+            <Field label="ایتا — توکن ایتایار">
+              <PasswordInput autoComplete="off" value={s.notify_eitaa_token || ''} onChange={(e) => set({ notify_eitaa_token: e.target.value })} />
+            </Field>
+            <Field label="ایتا — نشانی API (اختیاری)">
+              <Input dir="ltr" value={s.notify_eitaa_api || ''} placeholder="https://eitaayar.ir/api" onChange={(e) => set({ notify_eitaa_api: e.target.value })} />
+            </Field>
+          </div>
+          <ChannelStatus />
         </div>
       </Card>
 
