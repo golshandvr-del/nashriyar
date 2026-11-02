@@ -340,5 +340,69 @@ const dev = await developer()
   ok((await anon('/api/reader/nope/text')).status === 404, 'text: unknown issue -> 404')
 }
 
+// ───────── 5. audio edition (TTS AI add-on): /api/reader/:id/speech/:n with a mock OpenAI-compatible provider ─────────
+{
+  const http = await import('node:http')
+  let calls = 0
+  let lastBody = null
+  const mock = http.createServer((req, res) => {
+    let raw = ''
+    req.on('data', (ch) => (raw += ch))
+    req.on('end', () => {
+      if (req.url !== '/v1/audio/speech' || req.headers.authorization !== 'Bearer sk-tts-test') {
+        res.writeHead(401).end('no')
+        return
+      }
+      calls++
+      lastBody = JSON.parse(raw || '{}')
+      res.writeHead(200, { 'Content-Type': 'audio/mpeg' }).end(Buffer.concat([Buffer.from('ID3'), Buffer.alloc(61, 7)]))
+    })
+  })
+  await new Promise((r) => mock.listen(0, '127.0.0.1', r))
+  const port = mock.address().port
+  try {
+    const home = (await anon('/api/public/home')).json
+    const ids = [...(home?.latest || []), ...(home?.free || [])].map((x) => x.id)
+    let free = null
+    let paid = null
+    for (const id of ids.slice(0, 24)) {
+      const d = (await anon(`/api/public/issues/${id}`)).json?.issue
+      if (!d || !d.page_count) continue
+      if (!free && d.pricing === 'free') free = d
+      if (!paid && d.pricing === 'paid' && (d.free_preview_pages || 0) > 0 && d.free_preview_pages < d.page_count) paid = d
+    }
+    ok(!!free, 'tts: found a free issue')
+    // AI layer off -> no server TTS (browser Web Speech fallback)
+    ok((await anon(`/api/reader/${free?.id}/text`)).json?.tts_server === false, 'tts: tts_server=false while the AI layer is off')
+    const off = await anon(`/api/reader/${free?.id}/speech/1`)
+    ok(off.status === 503 && off.json?.code === 'tts_off', `tts: speech -> 503 tts_off while off (${off.status})`)
+    // enable the add-on against the mock provider
+    const on = await dev('/api/system/settings', { json: { ai_enabled: true, ai_base_url: `http://127.0.0.1:${port}/v1`, ai_api_key: 'sk-tts-test', ai_tts_model: 'tts-test', ai_tts_voice: 'nova' } })
+    ok(on.status === 200, `tts: developer enables the AI add-on -> ${on.status}`)
+    ok((await anon(`/api/reader/${free?.id}/text`)).json?.tts_server === true, 'tts: tts_server=true once configured')
+    const s1 = await anon(`/api/reader/${free?.id}/speech/1`)
+    ok(s1.status === 200 && s1.ct === 'audio/mpeg' && s1.headers.get('x-tts-cache') === 'miss' && s1.buf.length === 64, `tts: first request synthesised -> ${s1.status} ${s1.ct} ${s1.headers.get('x-tts-cache')}`)
+    ok(calls === 1 && lastBody?.model === 'tts-test' && lastBody?.voice === 'nova' && typeof lastBody?.input === 'string' && lastBody.input.length > 0, 'tts: provider got model, voice and page text')
+    const s2 = await student(`/api/reader/${free?.id}/speech/1`)
+    ok(s2.status === 200 && s2.headers.get('x-tts-cache') === 'hit' && calls === 1, 'tts: second listener served from the storage cache (no provider call)')
+    ok((await anon(`/api/reader/${free?.id}/speech/0`)).status === 404, 'tts: page 0 -> 404')
+    ok((await anon(`/api/reader/${free?.id}/speech/${(free?.page_count || 1) + 50}`)).status >= 400, 'tts: page beyond the issue refused')
+    if (paid) {
+      const lk = await anon(`/api/reader/${paid.id}/speech/${paid.free_preview_pages + 1}`)
+      ok(lk.status === 403 && lk.json?.code === 'locked' && calls === 1, `tts: paid page beyond the preview -> 403 locked (${lk.status})`)
+    } else ok(false, 'tts: found a paid issue with a free preview')
+    // provider failure -> 502 with a Persian message, nothing cached
+    const bad = await dev('/api/system/settings', { json: { ai_api_key: 'sk-wrong' } })
+    ok(bad.status === 200, 'tts: wrong key stored')
+    const s3 = await anon(`/api/reader/${free?.id}/speech/2`)
+    ok(s3.status === 502 && s3.json?.code === 'tts_failed', `tts: provider failure -> 502 tts_failed (${s3.status})`)
+  } finally {
+    await dev('/api/system/settings', { json: { ai_enabled: false, ai_base_url: '', ai_api_key: '', ai_tts_model: 'tts-1', ai_tts_voice: 'alloy' } })
+    // reset the breaker/usage side effects of the failure check
+    mock.close()
+  }
+  ok((await anon('/api/reader/nope/speech/1')).status === 404, 'tts: unknown issue -> 404')
+}
+
 console.log(failures ? `future-e2e: ${failures} failed, ${passed} passed` : `future-e2e: ${passed} checks passed`)
 process.exit(failures ? 1 : 0)
