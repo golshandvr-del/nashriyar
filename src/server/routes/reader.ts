@@ -7,7 +7,6 @@ import { trackView } from './public'
 import { buildEpub } from '../../shared/epub'
 import { TTS_MAX_CHARS, aiSpeech, ttsConfig } from '../ai'
 import { sha256 } from '../lib/crypto'
-import { appClient } from '../lib/app-client'
 
 export const readerRoutes = new Hono<AppEnv>()
 
@@ -88,21 +87,12 @@ async function accessFor(c: any, issueId: string) {
   // scheduled publishing: hidden from readers until published_at (team/staff can preview before)
   if ((i.status !== 'published' || !i.published_at || i.published_at > nowIso()) && !staff) throw notFound('شماره یافت نشد')
   if (staff || i.pricing === 'free') full = true
-  // ROADMAP phase 19: an "app only" paid issue is read in full only inside the Android app (FLAG_SECURE blocks
-  // screenshots/recording there); on the web an entitled reader keeps the free preview and is pointed to the app
-  let appRequired = false
-  if (full && !staff && i.pricing === 'paid' && i.app_only) {
-    if (!(await appClient(db, c.req.header('user-agent'))).app) {
-      full = false
-      appRequired = true
-    }
-  }
   const allowed = full ? i.page_count : Math.min(i.page_count, Math.max(0, i.free_preview_pages || 0))
-  return { issue: i, full, allowed, user: u, appRequired }
+  return { issue: i, full, allowed, user: u }
 }
 
 readerRoutes.get('/:issueId/manifest', async (c) => {
-  const { issue, full, allowed, user, appRequired } = await accessFor(c, c.req.param('issueId'))
+  const { issue, full, allowed, user } = await accessFor(c, c.req.param('issueId'))
   const db = c.get('db')
   const exp = Math.floor(Date.now() / 1000) + URL_TTL_SEC
   const pages = []
@@ -126,8 +116,6 @@ readerRoutes.get('/:issueId/manifest', async (c) => {
     issue: { id: issue.id, title: issue.title, number: issue.number, page_count: issue.page_count, pricing: issue.pricing, publication_title: issue.publication_title, publication_slug: issue.publication_slug },
     full,
     allowed,
-    // ROADMAP phase 19: entitled, but this paid issue is readable in full only in the Android app
-    app_required: appRequired,
     pages,
     expires_at: exp,
     toc,
