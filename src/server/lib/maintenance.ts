@@ -7,6 +7,7 @@ import type { Db } from '../adapters/db'
 import { ensureRollup } from './rollup'
 import { ensureReminders } from './reminders'
 import { backfillArticleIndex } from './articles'
+import { channelConfig, maintainOutbound, pollBale } from './channels'
 import { nowIso, setSetting } from './util'
 
 export interface MaintenanceReport {
@@ -17,6 +18,7 @@ export interface MaintenanceReport {
   login_attempts_purged: number
   stories_expired: number
   articles_indexed?: number
+  outbound?: { sent: number; failed: number; retry: number; purged: number; bale_linked: number }
   at: string
 }
 
@@ -51,7 +53,12 @@ export async function runMaintenance(db: Db): Promise<MaintenanceReport> {
   // ROADMAP phase 19: persistent article ids for published/archival issues that do not have them yet (bounded, idempotent)
   const articles_indexed = await backfillArticleIndex(db).catch(() => 0)
 
-  const report: MaintenanceReport = { rollup_until, reminders, sessions_purged, cache_purged, login_attempts_purged, stories_expired, articles_indexed, at: now }
+  // ROADMAP phase 19: Bale link codes without a webhook (getUpdates) + due email/Bale/Eitaa deliveries + 30-day purge
+  const bale_linked = await channelConfig(db).then((cfg) => pollBale(db, cfg)).catch(() => 0)
+  const ob = await maintainOutbound(db).catch(() => ({ sent: 0, failed: 0, retry: 0, purged: 0 }))
+  const outbound = { ...ob, bale_linked }
+
+  const report: MaintenanceReport = { rollup_until, reminders, sessions_purged, cache_purged, login_attempts_purged, stories_expired, articles_indexed, outbound, at: now }
   await setSetting(db, 'maintenance_last', report)
   return report
 }
