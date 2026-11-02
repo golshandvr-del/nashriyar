@@ -27,6 +27,8 @@ import { resumePendingVideos } from '../server/lib/video-jobs'
 import { runMaintenance } from '../server/lib/maintenance'
 import { backupDb, backupFiles, restoreTest } from './backup'
 import { resolveSecret } from '../server/secret'
+import { parseTenantConfig, resolveTenant, tenantSecret, type TenantConfig } from '../server/tenancy'
+import { HttpError } from '../server/lib/util'
 import type { Deps } from '../server/context'
 import { hashPassword, newId, randomId } from '../server/lib/crypto'
 
@@ -35,7 +37,6 @@ const DATA_DIR = path.resolve(process.env.DATA_DIR || 'data')
 const STATIC_DIR = process.env.STATIC_DIR || 'dist'
 const PORT = Number(process.env.PORT || 3000)
 const HOST = process.env.HOST || '0.0.0.0'
-const DB_FILE = path.join(DATA_DIR, 'nashriyar.db')
 
 fs.mkdirSync(DATA_DIR, { recursive: true })
 
@@ -264,19 +265,19 @@ async function runCli(site: Site) {
   }
 
   if (args.has('--backup')) {
-    const r = backupDb(sqlite, DATA_DIR)
+    const r = backupDb(sqlite, dataDirOf)
     console.log(`[nashriyar] backup written: ${r.file}${r.offsite ? ` (offsite: ${r.offsite})` : ''}`)
     return
   }
 
   if (args.has('--backup-files')) {
-    const r = backupFiles(DATA_DIR)
+    const r = backupFiles(dataDirOf)
     console.log(`[nashriyar] files archive written: ${r.file}${r.offsite ? ` (offsite: ${r.offsite})` : ''}`)
     return
   }
 
   if (args.has('--restore-test')) {
-    const r = restoreTest(sqlite, DATA_DIR)
+    const r = restoreTest(sqlite, dataDirOf)
     console.log('[nashriyar] restore-test', JSON.stringify(r))
     if (!r.ok) process.exitCode = 1
     return
@@ -298,51 +299,85 @@ async function runCli(site: Site) {
     return
   }
 
-  const api = createApp(() => deps)
+}
+
+/** Starts the HTTP server. `pick` maps a request to its university's site (null → 404); `sites` = every site. */
+function serveSites(pick: (host: string | undefined) => Site | null, sites: Site[], label = DATA_DIR) {
+  const api = createApp((c) => {
+    const site = pick(c.req.header('host'))
+    if (!site) throw new HttpError(404, 'این دامنه به هیچ دانشگاهی متصل نیست', 'unknown_host')
+    return site.deps
+  })
   const root = new Hono()
+  // multi-university: a host that belongs to no university gets a plain 404 (static files included)
+  root.use('*', async (c, next) => {
+    if (!pick(c.req.header('host'))) return c.text('unknown host', 404)
+    return next()
+  })
   root.route('/', api)
   root.use('/*', serveStatic({ root: STATIC_DIR }))
   // SPA fallback for client-side routes
   root.get('*', serveStatic({ root: STATIC_DIR, rewriteRequestPath: () => '/index.html' }))
 
   serve({ fetch: root.fetch, port: PORT, hostname: HOST }, (info) => {
-    console.log(`[nashriyar] listening on http://${HOST}:${info.port} (data: ${DATA_DIR})`)
+    console.log(`[nashriyar] listening on http://${HOST}:${info.port} (data: ${label})`)
   })
-  // explore videos left half-processed by a restart are transcoded again (ROADMAP phase 19)
-  resumePendingVideos(deps)
-    .then((n) => n && console.log(`[nashriyar] resumed ${n} pending video transcode(s)`))
-    .catch(() => {})
+  for (const site of sites) {
+    // explore videos left half-processed by a restart are transcoded again (ROADMAP phase 19)
+    resumePendingVideos(site.deps)
+      .then((n) => n && console.log(`[nashriyar] ${site.slug ? site.slug + ': ' : ''}resumed ${n} pending video transcode(s)`))
+      .catch(() => {})
+  }
 
   // In-process scheduler (ROADMAP phase 11 — replaces the lazy, request-driven jobs on self-hosted installs).
   // Maintenance every 15 minutes (idempotent, cheap); DB backup once a day at BACKUP_HOUR (server local time, default 3).
-  // CRON=off disables it (e.g. when the host crontab runs --maintenance / --backup instead).
+  // CRON=off disables it (e.g. when the host crontab runs --maintenance / --backup instead). Every university's
+  // database is maintained and backed up separately (into its own backups/ folder).
   if (process.env.CRON !== 'off') {
     const backupHour = Number(process.env.BACKUP_HOUR ?? 3)
     let lastBackupDay = ''
     const tick = async () => {
-      try {
-        await runMaintenance(db)
-      } catch (e) {
-        console.error('[nashriyar] maintenance failed', e)
-      }
       const now = new Date()
       const day = now.toISOString().slice(0, 10)
-      if (backupHour >= 0 && now.getHours() === backupHour && lastBackupDay !== day) {
-        lastBackupDay = day
+      const backupNow = backupHour >= 0 && now.getHours() === backupHour && lastBackupDay !== day
+      if (backupNow) lastBackupDay = day
+      for (const site of sites) {
+        const tag = site.slug ? ` (${site.slug})` : ''
         try {
-          const dbSnap = backupDb(sqlite, DATA_DIR)
-          // Fridays (day 5 in Iran's weekend) also archive uploaded files and run the automated restore test.
-          const filesSnap = now.getDay() === 5 ? backupFiles(DATA_DIR) : null
-          const check = restoreTest(sqlite, DATA_DIR)
-          console.log('[nashriyar] daily backup', JSON.stringify({ db: dbSnap.file, files: filesSnap?.file ?? null, restore_ok: check.ok }))
+          await runMaintenance(site.db)
         } catch (e) {
-          console.error('[nashriyar] daily backup failed', e)
+          console.error(`[nashriyar] maintenance failed${tag}`, e)
+        }
+        if (!backupNow) continue
+        try {
+          const dbSnap = backupDb(site.sqlite, site.dataDir)
+          // Fridays (day 5 in Iran's weekend) also archive uploaded files and run the automated restore test.
+          const filesSnap = now.getDay() === 5 ? backupFiles(site.dataDir) : null
+          const check = restoreTest(site.sqlite, site.dataDir)
+          console.log(`[nashriyar] daily backup${tag}`, JSON.stringify({ db: dbSnap.file, files: filesSnap?.file ?? null, restore_ok: check.ok }))
+        } catch (e) {
+          console.error(`[nashriyar] daily backup failed${tag}`, e)
         }
       }
     }
     setTimeout(tick, 15_000).unref()
     setInterval(tick, 15 * 60_000).unref()
   }
+}
+
+/** Multi-university server: every university in tenants.json is opened at start (adding one needs a restart). */
+async function serveTenants(cfg: TenantConfig) {
+  const bySlug = new Map<string, Site>()
+  for (const t of cfg.tenants) bySlug.set(t.slug, await openSite(tenantDir(t.slug), t.slug))
+  console.log(`[nashriyar] multi-university mode: ${cfg.tenants.map((t) => `${t.slug} → ${t.hosts.join(', ')}`).join(' | ')}`)
+  serveSites(
+    (host) => {
+      const t = resolveTenant(cfg, host)
+      return t ? bySlug.get(t.slug) || null : null
+    },
+    [...bySlug.values()],
+    `${DATA_DIR}/tenants/*`
+  )
 }
 
 main().catch((e) => {
