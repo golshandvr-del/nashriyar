@@ -292,6 +292,7 @@ mediaRoutes.get('/k/*', async (c) => {
     if (m.role === 'logo') publicOk = true
     else if (m.role === 'cover') publicOk = m.issue_status === 'published'
     else if (m.role === 'post') publicOk = !!(await db.first("SELECT 1 FROM posts WHERE status = 'published' AND images_json LIKE ?", [`%${key}%`]))
+    else if (m.role === 'post_video') publicOk = !!(await db.first("SELECT 1 FROM posts WHERE status = 'published' AND video_json LIKE ?", [`%${key}%`]))
     else if (['podcast', 'clip', 'gallery', 'attachment'].includes(m.role)) {
       if (published && m.access === 'free') publicOk = true
       else if (published && m.access === 'paid') {
@@ -312,7 +313,14 @@ mediaRoutes.get('/k/*', async (c) => {
     } else {
       // keys are `pub/<publicationId>/...`: narrow to that publication so idx_posts_pub serves it (phase 17 query plan)
       const keyPub = /^pub\/([^/]+)\//.exec(key)?.[1]
-      const po = keyPub ? await db.first<any>('SELECT publication_id, status FROM posts WHERE publication_id = ? AND images_json LIKE ?', [keyPub, `%${key}%`]) : null
+      // HLS renditions of a video post (phase 19): `.../hls-<assetId>/index.m3u8|seg-NNN.ts|poster.jpg` — the post's video_json
+      // names the playlist, so the directory prefix identifies the post for every segment
+      const hlsDir = /^(pub\/[^/]+\/.+?\/hls-[A-Za-z0-9_-]+\/)[A-Za-z0-9_.-]+$/.exec(key)?.[1]
+      const po = !keyPub
+        ? null
+        : hlsDir
+          ? await db.first<any>('SELECT publication_id, status FROM posts WHERE publication_id = ? AND (video_json LIKE ? OR images_json LIKE ?)', [keyPub, `%${hlsDir}%`, `%${hlsDir}%`])
+          : await db.first<any>('SELECT publication_id, status FROM posts WHERE publication_id = ? AND images_json LIKE ?', [keyPub, `%${key}%`])
       if (!po) throw notFound('فایل یافت نشد')
       pubId = po.publication_id
       publicOk = po.status === 'published'
@@ -322,14 +330,45 @@ mediaRoutes.get('/k/*', async (c) => {
     if (!c.get('user')) throw new HttpError(401, 'برای دسترسی به این فایل وارد شوید', 'login_required')
     throw forbidden('به این فایل دسترسی ندارید')
   }
-  const obj = await c.get('deps').storage.get(key)
+  // byte ranges (phase 19 video): `bytes=a-b` / `bytes=a-` are read directly from storage; a suffix `bytes=-n` is served
+  // from the whole object (rare: our MP4s are faststart). Multi-range requests are answered with the whole file.
+  const rh = /^bytes=(\d*)-(\d*)$/.exec((c.req.header('range') || '').trim())
+  const wantRange = rh && (rh[1] !== '' || rh[2] !== '') ? { start: rh[1] === '' ? null : Number(rh[1]), end: rh[2] === '' ? null : Number(rh[2]) } : null
+  if (wantRange && wantRange.start !== null && wantRange.end !== null && wantRange.end < wantRange.start) throw new HttpError(416, 'بازهٔ درخواستی نامعتبر است', 'range_invalid')
+  const storage = c.get('deps').storage
+  const obj =
+    wantRange && wantRange.start !== null
+      ? await storage.get(key, { offset: wantRange.start, length: wantRange.end === null ? Infinity : wantRange.end - wantRange.start + 1 })
+      : await storage.get(key)
   if (!obj) throw notFound('فایل یافت نشد')
   const headers: Record<string, string> = {
     'Content-Type': obj.contentType,
     'X-Content-Type-Options': 'nosniff',
     'Content-Disposition': 'inline',
-    // public images may be cached briefly; everything else stays private
-    'Cache-Control': publicOk && (!m || ['logo', 'cover', 'post'].includes(m.role)) ? 'public, max-age=3600' : 'private, max-age=300, no-transform'
+    'Accept-Ranges': 'bytes',
+    // public images (and published explore videos) may be cached briefly; everything else stays private
+    'Cache-Control':
+      publicOk && (!m || ['logo', 'cover', 'post', 'post_video'].includes(m.role)) ? 'public, max-age=3600' : 'private, max-age=300, no-transform'
+  }
+  if (wantRange && obj.size !== undefined) {
+    let body: any = obj.body
+    let offset: number
+    let length: number
+    if (obj.range) {
+      ;({ offset, length } = obj.range)
+    } else {
+      // suffix range: slice the last n bytes of the whole object
+      const all = obj.body instanceof Uint8Array ? obj.body : new Uint8Array(await new Response(obj.body as any).arrayBuffer())
+      length = Math.min(wantRange.end ?? 0, all.length)
+      offset = all.length - length
+      body = all.slice(offset)
+    }
+    if (offset >= obj.size || length <= 0) {
+      return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${obj.size}`, 'Accept-Ranges': 'bytes' } })
+    }
+    headers['Content-Range'] = `bytes ${offset}-${offset + length - 1}/${obj.size}`
+    headers['Content-Length'] = String(length)
+    return new Response(body, { status: 206, headers })
   }
   if (obj.size) headers['Content-Length'] = String(obj.size)
   return new Response(obj.body as any, { headers })
