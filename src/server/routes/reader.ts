@@ -7,6 +7,7 @@ import { trackView } from './public'
 import { buildEpub } from '../../shared/epub'
 import { TTS_MAX_CHARS, aiSpeech, ttsConfig } from '../ai'
 import { sha256 } from '../lib/crypto'
+import { appClient } from '../lib/app-client'
 
 export const readerRoutes = new Hono<AppEnv>()
 
@@ -70,7 +71,7 @@ async function signPage(c: any, issueId: string, page: number, exp: number) {
 async function accessFor(c: any, issueId: string) {
   const db = c.get('db')
   const i = await db.first(
-    `SELECT i.id, i.title, i.number, i.status, i.published_at, i.pricing, i.page_count, i.free_preview_pages, i.publication_id, p.title AS publication_title, p.slug AS publication_slug
+    `SELECT i.id, i.title, i.number, i.status, i.published_at, i.pricing, i.page_count, i.free_preview_pages, i.app_only, i.publication_id, p.title AS publication_title, p.slug AS publication_slug
      FROM issues i JOIN publications p ON p.id = i.publication_id WHERE i.id = ? AND i.deleted_at IS NULL`,
     [issueId]
   )
@@ -87,8 +88,17 @@ async function accessFor(c: any, issueId: string) {
   // scheduled publishing: hidden from readers until published_at (team/staff can preview before)
   if ((i.status !== 'published' || !i.published_at || i.published_at > nowIso()) && !staff) throw notFound('شماره یافت نشد')
   if (staff || i.pricing === 'free') full = true
+  // ROADMAP phase 19: an "app only" paid issue is read in full only inside the Android app (FLAG_SECURE blocks
+  // screenshots/recording there); on the web an entitled reader keeps the free preview and is pointed to the app
+  let appRequired = false
+  if (full && !staff && i.pricing === 'paid' && i.app_only) {
+    if (!(await appClient(db, c.req.header('user-agent'))).app) {
+      full = false
+      appRequired = true
+    }
+  }
   const allowed = full ? i.page_count : Math.min(i.page_count, Math.max(0, i.free_preview_pages || 0))
-  return { issue: i, full, allowed, user: u }
+  return { issue: i, full, allowed, user: u, appRequired }
 }
 
 readerRoutes.get('/:issueId/manifest', async (c) => {
