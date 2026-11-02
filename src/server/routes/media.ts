@@ -5,6 +5,7 @@ import { requirePubAccess } from '../auth'
 import { newId } from '../lib/crypto'
 import { activity, bad, forbidden, HttpError, int, notFound, nowIso, str } from '../lib/util'
 import { verifyMediaSig } from '../lib/media-sign'
+import { probeVideo, videoMaxSeconds } from '../lib/video'
 
 // Media pipeline (Phase 3). Files go to Storage (R2 / disk); metadata lives in media_assets.
 // URL shape for stored objects: /api/media/k/<storage_key>
@@ -48,6 +49,8 @@ const ROLE_KINDS: Record<string, Kind[]> = {
   main_pdf: ['pdf'],
   podcast: ['audio'],
   clip: ['video'],
+  // ROADMAP phase 19: short video posts in explore (MP4/WebM, duration capped by video_max_seconds)
+  post_video: ['video'],
   attachment: ['pdf', 'image', 'audio', 'video']
 }
 
@@ -89,7 +92,7 @@ mediaRoutes.post('/upload', async (c) => {
     if (['awaiting_approval', 'published'].includes(issue.status) && ['main_pdf', 'cover'].includes(role)) {
       throw bad('این شماره در انتظار تأیید یا منتشرشده است؛ نسخهٔ اصلی و جلد قابل تغییر نیست')
     }
-  } else if (!['logo', 'post'].includes(role)) {
+  } else if (!['logo', 'post', 'post_video'].includes(role)) {
     throw bad('برای این نوع فایل باید شماره مشخص شود')
   }
 
@@ -99,21 +102,31 @@ mediaRoutes.post('/upload', async (c) => {
     if (!(await db.first('SELECT 1 FROM issue_toc_items WHERE id = ? AND issue_id = ?', [tocItemId, issue.id]))) tocItemId = null
   }
 
+  // short explore videos: the container must state a duration within the cap (checked before anything is stored)
+  let meta: { duration: number; w: number | null; h: number | null } | null = null
+  if (role === 'post_video') {
+    const pr = probeVideo(bytes)
+    const max = await videoMaxSeconds(db)
+    if (pr.duration === null) throw bad('مدت ویدیو خوانده نشد؛ فایل MP4 یا WebM سالم بارگذاری کنید', 'video_unreadable')
+    if (pr.duration > max + 0.5) throw bad(`ویدیوی کوتاه حداکثر ${max} ثانیه است (این فایل ${Math.round(pr.duration)} ثانیه است)`, 'video_too_long')
+    meta = { duration: pr.duration, w: pr.width, h: pr.height }
+  }
+
   const id = newId()
   const key = `pub/${pubId}/${issue ? issue.id : 'misc'}/${role}-${id}.${t.ext}`
   await c.get('deps').storage.put(key, bytes, t.mime)
   const access = ['free', 'paid', 'private'].includes(String(form['access'])) ? String(form['access']) : role === 'main_pdf' ? 'private' : 'free'
   const now = nowIso()
   await db.run(
-    'INSERT INTO media_assets (id, publication_id, issue_id, kind, role, title, storage_key, mime, size_bytes, toc_item_id, access, sort_order, uploaded_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    'INSERT INTO media_assets (id, publication_id, issue_id, kind, role, title, storage_key, mime, size_bytes, toc_item_id, access, sort_order, uploaded_by, created_at, meta_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
     [id, pubId, issue?.id ?? null, t.kind, role, str(form['title'], 'عنوان', { max: 200, optional: true }) || name.slice(0, 200) || null, key, t.mime, bytes.length, tocItemId, access,
-      Date.now() % 1_000_000_000, user.id, now]
+      Date.now() % 1_000_000_000, user.id, now, meta ? JSON.stringify(meta) : null]
   )
   if (role === 'cover' && issue) await db.run('UPDATE issues SET cover_key = ?, updated_at = ? WHERE id = ?', [key, now, issue.id])
   if (role === 'main_pdf' && issue) await db.run('UPDATE issues SET main_pdf_key = ?, updated_at = ? WHERE id = ?', [key, now, issue.id])
   if (role === 'logo') await db.run('UPDATE publications SET logo_key = ? WHERE id = ?', [key, pubId])
   await activity(db, user.id, 'media.uploaded', pubId, issue?.id ?? null, { role, kind: t.kind, size: bytes.length })
-  return c.json({ ok: true, id, key, url: `/api/media/k/${key}`, kind: t.kind, mime: t.mime, size: bytes.length })
+  return c.json({ ok: true, id, key, url: `/api/media/k/${key}`, kind: t.kind, mime: t.mime, size: bytes.length, ...(meta ? { duration: meta.duration, width: meta.w, height: meta.h } : {}) })
 })
 
 /**
