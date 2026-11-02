@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BookOpen, Images } from 'lucide-react'
+import { BookOpen, Images, Play } from 'lucide-react'
 import { mediaUrl } from '../lib/api'
 import { faDate, formatToman, toFaDigits, cx } from '../lib/format'
 import { Avatar, Badge } from './ui'
@@ -130,6 +130,37 @@ export interface PostLite {
   publication_title?: string
   logo_key?: string | null
   theme_color?: string | null
+  /** ROADMAP phase 19: short video posts (images[0] is the thumbnail) */
+  kind?: string
+  video?: PostVideoLite | null
+}
+
+export interface PostVideoLite {
+  src: string
+  hls: string | null
+  poster: string | null
+  duration: number
+  w: number | null
+  h: number | null
+}
+
+/** m:ss with Persian digits (video badge on tiles). */
+export function videoDuration(s: number | null | undefined): string {
+  const t = Math.max(0, Math.round(Number(s) || 0))
+  return toFaDigits(`${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`)
+}
+
+/** Corner badge: play icon + duration for videos, stacked icon for carousels. */
+function PostBadge({ post }: { post: PostLite }) {
+  if (post.video)
+    return (
+      <span className="absolute end-1.5 top-1.5 inline-flex items-center gap-0.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white" aria-label="ویدیو">
+        <Play className="size-3 fill-white" />
+        {post.video.duration ? videoDuration(post.video.duration) : null}
+      </span>
+    )
+  if (post.images?.length > 1) return <Images className="absolute end-2 top-2 size-4 text-white drop-shadow" />
+  return null
 }
 
 /** Square grid tile (Instagram-like explore grid). */
@@ -138,7 +169,7 @@ export function PostTile({ post }: { post: PostLite }) {
   return (
     <Link to={`/post/${post.id}`} className="group relative block aspect-square overflow-hidden bg-surface-2" aria-label={post.caption?.slice(0, 60) || 'پست'}>
       {src ? <img src={src} alt={post.alts?.[0] || ''} loading="lazy" decoding="async" className="size-full object-cover transition-transform group-hover:scale-105" /> : <div className="flex size-full items-center justify-center p-2 text-xs text-muted">{post.caption?.slice(0, 80)}</div>}
-      {post.images?.length > 1 && <Images className="absolute end-2 top-2 size-4 text-white drop-shadow" />}
+      <PostBadge post={post} />
     </Link>
   )
 }
@@ -174,7 +205,7 @@ export function PostMasonry({ posts }: { posts: PostLite[] }) {
             ) : (
               <div className="flex aspect-square items-center justify-center p-3 text-center text-xs text-muted">{post.caption?.slice(0, 80)}</div>
             )}
-            {post.images?.length > 1 && <Images className="absolute end-2 top-2 size-4 text-white drop-shadow" />}
+            <PostBadge post={post} />
             <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/60 to-transparent px-2 pb-1 pt-4 text-[11px] text-white opacity-0 transition group-hover:opacity-100">
               {post.publication_title}
             </span>
@@ -197,7 +228,10 @@ export function PostCard({ post }: { post: PostLite }) {
         </Link>
         <span className="ms-auto text-xs text-muted">{faDate(post.published_at)}</span>
       </header>
-      <Link to={`/post/${post.id}`}>{src && <img src={src} alt={post.alts?.[0] || ''} loading="lazy" className="aspect-square w-full object-cover" />}</Link>
+      <Link to={`/post/${post.id}`} className="relative block">
+        {src && <img src={src} alt={post.alts?.[0] || ''} loading="lazy" className="aspect-square w-full object-cover" />}
+        <PostBadge post={post} />
+      </Link>
       {post.caption && <p className="line-clamp-3 whitespace-pre-line p-3 text-sm">{post.caption}</p>}
     </article>
   )
