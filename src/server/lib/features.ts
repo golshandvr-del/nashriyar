@@ -11,7 +11,8 @@ export const FEATURE_DEFAULTS = {
   paid_content: true, // purchase codes / paid issues
   certificates: true, // public certificate verification
   physical_sales: true, // recording print sales in the team panel
-  member_portal: false // ROADMAP phase 9 (optional): regular team members tick their own TOC sections
+  member_portal: false, // ROADMAP phase 9 (optional): regular team members tick their own TOC sections
+  explore_video: true // ROADMAP phase 19: short video posts in explore
 } as const
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS
@@ -24,7 +25,8 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   paid_content: 'محتوای پولی و کد خرید',
   certificates: 'استعلام گواهی همکاری',
   physical_sales: 'ثبت فروش نسخهٔ چاپی',
-  member_portal: 'ورود محدود اعضای عادی تیم (تیک بخش‌های خودشان)'
+  member_portal: 'ورود محدود اعضای عادی تیم (تیک بخش‌های خودشان)',
+  explore_video: 'ویدیوی کوتاه در اکسپلور'
 }
 
 export async function getFeatures(db: Db): Promise<Features> {
