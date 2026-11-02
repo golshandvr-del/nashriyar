@@ -11,6 +11,11 @@
 //   node server-dist/node.mjs --backup     consistent DB snapshot to DATA_DIR/backups (+ BACKUP_OFFSITE_DIR), prune > BACKUP_KEEP_DAYS (30)
 //   node server-dist/node.mjs --backup-files   weekly files tar.gz to DATA_DIR/backups (+ BACKUP_OFFSITE_DIR)
 //   node server-dist/node.mjs --restore-test   verify newest DB snapshot (integrity_check, row counts, referenced files)
+// Multi-university (ROADMAP phase 19, src/server/tenancy.ts): with DATA_DIR/tenants.json (or TENANTS_FILE) every
+// university gets its own database/files/backups under DATA_DIR/tenants/<slug>, chosen by the Host header.
+//   node server-dist/node.mjs --list-tenants                    print slug, hosts and name of every university
+//   node server-dist/node.mjs --create-admin admin --tenant ut   per-university commands need --tenant <slug>
+//   --migrate / --maintenance / --backup / --backup-files        run for every university unless --tenant is given
 import fs from 'node:fs'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
