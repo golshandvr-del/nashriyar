@@ -404,5 +404,131 @@ const dev = await developer()
   ok((await anon('/api/reader/nope/speech/1')).status === 404, 'tts: unknown issue -> 404')
 }
 
+// ───────── 6. outbound notifications: email / Bale / Eitaa (/api/channels) with mock providers ─────────
+{
+  const http = await import('node:http')
+  const sent = [] // { ch, to, text, html }
+  const baleUpdates = []
+  const mock = http.createServer((req, res) => {
+    let raw = ''
+    req.on('data', (ch) => (raw += ch))
+    req.on('end', () => {
+      const u = req.url || ''
+      if (u === '/email' && req.headers.authorization === 'Bearer ek-test') {
+        const j = JSON.parse(raw || '{}')
+        sent.push({ ch: 'email', to: (j.to || [])[0], text: j.text || '', html: j.html || '', subject: j.subject || '' })
+        return res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"id":"m1"}')
+      }
+      if (u === '/bale/botBT-test/sendMessage') {
+        const j = JSON.parse(raw || '{}')
+        sent.push({ ch: 'bale', to: String(j.chat_id), text: j.text || '' })
+        return res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"ok":true,"result":{}}')
+      }
+      if (u.startsWith('/bale/botBT-test/getUpdates')) {
+        const off = Number(new URL('http://x' + u).searchParams.get('offset') || 0)
+        return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ ok: true, result: baleUpdates.filter((x) => x.update_id >= off) }))
+      }
+      if (u === '/eitaa/ET-test/sendMessage') {
+        const f = new URLSearchParams(raw)
+        sent.push({ ch: 'eitaa', to: f.get('chat_id'), text: (f.get('title') || '') + '\n' + (f.get('text') || '') })
+        return res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"ok":true}')
+      }
+      res.writeHead(404).end('{}')
+    })
+  })
+  await new Promise((r) => mock.listen(0, '127.0.0.1', r))
+  const mb = `http://127.0.0.1:${mock.address().port}`
+  const wait = async (pred, ms = 4000) => {
+    const t0 = Date.now()
+    while (Date.now() - t0 < ms) {
+      if (pred()) return true
+      await new Promise((r) => setTimeout(r, 100))
+    }
+    return pred()
+  }
+  const codeIn = (s) => /\b([0-9A-Z]{8})\b/.exec(s || '')?.[1]
+  try {
+    // channels off -> listed but unavailable, connect refused
+    const l0 = (await student('/api/channels')).json
+    ok(l0?.channels?.length === 3 && l0.channels.every((c) => c.available === false) && !!l0.categories?.comment, 'channels: listed, all off before configuration')
+    ok((await student('/api/channels/email/connect', { json: { address: 'a@b.ir' } })).status === 400, 'channels: connect refused while the channel is off')
+    ok((await anon('/api/channels')).status === 401, 'channels: anonymous -> 401')
+    ok((await student('/api/channels/status')).status === 403, 'channels: status is developer-only')
+    const on = await dev('/api/system/settings', {
+      json: { notify_email_url: `${mb}/email`, notify_email_key: 'ek-test', notify_email_from: 'Nashriyar <n@example.ir>', notify_bale_api: `${mb}/bale`, notify_bale_token: 'BT-test', notify_bale_bot: 'nsh_bot', notify_eitaa_api: `${mb}/eitaa`, notify_eitaa_token: 'ET-test' }
+    })
+    ok(on.status === 200, `channels: developer configures email/Bale/Eitaa -> ${on.status}`)
+    const gs = (await dev('/api/system/settings')).json?.settings || {}
+    ok(gs.notify_bale_token === '••••test' && gs.notify_email_key === '••••test' && gs.notify_eitaa_token === '••••test', 'channels: tokens masked in the settings API')
+    ok((await student('/api/channels')).json.channels.every((c) => c.available), 'channels: all available once configured')
+    ok((await student('/api/channels/sms/connect', { json: {} })).status === 404, 'channels: unknown channel -> 404')
+    ok((await student('/api/channels/email/connect', { json: { address: 'not-an-email' } })).status === 400, 'channels: invalid email rejected')
+
+    // email: code sent to the address, wrong code refused, right code verifies
+    ok((await student('/api/channels/email/connect', { json: { address: 'Stud@Example.ir' } })).status === 200, 'channels: email connect')
+    ok(await wait(() => sent.some((m) => m.ch === 'email' && m.to === 'stud@example.ir')), 'channels: verification email delivered (address lower-cased)')
+    const ecode = codeIn(sent.find((m) => m.ch === 'email')?.subject)
+    ok((await student('/api/channels/email/verify', { json: { code: 'WRONG123' } })).status === 400, 'channels: wrong code refused')
+    ok((await student('/api/channels/email/verify', { json: { code: ecode?.toLowerCase() } })).status === 200, 'channels: email verified (code case-insensitive)')
+
+    // Eitaa: same flow through the Eitaayar form API
+    ok((await student('/api/channels/eitaa/connect', { json: { address: 'bad id!' } })).status === 400, 'channels: invalid Eitaa id rejected')
+    ok((await student('/api/channels/eitaa/connect', { json: { address: '@stud_e' } })).status === 200, 'channels: eitaa connect')
+    ok(await wait(() => sent.some((m) => m.ch === 'eitaa' && m.to === '@stud_e')), 'channels: eitaa code delivered')
+    ok((await student('/api/channels/eitaa/verify', { json: { code: codeIn(sent.find((m) => m.ch === 'eitaa')?.text) } })).status === 200, 'channels: eitaa verified')
+
+    // Bale: link code + webhook
+    const bc = await student('/api/channels/bale/connect', { json: {} })
+    ok(bc.status === 200 && /^[0-9A-Z]{8}$/.test(bc.json?.code || '') && bc.json?.link === `https://ble.ir/nsh_bot?start=${bc.json?.code}`, 'channels: bale link code + deep link')
+    const stat = (await dev('/api/channels/status')).json
+    ok(!!stat?.bale_webhook_path && stat.channels.email.on && stat.channels.bale.on && stat.channels.eitaa.on, 'channels: developer status')
+    ok((await anon('/api/channels/bale/webhook/wrong-secret', { json: { message: { chat: { id: 1 }, text: '/start X' } } })).status === 404, 'channels: webhook with a wrong secret -> 404')
+    const wh = await anon(stat.bale_webhook_path, { json: { update_id: 1, message: { chat: { id: 777001 }, text: `/start ${bc.json.code}` } } })
+    ok(wh.status === 200, `channels: bale webhook -> ${wh.status}`)
+    const l1 = (await student('/api/channels')).json.channels
+    ok(l1.every((c) => c.verified) && l1.find((c) => c.channel === 'bale')?.address === '777001', 'channels: all three linked (bale chat id stored)')
+    ok(await wait(() => sent.some((m) => m.ch === 'bale' && m.to === '777001')), 'channels: bale confirmation message sent')
+
+    // test message
+    ok((await student('/api/channels/email/test', { json: {} })).status === 200 && sent.some((m) => m.ch === 'email' && /آزمایشی/.test(m.subject)), 'channels: test email')
+
+    // mute "comment" on Eitaa, then trigger a real notification (comment approved by the publication team)
+    ok((await student('/api/channels/eitaa/mute', { json: { muted: ['comment', 'nope'] } })).json?.muted?.join() === 'comment', 'channels: mute keeps only known categories')
+    const posts = (await anon('/api/public/explore')).json?.posts || []
+    const post = posts[0]
+    ok(!!post, 'channels: a published post exists')
+    const cm = await student(`/api/me/posts/${post?.id}/comments`, { json: { body: 'نظر آزمایشی برای اعلان کانال‌ها' } })
+    ok(cm.status === 200, `channels: student comments -> ${cm.status}`)
+    const mine = (await student('/api/me/comments')).json?.comments || []
+    const cid = mine.find((x) => x.post_id === post?.id && x.status === 'pending')?.id
+    const pubId = (await anon(`/api/public/publications/${post?.publication_slug}`)).json?.publication?.id
+    const before = sent.length
+    const ap = await officer(`/api/team/${pubId}/comments/${cid}`, { json: { action: 'approve' } })
+    ok(ap.status === 200, `channels: officer approves the comment -> ${ap.status}`)
+    ok(await wait(() => sent.slice(before).some((m) => m.ch === 'email') && sent.slice(before).some((m) => m.ch === 'bale')), 'channels: notification delivered by email and Bale after the response')
+    const em = sent.slice(before).find((m) => m.ch === 'email')
+    ok(/نظر شما تأیید/.test(em?.subject || '') && em?.html.includes(`${BASE}/post/${post?.id}`) && /dir="rtl"/.test(em?.html || ''), 'channels: email has the title and an absolute RTL link')
+    ok(sent.slice(before).find((m) => m.ch === 'bale')?.text.includes(`/post/${post?.id}`), 'channels: Bale message carries the link')
+    await new Promise((r) => setTimeout(r, 400))
+    ok(!sent.slice(before).some((m) => m.ch === 'eitaa'), 'channels: muted category not sent to Eitaa')
+    ok((await dev('/api/channels/status')).json?.queue?.sent >= 2, 'channels: queue counters')
+
+    // Bale linking without a webhook: officer's code arrives through getUpdates during maintenance
+    const oc = await officer('/api/channels/bale/connect', { json: {} })
+    baleUpdates.push({ update_id: 50, message: { chat: { id: 888002 }, text: oc.json?.code } })
+    const mr = spawnSync(process.execPath, ['server-dist/node.mjs', '--maintenance'], { env: { ...process.env, CRON: 'off' }, encoding: 'utf8' })
+    ok(/"bale_linked":1/.test(mr.stdout || ''), `channels: maintenance polled Bale and linked the officer (${(mr.stdout || mr.stderr || '').slice(-160)})`)
+    ok((await officer('/api/channels')).json?.channels?.find((c) => c.channel === 'bale')?.address === '888002', 'channels: officer bale linked via getUpdates')
+
+    // disconnect
+    ok((await student('/api/channels/email', { method: 'DELETE' })).status === 200, 'channels: disconnect email')
+    ok((await student('/api/channels')).json.channels.find((c) => c.channel === 'email')?.verified === false, 'channels: email no longer linked')
+  } finally {
+    await dev('/api/system/settings', { json: { notify_email_url: '', notify_email_key: '', notify_email_from: '', notify_bale_api: '', notify_bale_token: '', notify_bale_bot: '', notify_eitaa_api: '', notify_eitaa_token: '' } })
+    for (const c of [student, officer]) for (const ch of ['email', 'bale', 'eitaa']) await c(`/api/channels/${ch}`, { method: 'DELETE' })
+    mock.close()
+  }
+}
+
 console.log(failures ? `future-e2e: ${failures} failed, ${passed} passed` : `future-e2e: ${passed} checks passed`)
 process.exit(failures ? 1 : 0)
