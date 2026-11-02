@@ -24,7 +24,9 @@ export const systemRoutes = new Hono<AppEnv>()
 const SESSION_MAX_MS = 2 * 3600_000
 const SUDO_MS = 10 * 60_000
 /** Technical settings owned by the developer console (removed from the publication officer's settings). */
-export const SYSTEM_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit', 'ai_timeout_sec', 'ai_tts_model', 'ai_tts_voice', 'max_sessions', 'guest_can_read_free'] as const
+export const SYSTEM_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit', 'ai_timeout_sec', 'ai_tts_model', 'ai_tts_voice', 'max_sessions', 'guest_can_read_free', 'site_url', 'notify_email_url', 'notify_email_key', 'notify_email_from', 'notify_bale_token', 'notify_bale_api', 'notify_bale_bot', 'notify_eitaa_token', 'notify_eitaa_api'] as const
+/** Secrets: never returned in full (only the last four characters), a masked value posted back is ignored. */
+const SECRET_SETTINGS = new Set<string>(['ai_api_key', 'notify_email_key', 'notify_bale_token', 'notify_eitaa_token'])
 const SYSTEM_DEFAULTS: Record<string, unknown> = {
   ai_enabled: false,
   ai_base_url: '',
@@ -36,7 +38,17 @@ const SYSTEM_DEFAULTS: Record<string, unknown> = {
   ai_tts_model: 'tts-1',
   ai_tts_voice: 'alloy',
   max_sessions: 5,
-  guest_can_read_free: true
+  guest_can_read_free: true,
+  // ROADMAP phase 19 outbound notifications (email via an HTTP mail API, Bale bot, Eitaa); empty = channel off
+  site_url: '',
+  notify_email_url: '',
+  notify_email_key: '',
+  notify_email_from: '',
+  notify_bale_token: '',
+  notify_bale_api: '',
+  notify_bale_bot: '',
+  notify_eitaa_token: '',
+  notify_eitaa_api: ''
 }
 const STAFF_ROLES: SystemRole[] = ['super_admin', 'pub_officer']
 
@@ -157,7 +169,7 @@ systemRoutes.get('/settings', async (c) => {
   const db = c.get('db')
   const out: Record<string, unknown> = {}
   for (const k of SYSTEM_SETTINGS) out[k] = await getSetting(db, k, SYSTEM_DEFAULTS[k])
-  if (out.ai_api_key) out.ai_api_key = '••••' + String(out.ai_api_key).slice(-4)
+  for (const k of SECRET_SETTINGS) if (out[k]) out[k] = '••••' + String(out[k]).slice(-4)
   return c.json({
     settings: out,
     feature_flags: await getFeatures(db),
@@ -175,14 +187,14 @@ systemRoutes.post('/settings', async (c) => {
   for (const k of SYSTEM_SETTINGS) {
     if (!(k in b)) continue
     let v = b[k]
-    if (k === 'ai_api_key' && typeof v === 'string' && v.startsWith('••••')) continue
+    if (SECRET_SETTINGS.has(k) && typeof v === 'string' && v.startsWith('••••')) continue
     if (k === 'ai_monthly_call_limit') v = Math.max(0, Math.min(1_000_000, Math.floor(Number(v) || 0)))
     if (k === 'ai_timeout_sec') v = Math.max(3, Math.min(60, Math.floor(Number(v) || 15)))
     if (k === 'max_sessions') v = Math.max(1, Math.min(20, Math.floor(Number(v) || 5)))
     if (k === 'ai_enabled' || k === 'guest_can_read_free') v = v === true
     if (typeof v === 'string') v = v.slice(0, 500)
     await setSetting(db, k, v)
-    changed[k] = k === 'ai_api_key' ? '(changed)' : v
+    changed[k] = SECRET_SETTINGS.has(k) ? '(changed)' : v
   }
   if ('feature_flags' in b) {
     const next = { ...(await getFeatures(db)), ...sanitizeFeatures(b.feature_flags) }
