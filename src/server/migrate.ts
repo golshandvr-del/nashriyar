@@ -20,6 +20,7 @@ import m0017 from '../../migrations/0017_print_archive.sql'
 import m0018 from '../../migrations/0018_notify_channels.sql'
 import m0019 from '../../migrations/0019_otp_sso.sql'
 import m0020 from '../../migrations/0020_explore_video.sql'
+import m0021 from '../../migrations/0021_app_only.sql'
 
 export const MIGRATIONS: { name: string; sql: string }[] = [
   { name: '0001_init', sql: m0001 },
@@ -41,7 +42,8 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
   { name: '0017_print_archive', sql: m0017 },
   { name: '0018_notify_channels', sql: m0018 },
   { name: '0019_otp_sso', sql: m0019 },
-  { name: '0020_explore_video', sql: m0020 }
+  { name: '0020_explore_video', sql: m0020 },
+  { name: '0021_app_only', sql: m0021 }
 ]
 
 /** Split a SQL script into single statements (strips `--` comments). */
