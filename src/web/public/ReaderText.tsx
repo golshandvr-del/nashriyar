@@ -1,7 +1,7 @@
 // Reflowable text mode for the reader (ROADMAP phase 19): the text layer of the pages the visitor may read,
 // re-flowed for small screens with an adjustable font size; EPUB download for free issues.
-import { useEffect, useState } from 'react'
-import { BookDown, Minus, Plus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { BookDown, Headphones, Minus, Plus, Square } from 'lucide-react'
 import { api } from '../lib/api'
 import { toFaDigits, cx } from '../lib/format'
 import { ErrorBox, Spinner } from '../components/ui'
@@ -14,6 +14,7 @@ interface TextData {
   toc: { title: string; page_start: number }[]
   has_text: boolean
   epub: boolean
+  tts_server?: boolean
 }
 
 /** pdftotext breaks lines at the column edge — blank lines separate paragraphs, other line breaks are joined. */
@@ -51,6 +52,47 @@ export default function ReaderText({ issueId, startPage, night, onPage }: { issu
     return () => io.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d])
+  // ---- audio edition (ROADMAP phase 19 TTS add-on): server MP3 when the AI add-on is configured, else browser Web Speech ----
+  const [playing, setPlaying] = useState<number | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const runRef = useRef(0)
+  const webSpeech = typeof window !== 'undefined' && 'speechSynthesis' in window
+  const stop = () => {
+    runRef.current++
+    audioRef.current?.pause()
+    audioRef.current = null
+    if (webSpeech) window.speechSynthesis.cancel()
+    setPlaying(null)
+  }
+  useEffect(() => stop, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const speakBrowser = (n: number, run: number, next: () => void) => {
+    const text = d?.pages.find((p) => p.n === n)?.text || ''
+    const chunks = paras(text).flatMap((p) => p.match(/[^.!؟?]{1,220}[.!؟?]?/g) || [p])
+    if (!webSpeech || !chunks.length) return next()
+    const voice = window.speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith('fa'))
+    chunks.forEach((t, i) => {
+      const u = new SpeechSynthesisUtterance(t)
+      u.lang = 'fa-IR'
+      if (voice) u.voice = voice
+      if (i === chunks.length - 1) u.onend = () => runRef.current === run && next()
+      window.speechSynthesis.speak(u)
+    })
+  }
+  const play = (n: number, run = ++runRef.current) => {
+    if (!d) return
+    const page = d.pages.find((p) => p.n >= n && p.text.trim())
+    if (!page) return stop()
+    setPlaying(page.n)
+    document.getElementById(`tp-${page.n}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    const next = () => runRef.current === run && play(page.n + 1, run)
+    if (d.tts_server) {
+      const a = new Audio(`/api/reader/${d.issue.id}/speech/${page.n}`)
+      audioRef.current = a
+      a.onended = next
+      a.onerror = () => runRef.current === run && speakBrowser(page.n, run, next)
+      a.play().catch(() => runRef.current === run && speakBrowser(page.n, run, next))
+    } else speakBrowser(page.n, run, next)
+  }
   const setFont = (v: number) => {
     const s = Math.min(30, Math.max(14, v))
     setSize(s)
@@ -75,6 +117,17 @@ export default function ReaderText({ issueId, startPage, night, onPage }: { issu
           <Plus className="size-4" />
         </button>
         <span className="flex-1" />
+        {d.has_text && (d.tts_server || webSpeech) && (
+          <button
+            className={cx('btn-ghost inline-flex items-center gap-1 rounded-lg px-3 py-1.5', playing && 'text-brand')}
+            onClick={() => (playing ? stop() : play(startPage))}
+            aria-pressed={!!playing}
+            title={d.tts_server ? 'نسخهٔ صوتی (هوش مصنوعی)' : 'خواندن با صدای مرورگر'}
+          >
+            {playing ? <Square className="size-4" /> : <Headphones className="size-4" />}
+            {playing ? `توقف (صفحهٔ ${toFaDigits(playing)})` : 'شنیدن'}
+          </button>
+        )}
         {d.epub && (
           <a className="btn-ghost inline-flex items-center gap-1 rounded-lg px-3 py-1.5" href={`/api/reader/${d.issue.id}/epub`} download>
             <BookDown className="size-4" /> دریافت EPUB
