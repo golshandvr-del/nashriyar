@@ -3,3 +3,5 @@
 -- video_json = {"src": "<mp4/webm storage key>", "duration": <seconds>, "w": <px>, "h": <px>,
 --               "hls": "<storage key of index.m3u8>" | null, "hls_state": "none" | "pending" | "ready" | "failed"}
 ALTER TABLE posts ADD COLUMN video_json TEXT;
+-- probe result recorded at upload ({"duration": s, "w": px, "h": px}) so a post never re-reads a large file
+ALTER TABLE media_assets ADD COLUMN meta_json TEXT;
