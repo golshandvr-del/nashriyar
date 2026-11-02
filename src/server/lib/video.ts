@@ -138,7 +138,7 @@ function probeWebm(b: Uint8Array): VideoProbe {
       } else if (id.v === EBML.Duration) {
         if (e - s === 4) rawDuration = dv.getFloat32(s)
         else if (e - s === 8) rawDuration = dv.getFloat64(s)
-      } else if ((id.v === EBML.PixelWidth || id.v === EBML.PixelHeight) && out.width === null + 0 * 0) {
+      } else if ((id.v === EBML.PixelWidth || id.v === EBML.PixelHeight) && (id.v === EBML.PixelWidth ? out.width : out.height) === null) {
         let n = 0
         for (let k = s; k < e; k++) n = n * 256 + b[k]
         if (id.v === EBML.PixelWidth) out.width = n
