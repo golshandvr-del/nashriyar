@@ -78,7 +78,7 @@ export async function processVideoPost(deps: Deps, postId: string): Promise<void
 /** Re-queues videos left 'pending' by a restart (Node entry calls this once at startup). */
 export async function resumePendingVideos(deps: Deps): Promise<number> {
   if (!deps.video) return 0
-  const rows = await deps.db.all<{ id: string }>(`SELECT id FROM posts WHERE video_json LIKE '%"hls_state":"pending"%' LIMIT 200`)
+  const rows = await deps.db.all<{ id: string }>(`SELECT id FROM posts WHERE kind = 'video' AND video_json LIKE '%"hls_state":"pending"%' LIMIT 200`)
   for (const r of rows) void queueVideoJob(deps, r.id)
   return rows.length
 }
