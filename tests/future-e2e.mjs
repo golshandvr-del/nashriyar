@@ -715,5 +715,140 @@ const dev = await developer()
   }
 }
 
+// ───────── 8. short videos in explore (post_video upload, duration cap, video posts, byte ranges, HLS when ffmpeg) ─────────
+{
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  const team = await login('pub1-director', 'team1234')
+  const me = (await team('/api/auth/me')).json
+  const pubId = me?.publications?.[0]?.publication_id
+  const issues = (await team(`/api/team/${pubId}/issues?limit=200`)).json?.issues || []
+  const pubd = issues.find((i) => i.status === 'published')
+  const toc = (await team(`/api/team/${pubId}/issues/${pubd?.id}`)).json?.toc || []
+  ok(!!pubd && toc.length > 0, 'video: team has a published issue with sections')
+
+  // minimal ISO-BMFF file: ftyp + moov/mvhd stating `seconds` (enough for the container probe; not playable)
+  const box = (type, body) => {
+    const b = Buffer.alloc(8 + body.length)
+    b.writeUInt32BE(8 + body.length, 0)
+    b.write(type, 4, 'ascii')
+    body.copy(b, 8)
+    return b
+  }
+  const synthMp4 = (seconds, withMoov = true) => {
+    const ftyp = box('ftyp', Buffer.concat([Buffer.from('isom'), Buffer.from([0, 0, 2, 0]), Buffer.from('isomiso2mp41')]))
+    if (!withMoov) return Buffer.concat([ftyp, box('free', Buffer.alloc(64))])
+    const mvhd = Buffer.alloc(100)
+    mvhd.writeUInt32BE(1000, 12) // timescale
+    mvhd.writeUInt32BE(Math.round(seconds * 1000), 16) // duration
+    return Buffer.concat([ftyp, box('moov', box('mvhd', mvhd))])
+  }
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nsh-e2e-vid-'))
+  const haveFfmpeg = spawnSync('ffmpeg', ['-version']).status === 0
+  let clip = synthMp4(3.5)
+  if (haveFfmpeg) {
+    const f = path.join(tmp, 'clip.mp4')
+    const r = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=duration=3.5:size=320x240:rate=15', '-f', 'lavfi', '-i', 'sine=duration=3.5', '-shortest', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', f])
+    if (r.status === 0) clip = fs.readFileSync(f)
+  }
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+  const up = async (c, bytes, name, role, type, pub = pubId) => {
+    const fd = new FormData()
+    fd.set('file', new Blob([bytes], { type }), name)
+    fd.set('pub', pub)
+    fd.set('role', role)
+    return c('/api/media/upload', { method: 'POST', body: fd })
+  }
+  const posts = []
+  try {
+    // duration cap setting (clamped 5–180)
+    ok((await dev('/api/system/settings', { json: { video_max_seconds: 1 } })).status === 200, 'video: developer sets the duration cap')
+    ok((await dev('/api/system/settings')).json?.settings?.video_max_seconds === 5, 'video: cap clamped to at least 5 s')
+    ok((await dev('/api/system/settings', { json: { video_max_seconds: 60 } })).status === 200, 'video: cap back to 60 s')
+
+    // upload checks
+    const long = await up(team, synthMp4(999), 'long.mp4', 'post_video', 'video/mp4')
+    ok(long.status === 400 && long.json?.code === 'video_too_long', `video: a clip longer than the cap is refused (${long.status} ${long.json?.code})`)
+    const unread = await up(team, synthMp4(0, false), 'broken.mp4', 'post_video', 'video/mp4')
+    ok(unread.status === 400 && unread.json?.code === 'video_unreadable', `video: a container without a duration is refused (${unread.json?.code})`)
+    ok((await up(team, PNG, 'x.png', 'post_video', 'image/png')).status === 400, 'video: an image is not accepted as a video')
+    ok((await up(student, clip, 'c.mp4', 'post_video', 'video/mp4')).status === 403, 'video: a student cannot upload into a publication')
+    const v1 = await up(team, clip, 'clip.mp4', 'post_video', 'video/mp4')
+    ok(v1.status === 200 && Math.abs((v1.json?.duration || 0) - 3.5) < 0.2, `video: upload probes the duration (${v1.json?.duration})`)
+    if (haveFfmpeg) ok(v1.json?.width === 320 && v1.json?.height === 240, `video: frame size probed (${v1.json?.width}×${v1.json?.height})`)
+    const th = await up(team, PNG, 'thumb.png', 'post', 'image/png')
+    ok(th.status === 200, 'video: thumbnail uploaded')
+    const vkey = v1.json?.key
+    // the unattached upload is staff-only
+    ok((await anon(`/api/media/k/${vkey}`)).status === 401, 'video: an unpublished video is not public')
+    ok((await team(`/api/media/k/${vkey}`)).status === 200, 'video: team can preview its own upload')
+
+    // create the post
+    const base = { caption: 'ویدیوی کوتاه آزمایشی', source_issue_id: pubd?.id, source_toc_item_id: toc[0]?.id }
+    ok((await team(`/api/team/${pubId}/posts`, { json: { ...base, images: [th.json?.key], video: 'pub/x/misc/post_video-nope.mp4' } })).json?.code === 'video_missing', 'video: unknown video key refused')
+    ok((await team(`/api/team/${pubId}/posts`, { json: { ...base, images: [th.json?.key], video: vkey, is_story: true } })).json?.code === 'video_story', 'video: video stories refused')
+    ok((await team(`/api/team/${pubId}/posts`, { json: { ...base, images: [], video: vkey } })).status === 400, 'video: a thumbnail is required')
+    ok((await dev('/api/system/settings', { json: { feature_flags: { explore_video: false } } })).status === 200, 'video: developer turns the feature off')
+    ok((await team(`/api/team/${pubId}/posts`, { json: { ...base, images: [th.json?.key], video: vkey } })).status === 403, 'video: video posts refused while the feature is off')
+    ok((await dev('/api/system/settings', { json: { feature_flags: { explore_video: true } } })).status === 200, 'video: feature back on')
+    const cp = await team(`/api/team/${pubId}/posts`, { json: { ...base, images: [th.json?.key], video: vkey } })
+    ok(cp.status === 200 && cp.json?.kind === 'video', `video: video post published (${cp.status} ${cp.json?.kind} ${cp.json?.hls_state})`)
+    const postId = cp.json?.id
+    posts.push(postId)
+
+    // public views
+    const pv = (await anon(`/api/public/posts/${postId}`)).json?.post
+    ok(pv?.kind === 'video' && pv?.video?.src && Math.abs(pv.video.duration - 3.5) < 0.2 && pv.images?.[0] === th.json?.key, 'video: post page carries the video (src, duration, thumbnail)')
+    const feed = (await anon('/api/public/explore')).json?.posts || []
+    ok(feed.some((x) => x.id === postId && x.video?.src), 'video: explore feed lists the video post')
+
+    // byte ranges on the original upload (published now)
+    const size = clip.length
+    const full = await anon(`/api/media/k/${vkey}`)
+    ok(full.status === 200 && full.headers.get('accept-ranges') === 'bytes' && full.buf.length === size, 'video: published video is public, Accept-Ranges advertised')
+    const r1 = await anon(`/api/media/k/${vkey}`, { headers: { Range: 'bytes=0-99' } })
+    ok(r1.status === 206 && r1.headers.get('content-range') === `bytes 0-99/${size}` && r1.buf.length === 100 && Buffer.from(r1.buf).equals(clip.subarray(0, 100)), `video: Range bytes=0-99 -> 206 (${r1.status} ${r1.headers.get('content-range')})`)
+    const r2 = await anon(`/api/media/k/${vkey}`, { headers: { Range: 'bytes=10-' } })
+    ok(r2.status === 206 && r2.buf.length === size - 10 && r2.headers.get('content-range') === `bytes 10-${size - 1}/${size}`, 'video: open-ended range')
+    const r3 = await anon(`/api/media/k/${vkey}`, { headers: { Range: 'bytes=-50' } })
+    ok(r3.status === 206 && r3.buf.length === 50 && Buffer.from(r3.buf).equals(clip.subarray(size - 50)), 'video: suffix range (last 50 bytes)')
+    const r4 = await anon(`/api/media/k/${vkey}`, { headers: { Range: `bytes=${size + 10}-` } })
+    ok(r4.status === 416 && r4.headers.get('content-range') === `bytes */${size}`, `video: range beyond the end -> 416 (${r4.status})`)
+
+    // server-side transcode (self-hosted with ffmpeg): normalised MP4 + HLS + poster
+    if (cp.json?.hls_state === 'pending') {
+      let v = null
+      const t0 = Date.now()
+      while (Date.now() - t0 < 60_000) {
+        v = (await anon(`/api/public/posts/${postId}`)).json?.post?.video
+        if (v?.hls) break
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      ok(!!v?.hls && /\/hls-[^/]+\/index\.m3u8$/.test(v.hls) && /\/video\.mp4$/.test(v.src) && /\/poster\.jpg$/.test(v.poster || ''), `video: transcode finished (hls ${v?.hls})`)
+      const pl = await anon(`/api/media/k/${v?.hls}`)
+      ok(pl.status === 200 && /#EXTM3U/.test(pl.text) && /seg-000\.ts/.test(pl.text), 'video: HLS playlist served publicly')
+      const dir = (v?.hls || '').replace(/index\.m3u8$/, '')
+      const seg = await anon(`/api/media/k/${dir}seg-000.ts`)
+      ok(seg.status === 200 && seg.buf[0] === 0x47, 'video: HLS segment served (MPEG-TS sync byte)')
+      const mp4 = await anon(`/api/media/k/${v?.src}`, { headers: { Range: 'bytes=0-7' } })
+      ok(mp4.status === 206 && Buffer.from(mp4.buf).subarray(4, 8).toString() === 'ftyp', 'video: normalised MP4 served with ranges')
+      ok((await anon(`/api/media/k/${dir}poster.jpg`)).status === 200, 'video: poster frame served')
+      ok((await anon(`/api/media/k/${dir}../../etc/passwd`)).status === 404, 'video: traversal in an HLS key refused')
+    } else ok(cp.json?.hls_state === 'none', 'video: without ffmpeg the upload is played as is (hls_state none)')
+
+    // a draft video post keeps its files private
+    const v2 = await up(team, clip, 'clip2.mp4', 'post_video', 'video/mp4')
+    const dp = await team(`/api/team/${pubId}/posts`, { json: { ...base, images: [th.json?.key], video: v2.json?.key, draft: true } })
+    posts.push(dp.json?.id)
+    ok(dp.status === 200 && (await anon(`/api/media/k/${v2.json?.key}`)).status === 401, 'video: video of a draft post stays private')
+    ok((await anon(`/api/public/posts/${dp.json?.id}`)).status === 404, 'video: draft video post not public')
+  } finally {
+    for (const id of posts) if (id) await team(`/api/team/${pubId}/posts/${id}`, { method: 'PUT', json: { status: 'hidden_by_team' } })
+    await dev('/api/system/settings', { json: { video_max_seconds: 60, feature_flags: { explore_video: true } } })
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+}
+
 console.log(failures ? `future-e2e: ${failures} failed, ${passed} passed` : `future-e2e: ${passed} checks passed`)
 process.exit(failures ? 1 : 0)
