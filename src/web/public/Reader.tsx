@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowRight, Bookmark, ChevronLeft, ChevronRight, Columns2, KeyRound, List, Maximize, Moon, Smartphone, Trash2, Type, ZoomIn, ZoomOut } from 'lucide-react'
+import { ArrowRight, Bookmark, ChevronLeft, ChevronRight, Columns2, KeyRound, List, Maximize, Moon, Trash2, Type, ZoomIn, ZoomOut } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { useFeature, usePublicSettings } from '../lib/features'
+import { useFeature } from '../lib/features'
 import { toFaDigits, cx } from '../lib/format'
 import { Button, ErrorBox, Modal, PageLoader, Spinner, useToast } from '../components/ui'
 import ReaderText from './ReaderText'
@@ -13,7 +13,6 @@ interface Manifest {
   full: boolean
   allowed: number
   /** ROADMAP phase 19: entitled, but this paid issue is readable in full only in the Android app */
-  app_required?: boolean
   pages: { n: number; url: string }[]
   expires_at: number
   toc: { id: string; title: string; page_start: number | null; parent_id: string | null }[]
@@ -401,27 +400,6 @@ export default function Reader() {
 
 function Locked({ m, compact }: { m: Manifest; compact?: boolean }) {
   const paidOn = useFeature('paid_content')
-  const settings = usePublicSettings()
-  if (m.app_required)
-    return (
-      <div className={cx('card mx-auto max-w-md text-center', compact ? 'p-4' : 'mt-10 p-8')}>
-        <Smartphone className="mx-auto size-10 text-brand" />
-        <p className="mt-3 font-bold">ادامهٔ این شماره فقط در اپ نشریار</p>
-        <p className="mt-1 text-sm text-muted">
-          شما این شماره را تهیه کرده‌اید؛ تیم نشریه خواندن کامل آن را به اپ اندروید محدود کرده است تا از اسکرین‌شات و ضبط صفحه محافظت شود. با همین حساب در اپ وارد شوید.
-        </p>
-        <div className="mt-4 flex justify-center gap-2">
-          {settings?.app_download_url && (
-            <a href={settings.app_download_url} rel="noopener">
-              <Button>دریافت اپ اندروید</Button>
-            </a>
-          )}
-          <Link to={`/issue/${m.issue.id}`}>
-            <Button variant="ghost">جزئیات شماره</Button>
-          </Link>
-        </div>
-      </div>
-    )
   return (
     <div className={cx('card mx-auto max-w-md text-center', compact ? 'p-4' : 'mt-10 p-8')}>
       <KeyRound className="mx-auto size-10 text-brand" />
