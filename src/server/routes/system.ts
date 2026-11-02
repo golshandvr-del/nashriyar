@@ -24,9 +24,9 @@ export const systemRoutes = new Hono<AppEnv>()
 const SESSION_MAX_MS = 2 * 3600_000
 const SUDO_MS = 10 * 60_000
 /** Technical settings owned by the developer console (removed from the publication officer's settings). */
-export const SYSTEM_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit', 'ai_timeout_sec', 'ai_tts_model', 'ai_tts_voice', 'max_sessions', 'guest_can_read_free', 'site_url', 'notify_email_url', 'notify_email_key', 'notify_email_from', 'notify_bale_token', 'notify_bale_api', 'notify_bale_bot', 'notify_eitaa_token', 'notify_eitaa_api'] as const
+export const SYSTEM_SETTINGS = ['ai_enabled', 'ai_base_url', 'ai_model', 'ai_api_key', 'ai_monthly_call_limit', 'ai_timeout_sec', 'ai_tts_model', 'ai_tts_voice', 'max_sessions', 'guest_can_read_free', 'site_url', 'notify_email_url', 'notify_email_key', 'notify_email_from', 'notify_bale_token', 'notify_bale_api', 'notify_bale_bot', 'notify_eitaa_token', 'notify_eitaa_api', 'sms_provider', 'sms_api_url', 'sms_api_key', 'sms_sender', 'sms_template', 'sso_issuer', 'sso_client_id', 'sso_client_secret', 'sso_label', 'sso_scopes', 'sso_student_claim', 'sso_auto_create'] as const
 /** Secrets: never returned in full (only the last four characters), a masked value posted back is ignored. */
-const SECRET_SETTINGS = new Set<string>(['ai_api_key', 'notify_email_key', 'notify_bale_token', 'notify_eitaa_token'])
+const SECRET_SETTINGS = new Set<string>(['ai_api_key', 'notify_email_key', 'notify_bale_token', 'notify_eitaa_token', 'sms_api_key', 'sso_client_secret'])
 const SYSTEM_DEFAULTS: Record<string, unknown> = {
   ai_enabled: false,
   ai_base_url: '',
@@ -48,7 +48,20 @@ const SYSTEM_DEFAULTS: Record<string, unknown> = {
   notify_bale_api: '',
   notify_bale_bot: '',
   notify_eitaa_token: '',
-  notify_eitaa_api: ''
+  notify_eitaa_api: '',
+  // ROADMAP phase 19 sign-in: SMS one-time codes (off | http | kavenegar) and university SSO (OpenID Connect)
+  sms_provider: 'off',
+  sms_api_url: '',
+  sms_api_key: '',
+  sms_sender: '',
+  sms_template: '',
+  sso_issuer: '',
+  sso_client_id: '',
+  sso_client_secret: '',
+  sso_label: '',
+  sso_scopes: 'openid profile email',
+  sso_student_claim: 'student_number',
+  sso_auto_create: false
 }
 const STAFF_ROLES: SystemRole[] = ['super_admin', 'pub_officer']
 
@@ -191,7 +204,9 @@ systemRoutes.post('/settings', async (c) => {
     if (k === 'ai_monthly_call_limit') v = Math.max(0, Math.min(1_000_000, Math.floor(Number(v) || 0)))
     if (k === 'ai_timeout_sec') v = Math.max(3, Math.min(60, Math.floor(Number(v) || 15)))
     if (k === 'max_sessions') v = Math.max(1, Math.min(20, Math.floor(Number(v) || 5)))
-    if (k === 'ai_enabled' || k === 'guest_can_read_free') v = v === true
+    if (k === 'ai_enabled' || k === 'guest_can_read_free' || k === 'sso_auto_create') v = v === true
+    if (k === 'sms_provider') v = v === 'http' || v === 'kavenegar' ? v : 'off'
+    if (k === 'sso_issuer' && typeof v === 'string') v = v.trim().replace(/\/+$/, '')
     if (typeof v === 'string') v = v.slice(0, 500)
     await setSetting(db, k, v)
     changed[k] = SECRET_SETTINGS.has(k) ? '(changed)' : v
