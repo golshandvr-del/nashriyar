@@ -485,6 +485,8 @@ publicRoutes.get('/settings', async (c) => {
     ai_enabled: await getSetting(db, 'ai_enabled', false),
     // true only on databases created by `--seed` (demo/preview); the login page then lists demo accounts
     demo_mode: (await getSetting(db, 'demo_mode', false)) === true,
+    // ROADMAP phase 19: where readers get the Android app ("app only" paid issues); empty = not published yet
+    app_download_url: String((await getSetting(db, 'app_download_url', '')) || ''),
     features: await getFeatures(db)
   })
 })
