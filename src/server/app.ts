@@ -164,16 +164,20 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
   // Maintenance mode (ROADMAP phase 13, toggled from /system/settings). While on, every write is refused with 503
   // except login/logout (/api/auth/*), the developer console itself and anything done by the developer account.
   // Reads stay available so the client can show the maintenance page; the flag is cached briefly per isolate.
-  let maint: { at: number; v: { on: boolean; message: string } } | null = null
+  // cached per database (multi-university: each university has its own maintenance switch)
+  const maint = new WeakMap<object, { at: number; v: { on: boolean; message: string } }>()
   const maintenance = async (c: any) => {
-    if (maint && Date.now() - maint.at < 10_000) return maint.v
-    const v = await getSetting(c.get('db'), 'maintenance_mode', { on: false, message: '' })
-    maint = { at: Date.now(), v: { on: v?.on === true, message: typeof v?.message === 'string' ? v.message : '' } }
-    return maint.v
+    const db = c.get('db')
+    const hit = maint.get(db)
+    if (hit && Date.now() - hit.at < 10_000) return hit.v
+    const v = await getSetting(db, 'maintenance_mode', { on: false, message: '' })
+    const entry = { at: Date.now(), v: { on: v?.on === true, message: typeof v?.message === 'string' ? v.message : '' } }
+    maint.set(db, entry)
+    return entry.v
   }
   app.use('/api/*', async (c, next) => {
     const path = apiPath(new URL(c.req.url).pathname)
-    if (path.startsWith('/api/system/settings') && c.req.method === 'POST') maint = null
+    if (path.startsWith('/api/system/settings') && c.req.method === 'POST') maint.delete(c.get('db'))
     if (c.req.method === 'GET' || c.req.method === 'HEAD' || path.startsWith('/api/auth/') || path.startsWith('/api/system/')) return next()
     if (c.get('user')?.system_role === 'developer') return next()
     const m = await maintenance(c)
