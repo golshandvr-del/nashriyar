@@ -5,7 +5,7 @@ import { useAuth, isDeveloper, isMonitor } from '../lib/auth'
 import { api } from '../lib/api'
 import { applyTheme, getTheme } from '../lib/theme'
 import { cx } from '../lib/format'
-import { useFeature } from '../lib/features'
+import { useFeature, usePublicSettings } from '../lib/features'
 import { ErrorBoundary } from './Static'
 
 function ThemeButton() {
@@ -77,6 +77,9 @@ export default function PublicLayout() {
     ? [...items.filter((i) => i.to !== '/search').slice(0, 3), { to: panel, label: 'پنل من', icon: LayoutDashboard }, items[items.length - 1]]
     : items
   const hideChrome = loc.pathname.startsWith('/read/')
+  // optional link to the installable Android copy of this site (never shown inside the app itself)
+  const appUrl = usePublicSettings()?.app_download_url || ''
+  const inApp = typeof navigator !== 'undefined' && /NashriyarApp\//.test(navigator.userAgent)
 
   return (
     <div className="min-h-dvh">
@@ -158,6 +161,9 @@ export default function PublicLayout() {
           <Link to="/terms" className="hover:text-brand">قوانین استفاده</Link>
           <Link to="/privacy" className="hover:text-brand">حریم خصوصی</Link>
           <Link to="/verify" className="hover:text-brand">استعلام گواهی</Link>
+          {appUrl && !inApp && (
+            <a href={appUrl} rel="noopener" className="hover:text-brand">دریافت اپ اندروید</a>
+          )}
         </footer>
       )}
 
