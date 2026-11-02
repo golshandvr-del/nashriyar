@@ -22,6 +22,7 @@ import { openRoutes } from './routes/open'
 import { articlePage, articleRoutes } from './routes/articles'
 import { flushOutbound, takeOutboundPending } from './lib/channels'
 import { channelRoutes } from './routes/channels'
+import { signinRoutes } from './routes/signin'
 
 const SLOW_MS = 1000
 /**
@@ -236,7 +237,9 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
     // ROADMAP phase 19: article index with persistent ids (JSON, BibTeX, RIS, OAI-PMH) — public metadata only
     articles: articleRoutes,
     // ROADMAP phase 19: outbound notification channels (email / Bale / Eitaa) + Bale bot webhook
-    channels: channelRoutes
+    channels: channelRoutes,
+    // ROADMAP phase 19: SMS one-time-code sign-in and university SSO (OpenID Connect + PKCE)
+    signin: signinRoutes
   }
   // every module at the unversioned alias and at the explicit v1 prefix (same handlers, same contract)
   for (const [name, routes] of Object.entries(modules)) {
