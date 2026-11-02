@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">نشریار</string>
+    <!-- shown when the site cannot be reached; {URL} = the page to retry (attributes unquoted on purpose: aapt strips quotes) -->
+    <string name="offline_html"><![CDATA[<!doctype html><html lang=fa dir=rtl><head><meta charset=utf-8><meta name=viewport content=width=device-width,initial-scale=1><style>body{font-family:sans-serif;display:flex;min-height:90vh;align-items:center;justify-content:center;text-align:center;color:#333;background:#fafafa}a{display:inline-block;margin-top:16px;padding:10px 22px;border-radius:999px;background:#6d28d9;color:#fff;text-decoration:none}</style></head><body><div><h2>اتصال برقرار نشد</h2><p>اینترنت را بررسی کنید و دوباره تلاش کنید.</p><a href={URL}>تلاش دوباره</a></div></body></html>]]></string>
+</resources>
