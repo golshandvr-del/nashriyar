@@ -2,6 +2,7 @@ import type { Context } from 'hono'
 import type { Db } from '../adapters/db'
 import { newId } from './crypto'
 import { deliverOutbound } from './notifier'
+import { enqueueOutbound } from './channels'
 import { academicYearRange, normalizeFa } from '../../shared/fa'
 import { getClock } from '../adapters/clock'
 
@@ -71,6 +72,8 @@ export async function notify(db: Db, userId: string, type: string, title: string
   await db.run('INSERT INTO notifications (id, user_id, type, title, link, created_at) VALUES (?,?,?,?,?,?)', [newId(), userId, type, title, link ?? null, nowIso()])
   // Optional outbound channel (email/messenger); NullNotifier by default, never throws.
   await deliverOutbound({ userId, type, title, link })
+  // ROADMAP phase 19: queue for the recipient's verified email / Bale / Eitaa channels (flushed after the response)
+  await enqueueOutbound(db, { userId, type, title, link })
 }
 
 export async function getSetting<T>(db: Db, key: string, def: T): Promise<T> {
