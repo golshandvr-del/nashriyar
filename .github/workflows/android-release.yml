@@ -1,0 +1,124 @@
+# Signed Android APK -> GitHub Release.
+# Triggers: a version tag (git tag v1.0.1 && git push --tags) or a manual run (Actions -> android release -> Run workflow).
+# The app is only an installable copy of the website (nothing is app-only). The site address is baked in from
+# the `site_url` input or the repository variable NASHRIYAR_URL; if neither is set the app asks for it on first run
+# (it can always be changed from the offline screen -> "change server address").
+# Signing secrets (same key for every release, so updates install over the previous version):
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+name: android release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 1.0.0) — tag v<version> is created'
+        required: true
+        default: '1.0.0'
+      site_url:
+        description: 'Site address baked into the app (HTTPS). Empty = repo variable NASHRIYAR_URL or ask on first run'
+        required: false
+        default: ''
+      prerelease:
+        description: 'Mark as pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version and site address
+        id: v
+        env:
+          IN_VERSION: ${{ inputs.version }}
+          IN_URL: ${{ inputs.site_url }}
+          VAR_URL: ${{ vars.NASHRIYAR_URL }}
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; else V="${IN_VERSION}"; fi
+          echo "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::version must be X.Y.Z (got '$V')"; exit 1; }
+          IFS=. read -r MA MI PA <<< "$V"
+          CODE=$((MA * 10000 + MI * 100 + PA))
+          URL="${IN_URL:-$VAR_URL}"
+          URL="${URL%/}"
+          if [ -n "$URL" ] && ! echo "$URL" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]+)?$'; then echo "::error::site_url must be https://host"; exit 1; fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Version $V (code $CODE), site: ${URL:-<asked on first run>}"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Restore signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        working-directory: android
+        run: |
+          if [ -z "$KS_B64" ]; then echo "::error::ANDROID_KEYSTORE_BASE64 secret is missing"; exit 1; fi
+          echo "$KS_B64" | base64 -d > app/release.jks
+          printf 'storeFile=app/release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$KS_PASS" "$KEY_ALIAS" "$KEY_PASS" > keystore.properties
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Assemble signed release APK
+        working-directory: android
+        env:
+          SITE_URL: ${{ steps.v.outputs.url }}
+          APP_KEY: ${{ secrets.NASHRIYAR_APP_KEY }}
+        run: |
+          ARGS="-PnashriyarVersionName=${{ steps.v.outputs.version }} -PnashriyarVersionCode=${{ steps.v.outputs.code }}"
+          [ -n "$SITE_URL" ] && ARGS="$ARGS -PnashriyarUrl=$SITE_URL"
+          [ -n "$APP_KEY" ] && ARGS="$ARGS -PnashriyarAppKey=$APP_KEY"
+          gradle --no-daemon assembleRelease $ARGS
+          OUT=app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "$OUT" | head -3 || true
+          mkdir -p ../release-out
+          cp "$OUT" "../release-out/nashriyar-${{ steps.v.outputs.version }}.apk"
+          (cd ../release-out && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          rm -f app/release.jks keystore.properties
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nashriyar-${{ steps.v.outputs.version }}-apk
+          path: release-out/*
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.v.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: نشریار ${{ steps.v.outputs.version }}
+          prerelease: ${{ inputs.prerelease == true }}
+          files: |
+            release-out/nashriyar-${{ steps.v.outputs.version }}.apk
+            release-out/SHA256SUMS.txt
+          body: |
+            ## نشریار — اپ اندروید ${{ steps.v.outputs.version }}
+
+            اپ **نسخهٔ نصبی همین سایت** است؛ همهٔ امکانات سایت بدون اپ هم در دسترس است.
+            مزیت اپ: مسدود شدن اسکرین‌شات و ضبط صفحه (FLAG_SECURE) و آیکن روی صفحهٔ اصلی گوشی.
+
+            - نصب: فایل `nashriyar-${{ steps.v.outputs.version }}.apk` را دانلود و نصب کنید (اندروید ۷ به بالا؛ «نصب از منابع ناشناس» را مجاز کنید).
+            - نشانی سایت: ${{ steps.v.outputs.url != '' && steps.v.outputs.url || 'در اولین اجرا از شما پرسیده می‌شود' }}
+            - تغییر نشانی سرور: در صفحهٔ «اتصال برقرار نشد» دکمهٔ «تغییر نشانی سرور».
+            - امضا: همهٔ نسخه‌ها با یک کلید امضا می‌شوند، پس نسخهٔ جدید روی نسخهٔ قبلی نصب می‌شود.
+            - کد نسخه: ${{ steps.v.outputs.code }} · کامیت: ${{ github.sha }}
