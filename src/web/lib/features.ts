@@ -12,6 +12,8 @@ export interface PublicSettings {
   guest_can_read_free?: boolean
   ai_enabled?: boolean
   demo_mode?: boolean
+  /** ROADMAP phase 19: Android app download link ("app only" paid issues) */
+  app_download_url?: string
   features?: Partial<Record<FeatureKey, boolean>>
   [k: string]: unknown
 }
