@@ -22,8 +22,12 @@ const enc = new TextEncoder()
 
 export function xmlEsc(s: string): string {
   // strip characters that are illegal in XML 1.0, then escape
-  return String(s ?? '')
-    .replace(/[^\u0009\u000A\u000D\u0020-\uD7FF\uE000-\uFFFD]/g, '')
+  return Array.from(String(s ?? ''))
+    .filter((ch) => {
+      const n = ch.codePointAt(0) as number
+      return n === 0x09 || n === 0x0a || n === 0x0d || (n >= 0x20 && n <= 0xd7ff) || (n >= 0xe000 && n <= 0xfffd) || n >= 0x10000
+    })
+    .join('')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
