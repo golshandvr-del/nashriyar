@@ -20,6 +20,7 @@ import { membershipRoutes } from './routes/membership'
 import { deskRoutes } from './routes/desk'
 import { openRoutes } from './routes/open'
 import { articlePage, articleRoutes } from './routes/articles'
+import { flushOutbound, takeOutboundPending } from './lib/channels'
 
 const SLOW_MS = 1000
 /**
@@ -143,6 +144,15 @@ export function createApp(getDeps: (c: any) => Deps | Promise<Deps>) {
       if (domains.length) await bumpCache(deps.db, domains).catch(() => {})
     }
     recordRequest(c.req.method, path, status, ms)
+    // ROADMAP phase 19: deliver queued email / Bale / Eitaa notifications after the response (waitUntil on Workers)
+    if (takeOutboundPending()) {
+      const job = flushOutbound(deps.db, new URL(c.req.url).origin).catch(() => null)
+      try {
+        c.executionCtx.waitUntil(job)
+      } catch {
+        /* Node: the promise simply keeps running in the background */
+      }
+    }
     // structured access log: slow requests and client/server errors always; every request when LOG_REQUESTS=1
     if (status >= 400 || ms >= SLOW_MS || LOG_ALL) logLine(status >= 500 ? 'error' : status >= 400 || ms >= SLOW_MS ? 'warn' : 'info', { request_id: c.get('requestId'), method: c.req.method, path: scrubLogPath(path), status, ms, user: c.get('user')?.id || null })
   })
