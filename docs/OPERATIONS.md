@@ -356,3 +356,27 @@ node scripts/import-cf.mjs --sql d1.sql --files ./r2-files --data /data
 - **API:** `GET /api/channels`، `POST /api/channels/<email|bale|eitaa>/connect|verify|mute|test`، `DELETE /api/channels/<ch>`، `GET /api/channels/status` (فقط توسعه‌دهنده: فعال بودن کانال‌ها، تعداد کاربران متصل، شمارندهٔ صف، مسیر وب‌هوک).
 - **عیب‌یابی:** شمارندهٔ «ناموفق» در وضعیت کنسول و ستون `error` در `outbound_queue` (مثلاً `http_401`، `channel_off`). گزارش `--maintenance` کلید `outbound` (`sent/failed/retry/purged/bale_linked`) دارد.
 - آزمون: بخش ۶ از `tests/future-e2e.mjs` (سرویس‌دهنده‌های ساختگی ایمیل/بله/ایتا).
+
+## ۱۷. ورود پیامکی (OTP) و ورود با حساب دانشگاه (SSO / OpenID Connect) (فاز ۱۹)
+
+- **ورود با رمز عبور همیشه برقرار است**؛ این دو روش اختیاری‌اند و تا پیکربندی نشوند در صفحهٔ ورود دیده نمی‌شوند (`GET /api/signin/methods`).
+- **پیکربندی (کنسول توسعه‌دهنده ← تنظیمات ← «ورود پیامکی و ورود با حساب دانشگاه»):**
+  - **پیامک:** `sms_provider` = `off` | `http` | `kavenegar`.
+    - `http`: درگاه عمومی — `POST {sms_api_url}` با JSON `{to, text, sender}` و `Authorization: Bearer {sms_api_key}`.
+    - `kavenegar`: `sms_api_key` = کلید API کاوه‌نگار؛ اگر `sms_template` (نام قالب تأیید) پر باشد از `verify/lookup` و وگرنه از `sms/send` با `sms_sender` استفاده می‌شود. `sms_api_url` اختیاری است (پیش‌فرض `https://api.kavenegar.com`).
+  - **SSO:** `sso_issuer` (نشانی صادرکنندهٔ OIDC؛ باید `/.well-known/openid-configuration` داشته باشد و `issuer` سند دقیقاً همین باشد)، `sso_client_id`، `sso_client_secret` (اختیاری؛ کلاینت محرمانه با `client_secret_basic`، کلاینت عمومی فقط با PKCE)، `sso_label` (متن دکمه)، `sso_scopes` (پیش‌فرض `openid profile email`)، `sso_student_claim` (claim حاوی شمارهٔ دانشجویی؛ پیش‌فرض `student_number`)، `sso_auto_create`.
+  - **نشانی بازگشت** برای ثبت در سرور SSO: `{site_url}/api/signin/sso/callback` (در همان کارت کنسول نمایش داده می‌شود؛ `site_url` را تنظیم کنید تا پشت پراکسی درست ساخته شود).
+  - `sms_api_key` و `sso_client_secret` فقط با چهار نویسهٔ آخر نمایش داده می‌شوند.
+- **ورود پیامکی:**
+  - کاربر ابتدا در «تنظیمات حساب ← روش‌های ورود» شمارهٔ همراهش را با کد پیامکی **تأیید** می‌کند (`users.phone_verified_at`؛ هر شمارهٔ تأییدشده فقط به یک حساب تعلق دارد). فقط شمارهٔ تأییدشده می‌تواند وارد شود.
+  - کد ۶ رقمی، ۵ دقیقه اعتبار، حداکثر ۵ حدس، فقط هش آن ذخیره می‌شود (`sms_otps`)، یک‌بارمصرف. هر شماره حداکثر یک کد در دقیقه و ۵ کد در ساعت؛ هر IP حداکثر ۸ درخواست در ۱۵ دقیقه. ارقام فارسی و قالب‌های `+98`/`0098`/`98` پذیرفته می‌شوند.
+  - پاسخ ارسال کد برای شمارهٔ ناشناخته همان پاسخ موفق است (افشای وجود حساب ممکن نیست).
+  - حساب‌هایی که **ورود دومرحله‌ای (TOTP)** دارند با پیامک تنها وارد نمی‌شوند (`totp_account`)؛ باید با رمز و کد برنامه وارد شوند.
+- **SSO:**
+  - جریان authorization code + **PKCE (S256)** + `state` یک‌بارمصرف (هش‌شده در `sso_states`، ۱۰ دقیقه) + `nonce`. امضای `id_token` (RS256/ES256) با JWKS سرور بررسی می‌شود و `iss`، `aud`/`azp`، `exp`، `iat` و `nonce` کنترل می‌شوند؛ `none` و HMAC رد می‌شوند. چرخش کلید با بارگیری دوبارهٔ JWKS پشتیبانی می‌شود.
+  - اولین ورود: اگر شناسه (`issuer`+`sub`) قبلاً متصل نشده باشد، با شمارهٔ دانشجویی claim تطبیق داده می‌شود — حساب **دانشجو** با همان شماره خودکار متصل می‌شود؛ حساب‌های کارکنان هرگز خودکار تصاحب نمی‌شوند (`link_from_settings`)؛ اگر حسابی نباشد و `sso_auto_create` روشن باشد حساب دانشجو با رمز تصادفی غیرقابل‌استفاده ساخته می‌شود، وگرنه `no_account`.
+  - اتصال دستی از تنظیمات حساب (`/api/signin/sso/start?link=1`)؛ شناسهٔ متصل به حساب دیگر قابل تصاحب نیست (`/settings?sso=taken`). قطع اتصال: `DELETE /api/signin/sso/identities`.
+  - خطاها با `/login?sso_error=<code>` به صفحهٔ ورود برمی‌گردند (`sso_off`، `provider_unreachable`، `provider_denied`، `bad_request`، `state_invalid`، `token_invalid`، `no_account`، `link_from_settings`، `account_inactive`، `login_required`). علت دقیق `token_invalid` در لاگ سرور با پیام `sso_failed` ثبت می‌شود.
+- **نگهداری دوره‌ای:** کدهای پیامکی قدیمی‌تر از یک روز و stateهای رهاشدهٔ SSO پاک می‌شوند (کلید `otps_purged` در گزارش `--maintenance`).
+- **ممیزی:** `auth.login_otp`، `auth.login_sso`، `user.phone_verified`، `user.sso_linked`، `user.sso_unlinked`، `user.created_sso`.
+- آزمون: بخش ۷ از `tests/future-e2e.mjs` (درگاه پیامک و سرور OIDC ساختگی با کلید RSA واقعی).
