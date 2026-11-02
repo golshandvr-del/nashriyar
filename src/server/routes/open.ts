@@ -60,7 +60,7 @@ async function rateLimit(c: Context<AppEnv>, key: ApiKeyRow) {
 const auth: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (c.req.method === 'OPTIONS') return next()
   if (c.req.method !== 'GET' && c.req.method !== 'HEAD') throw new HttpError(405, 'این API فقط‌خواندنی است', 'method_not_allowed')
-  if (/\/openapi\.json$/.test(c.req.path)) return next()
+  if (c.req.path.endsWith('/openapi.json')) return next()
   const plain = c.req.header('x-api-key') || c.req.query('api_key') || ''
   const key = plain ? await findApiKey(c, plain) : null
   if (!key) throw new HttpError(401, 'کلید API معتبر لازم است (سرآیند X-API-Key)', 'api_key')
