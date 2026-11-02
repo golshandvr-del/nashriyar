@@ -562,7 +562,7 @@
 - [ ] ورود پیامکی (OTP) و/یا **SSO دانشگاه**
 - [ ] اعلان از طریق پیام‌رسان‌های داخلی (بله/ایتا) و ایمیل
 - [x] نسخه‌های EPUB/متنی بازچینی‌پذیر برای خوانایی بهتر در موبایل — ✅ src/shared/epub.ts (EPUB 3 بدون وابستگی روی zip.ts، RTL، nav + page-list)؛ GET /api/reader/:id/text (فقط صفحه‌های مجاز، با سقف نرخ) و /epub (فقط شماره‌های رایگان)؛ ReaderText.tsx + دکمهٔ «حالت متنی» در کتاب‌خوان (اندازهٔ قلم، ?mode=text، دانلود EPUB)؛ docs/OPERATIONS.md §۱۴؛ future-e2e بخش ۴
-- [ ] نسخهٔ صوتی خودکار (TTS) مطالب به‌عنوان افزونهٔ AI
+- [x] نسخهٔ صوتی خودکار (TTS) مطالب به‌عنوان افزونهٔ AI — ✅ ai.ts: aiSpeech/ttsConfig (POST {base}/audio/speech با همان کلید، سقف و قطع‌کن مدار)؛ تنظیمات ai_tts_model/ai_tts_voice در کنسول؛ GET /api/reader/:id/speech/:n (فقط صفحه‌های مجاز، MP3 کش‌شده در storage)؛ دکمهٔ «شنیدن» در حالت متنی با جایگزین Web Speech مرورگر؛ docs/OPERATIONS.md §۱۵؛ future-e2e بخش ۵
 - [ ] **چنددانشگاهی** شدن سامانه (هر دانشگاه فضای جدا با دامنهٔ اختصاصی)
 - [x] دیجیتال‌سازی و آرشیو شماره‌های چاپی قدیمی — ✅ migration 0017 (issues.archival / original_date / original_label)؛ domains/admin/print-archive.ts (ثبت با تاریخ چاپ اصلی + فهرست، انتشار با همان تاریخ + PID، بدون اعلان و بیرون از قفسه‌های خانه)؛ اسکن از مسیر عادی صفحه‌ها با لایهٔ متنی (pdftotext/pdf.js) در جست‌وجوی تمام‌متن؛ /admin/print-archive و صفحهٔ عمومی /archive (فیلتر نشریه/سال/متن)؛ docs/OPERATIONS.md §۱۳؛ future-e2e بخش ۳
 - [x] API عمومی فقط‌خواندنی برای سامانه‌های دیگر دانشگاه — ✅ src/server/routes/open.ts زیر /api/open و /api/v1/open: کلید X-API-Key (فقط هش SHA-256 در api_keys، migration 0015)، سقف نرخ هر کلید (429 + Retry-After)، CORS، keyset، openapi.json؛ مدیریت کلید در /system/api-keys (sudo + گزارش فنی)؛ docs/OPEN_API.md؛ tests/future-e2e.mjs بخش ۱ (۳۵ بررسی)
