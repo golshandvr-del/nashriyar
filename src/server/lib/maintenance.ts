@@ -8,6 +8,7 @@ import { ensureRollup } from './rollup'
 import { ensureReminders } from './reminders'
 import { backfillArticleIndex } from './articles'
 import { channelConfig, maintainOutbound, pollBale } from './channels'
+import { purgeOtps } from './sms'
 import { nowIso, setSetting } from './util'
 
 export interface MaintenanceReport {
@@ -19,6 +20,7 @@ export interface MaintenanceReport {
   stories_expired: number
   articles_indexed?: number
   outbound?: { sent: number; failed: number; retry: number; purged: number; bale_linked: number }
+  otps_purged?: number
   at: string
 }
 
@@ -58,7 +60,11 @@ export async function runMaintenance(db: Db): Promise<MaintenanceReport> {
   const ob = await maintainOutbound(db).catch(() => ({ sent: 0, failed: 0, retry: 0, purged: 0 }))
   const outbound = { ...ob, bale_linked }
 
-  const report: MaintenanceReport = { rollup_until, reminders, sessions_purged, cache_purged, login_attempts_purged, stories_expired, articles_indexed, outbound, at: now }
+  // ROADMAP phase 19 sign-in: SMS codes older than a day and abandoned SSO authorization states (10-minute life)
+  const otps_purged = await purgeOtps(db)
+  await db.run('DELETE FROM sso_states WHERE created_at < ?', [new Date(Date.now() - 3600_000).toISOString()]).catch(() => null)
+
+  const report: MaintenanceReport = { rollup_until, reminders, sessions_purged, cache_purged, login_attempts_purged, stories_expired, articles_indexed, outbound, otps_purged, at: now }
   await setSetting(db, 'maintenance_last', report)
   return report
 }
